@@ -1,0 +1,6 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:copper"}, "amount": 810},
+  "result": {"id": "minecraft:copper_block", "count": 1},
+  "time": 180
+}

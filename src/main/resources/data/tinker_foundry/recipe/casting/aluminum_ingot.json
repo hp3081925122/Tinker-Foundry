@@ -1,0 +1,17 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:aluminum"
+    },
+    "amount": 90
+  },
+  "mold": {
+    "item": "tinker_foundry:ingot_cast"
+  },
+  "result": {
+    "id": "tinker_foundry:aluminum_ingot",
+    "count": 1
+  },
+  "time": 60
+}

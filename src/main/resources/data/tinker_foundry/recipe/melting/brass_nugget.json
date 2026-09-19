@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:nuggets/brass"},
+  "result": {"id": "tinker_foundry:brass", "amount": 10},
+  "temperature": 605,
+  "time": 18
+}

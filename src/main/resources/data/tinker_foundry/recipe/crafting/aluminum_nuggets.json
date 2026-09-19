@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "tinker_foundry:aluminum_ingot"
+    }
+  ],
+  "result": {
+    "id": "tinker_foundry:aluminum_nugget",
+    "count": 9
+  }
+}

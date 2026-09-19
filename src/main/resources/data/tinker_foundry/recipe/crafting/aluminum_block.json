@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "tag": "c:ingots/aluminum"
+    }
+  },
+  "result": {
+    "id": "tinker_foundry:aluminum_block",
+    "count": 1
+  }
+}

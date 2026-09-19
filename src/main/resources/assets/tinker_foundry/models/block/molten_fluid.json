@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "tinker_foundry:block/fluid/molten_still",
+    "particle": "tinker_foundry:block/fluid/molten_still"
+  }
+}

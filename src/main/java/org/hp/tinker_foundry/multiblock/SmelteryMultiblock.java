@@ -1,0 +1,63 @@
+package org.hp.tinker_foundry.multiblock;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import org.hp.tinker_foundry.registry.TFBlocks;
+
+/** 普通冶炼炉的独立结构描述器，只接受冶炼炉外壳。 */
+public final class SmelteryMultiblock {
+    /** 最小有效容量。 */
+    public static final int MINIMUM_CAPACITY = 4000;
+    /** 每个炉腔方块提供的容量。 */
+    public static final int CAPACITY_PER_INTERIOR_BLOCK = 12 * 90;
+
+    /** 检查独立冶炼炉。 */
+    public static StructureResult validate(Level level, BlockPos controller) {
+        return RectangularStructureDetector.validate(level, controller, new RectangularStructureDetector.Rules() {
+            @Override
+            public boolean isCasing(BlockState state) {
+                return state.is(TFBlocks.SEARED_BRICK.get()) || state.is(TFBlocks.SEARED_GLASS.get())
+                    || state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SEARED_WALL.get())
+                    || state.is(TFBlocks.SEARED_FANCY_BRICK.get()) || state.is(TFBlocks.SEARED_LADDER.get())
+                    || state.is(TFBlocks.SEARED_TANK.get()) || state.is(TFBlocks.SEARED_FUEL_TANK.get())
+                    || state.is(TFBlocks.SEARED_CASTING_TANK.get()) || state.is(TFBlocks.DRAIN.get())
+                    || state.is(TFBlocks.DUCT.get()) || state.is(TFBlocks.CHUTE.get());
+            }
+
+            @Override
+            public boolean isInterior(BlockState state) {
+                return isSharedInterior(state);
+            }
+
+            @Override
+            public int capacity(int shellWidth, int shellDepth, int shellHeight, int interiorBlocks) {
+                return Math.max(MINIMUM_CAPACITY, interiorBlocks * CAPACITY_PER_INTERIOR_BLOCK);
+            }
+
+            @Override
+            public int fuelRate(int shellWidth, int shellDepth, int interiorHeight) {
+                // 冶炼炉只计算与炉腔接触的四面墙和底板，不计角柱。
+                int dx = shellWidth - 2;
+                int dz = shellDepth - 2;
+                return 1 + (2 * dx * interiorHeight + 2 * dz * interiorHeight + dx * dz) / 15;
+            }
+        });
+    }
+
+    /** 两种炉体共同允许的炉腔内容；1.20.1 官方规则只接受空气。 */
+    static boolean isSharedInterior(BlockState state) {
+        return state.isAir();
+    }
+
+    /** 保留旧的高度容量单元测试，但不参与世界结构扫描。 */
+    public static int capacityForHeight(int height) {
+        if (height < RectangularStructureDetector.MINIMUM_HEIGHT) {
+            return 0;
+        }
+        return Math.max(MINIMUM_CAPACITY, (height - 2) * 1000);
+    }
+
+    private SmelteryMultiblock() {
+    }
+}

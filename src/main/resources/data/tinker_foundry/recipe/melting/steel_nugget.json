@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:nuggets/steel"},
+  "result": {"id": "tinker_foundry:steel", "amount": 10},
+  "temperature": 950,
+  "time": 22
+}

@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/nickel"},
+  "result": {"id": "tinker_foundry:nickel", "amount": 810},
+  "temperature": 950,
+  "time": 194
+}

@@ -1,0 +1,14 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:brass"
+    },
+    "amount": 810
+  },
+  "result": {
+    "id": "tinker_foundry:brass_block",
+    "count": 1
+  },
+  "time": 60
+}

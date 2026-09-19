@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["BIB", "BBB", "B B"],
+  "key": {
+    "B": {"item": "tinker_foundry:seared_brick"},
+    "I": {"item": "minecraft:iron_ingot"}
+  },
+  "result": {"id": "tinker_foundry:drain", "count": 1}
+}

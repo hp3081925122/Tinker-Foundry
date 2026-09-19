@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:alloying",
+  "ingredients": [
+    {"ingredient": {"fluid": "tinker_foundry:iron"}, "amount": 180},
+    {"ingredient": {"fluid": "tinker_foundry:nickel"}, "amount": 90}
+  ],
+  "result": {"id": "tinker_foundry:invar", "amount": 270},
+  "temperature": 900
+}

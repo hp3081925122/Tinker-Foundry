@@ -1,0 +1,14 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:nickel"
+    },
+    "amount": 810
+  },
+  "result": {
+    "id": "tinker_foundry:nickel_block",
+    "count": 1
+  },
+  "time": 60
+}

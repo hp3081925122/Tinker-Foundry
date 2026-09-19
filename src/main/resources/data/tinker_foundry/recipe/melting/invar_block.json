@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/invar"},
+  "result": {"id": "tinker_foundry:invar", "amount": 810},
+  "temperature": 900,
+  "time": 190
+}

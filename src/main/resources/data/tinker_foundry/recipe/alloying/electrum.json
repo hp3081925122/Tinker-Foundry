@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:alloying",
+  "ingredients": [
+    {"ingredient": {"fluid": "tinker_foundry:gold"}, "amount": 90},
+    {"ingredient": {"fluid": "tinker_foundry:silver"}, "amount": 90}
+  ],
+  "result": {"id": "tinker_foundry:electrum", "amount": 180},
+  "temperature": 760
+}

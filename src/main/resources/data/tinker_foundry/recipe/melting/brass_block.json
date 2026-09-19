@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/brass"},
+  "result": {"id": "tinker_foundry:brass", "amount": 810},
+  "temperature": 605,
+  "time": 161
+}

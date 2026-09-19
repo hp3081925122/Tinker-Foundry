@@ -1,0 +1,9 @@
+{
+  "parent": "neoforge:item/default",
+  "loader": "neoforge:fluid_container",
+  "fluid": "minecraft:empty",
+  "textures": {
+    "base": "minecraft:item/bucket",
+    "fluid": "neoforge:item/mask/bucket_fluid"
+  }
+}

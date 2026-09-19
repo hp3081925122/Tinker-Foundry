@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"item": "minecraft:copper_block"},
+  "result": {"id": "tinker_foundry:copper", "amount": 810},
+  "temperature": 500,
+  "time": 150
+}

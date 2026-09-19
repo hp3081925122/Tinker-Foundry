@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["GGG", "G G", "GGG"],
+  "key": {"G": {"item": "minecraft:gold_ingot"}},
+  "result": {"id": "tinker_foundry:ingot_cast", "count": 1}
+}

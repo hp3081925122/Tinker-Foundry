@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:nuggets/aluminum"},
+  "result": {"id": "tinker_foundry:aluminum", "amount": 10},
+  "temperature": 425,
+  "time": 16
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "tag": "c:ingots/nickel"
+    }
+  },
+  "result": {
+    "id": "tinker_foundry:nickel_block",
+    "count": 1
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:ingots/silver"},
+  "result": {"id": "tinker_foundry:silver", "amount": 90},
+  "temperature": 790,
+  "time": 60
+}

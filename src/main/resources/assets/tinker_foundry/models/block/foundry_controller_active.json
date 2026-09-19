@@ -1,0 +1,8 @@
+{
+  "parent": "tinker_foundry:block/template/controller",
+  "textures": {
+    "front": "tinker_foundry:block/foundry/controller/foundry_active",
+    "bricks": "tinker_foundry:block/foundry/scorched/bricks",
+    "back": "tinker_foundry:block/foundry/io/back"
+  }
+}

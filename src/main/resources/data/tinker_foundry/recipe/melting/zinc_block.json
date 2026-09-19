@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/zinc"},
+  "result": {"id": "tinker_foundry:zinc", "amount": 810},
+  "temperature": 420,
+  "time": 141
+}

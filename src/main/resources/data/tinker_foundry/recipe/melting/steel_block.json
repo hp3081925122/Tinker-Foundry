@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/steel"},
+  "result": {"id": "tinker_foundry:steel", "amount": 810},
+  "temperature": 950,
+  "time": 194
+}

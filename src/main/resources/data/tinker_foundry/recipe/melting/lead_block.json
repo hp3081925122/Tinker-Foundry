@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/lead"},
+  "result": {"id": "tinker_foundry:lead", "amount": 810},
+  "temperature": 330,
+  "time": 130
+}

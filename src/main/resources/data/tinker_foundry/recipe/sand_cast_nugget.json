@@ -1,0 +1,5 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [{"item": "minecraft:sand"}],
+  "result": {"id": "tinker_foundry:nugget_sand_cast", "count": 1}
+}

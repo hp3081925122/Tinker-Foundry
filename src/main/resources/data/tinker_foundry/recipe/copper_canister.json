@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["CCC", "C C", "CCC"],
+  "key": {"C": {"tag": "c:ingots/copper"}},
+  "result": {"id": "tinker_foundry:copper_canister", "count": 1}
+}

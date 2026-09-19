@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [" I ", "IBI", " I "],
+  "key": {
+    "I": {"item": "minecraft:iron_nugget"},
+    "B": {"item": "tinker_foundry:seared_brick"}
+  },
+  "result": {"id": "tinker_foundry:seared_lantern", "count": 1}
+}

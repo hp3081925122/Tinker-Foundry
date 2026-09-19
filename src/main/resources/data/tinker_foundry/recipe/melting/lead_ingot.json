@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:ingots/lead"},
+  "result": {"id": "tinker_foundry:lead", "amount": 90},
+  "temperature": 330,
+  "time": 43
+}

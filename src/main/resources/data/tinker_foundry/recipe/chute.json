@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["B B", "BBB", "B B"],
+  "key": {"B": {"item": "tinker_foundry:seared_brick"}},
+  "result": {"id": "tinker_foundry:chute", "count": 1}
+}

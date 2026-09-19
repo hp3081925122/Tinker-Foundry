@@ -1,0 +1,14 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:steel"
+    },
+    "amount": 810
+  },
+  "result": {
+    "id": "tinker_foundry:steel_block",
+    "count": 1
+  },
+  "time": 60
+}

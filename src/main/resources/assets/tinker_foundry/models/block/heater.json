@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "tinker_foundry:block/smeltery/seared/bricks",
+    "bottom": "tinker_foundry:block/smeltery/seared/bricks",
+    "front": "tinker_foundry:block/smeltery/controller/heater_inactive",
+    "side": "tinker_foundry:block/smeltery/seared/bricks"
+  }
+}

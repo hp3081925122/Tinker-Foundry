@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:nuggets/invar"},
+  "result": {"id": "tinker_foundry:invar", "amount": 10},
+  "temperature": 900,
+  "time": 21
+}

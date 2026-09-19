@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "minecraft:glass"},
+    {"item": "tinker_foundry:scorched_brick"}
+  ],
+  "result": {"id": "tinker_foundry:scorched_glass", "count": 1}
+}

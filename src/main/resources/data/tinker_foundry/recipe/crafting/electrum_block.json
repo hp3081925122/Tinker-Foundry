@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "tag": "c:ingots/electrum"
+    }
+  },
+  "result": {
+    "id": "tinker_foundry:electrum_block",
+    "count": 1
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "tinker_foundry:block/heater",
+  "textures": {
+    "front": "tinker_foundry:block/smeltery/controller/heater_active"
+  }
+}

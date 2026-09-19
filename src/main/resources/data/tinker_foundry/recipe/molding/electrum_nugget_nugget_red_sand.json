@@ -1,0 +1,17 @@
+{
+  "type": "tinker_foundry:molding",
+  "mold": {
+    "item": "tinker_foundry:nugget_red_sand_cast"
+  },
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:electrum"
+    },
+    "amount": 10
+  },
+  "result": {
+    "id": "tinker_foundry:electrum_nugget",
+    "count": 1
+  },
+  "time": 60
+}

@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["BFB", "BCB", "BBB"],
+  "key": {
+    "B": {"item": "tinker_foundry:seared_brick"},
+    "F": {"item": "minecraft:furnace"},
+    "C": {"tag": "c:ingots/copper"}
+  },
+  "result": {"id": "tinker_foundry:heater", "count": 1}
+}

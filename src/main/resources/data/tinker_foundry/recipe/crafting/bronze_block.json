@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "tag": "c:ingots/bronze"
+    }
+  },
+  "result": {
+    "id": "tinker_foundry:bronze_block",
+    "count": 1
+  }
+}

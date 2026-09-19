@@ -1,0 +1,17 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:lead"
+    },
+    "amount": 90
+  },
+  "mold": {
+    "item": "tinker_foundry:ingot_cast"
+  },
+  "result": {
+    "id": "tinker_foundry:lead_ingot",
+    "count": 1
+  },
+  "time": 60
+}

@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "minecraft:glass"},
+    {"item": "tinker_foundry:seared_brick"}
+  ],
+  "result": {"id": "tinker_foundry:seared_glass", "count": 1}
+}

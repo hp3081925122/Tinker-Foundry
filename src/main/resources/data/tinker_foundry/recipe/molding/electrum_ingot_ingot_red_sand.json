@@ -1,0 +1,17 @@
+{
+  "type": "tinker_foundry:molding",
+  "mold": {
+    "item": "tinker_foundry:ingot_red_sand_cast"
+  },
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:electrum"
+    },
+    "amount": 90
+  },
+  "result": {
+    "id": "tinker_foundry:electrum_ingot",
+    "count": 1
+  },
+  "time": 60
+}

@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:fuel",
+  "fluid": {"fluid": "minecraft:lava"},
+  "duration": 100,
+  "temperature": 1000,
+  "consumption": 50
+}

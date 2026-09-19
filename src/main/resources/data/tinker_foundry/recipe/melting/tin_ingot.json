@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:ingots/tin"},
+  "result": {"id": "tinker_foundry:tin", "amount": 90},
+  "temperature": 225,
+  "time": 39
+}

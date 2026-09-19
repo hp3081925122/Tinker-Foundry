@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "level=0":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=1":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=2":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=3":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=4":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=5":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=6":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=7":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=8":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=9":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=10":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=11":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=12":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=13":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=14":{"model":"tinker_foundry:block/molten_fluid"},
+    "level=15":{"model":"tinker_foundry:block/molten_fluid"}
+  }
+}
+

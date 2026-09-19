@@ -1,0 +1,17 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:bronze"
+    },
+    "amount": 10
+  },
+  "mold": {
+    "item": "tinker_foundry:nugget_cast"
+  },
+  "result": {
+    "id": "tinker_foundry:bronze_nugget",
+    "count": 1
+  },
+  "time": 30
+}

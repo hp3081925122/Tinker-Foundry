@@ -1,0 +1,17 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:constantan"
+    },
+    "amount": 10
+  },
+  "mold": {
+    "item": "tinker_foundry:nugget_cast"
+  },
+  "result": {
+    "id": "tinker_foundry:constantan_nugget",
+    "count": 1
+  },
+  "time": 30
+}

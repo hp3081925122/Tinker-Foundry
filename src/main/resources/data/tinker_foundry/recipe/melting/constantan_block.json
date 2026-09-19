@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/constantan"},
+  "result": {"id": "tinker_foundry:constantan", "amount": 810},
+  "temperature": 920,
+  "time": 192
+}

@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["B B", "BMB", "B B"],
+  "key": {
+    "B": {"item": "tinker_foundry:seared_brick"},
+    "M": {"item": "tinker_foundry:melter"}
+  },
+  "result": {"id": "tinker_foundry:alloyer", "count": 1}
+}

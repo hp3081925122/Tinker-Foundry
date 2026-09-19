@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:storage_blocks/electrum"},
+  "result": {"id": "tinker_foundry:electrum", "amount": 810},
+  "temperature": 760,
+  "time": 177
+}

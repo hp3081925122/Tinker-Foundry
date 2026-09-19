@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["BGB", "BCB", "BGB"],
+  "key": {
+    "B": {"item": "tinker_foundry:scorched_brick"},
+    "G": {"tag": "c:glass"},
+    "C": {"tag": "c:ingots/copper"}
+  },
+  "result": {"id": "tinker_foundry:scorched_casting_tank", "count": 1}
+}

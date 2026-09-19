@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "active=false,facing=north": {"model": "tinker_foundry:block/melter"},
+    "active=false,facing=south": {"model": "tinker_foundry:block/melter", "y": 180, "uvlock": true},
+    "active=false,facing=west": {"model": "tinker_foundry:block/melter", "y": 270, "uvlock": true},
+    "active=false,facing=east": {"model": "tinker_foundry:block/melter", "y": 90, "uvlock": true},
+    "active=true,facing=north": {"model": "tinker_foundry:block/melter_active"},
+    "active=true,facing=south": {"model": "tinker_foundry:block/melter_active", "y": 180, "uvlock": true},
+    "active=true,facing=west": {"model": "tinker_foundry:block/melter_active", "y": 270, "uvlock": true},
+    "active=true,facing=east": {"model": "tinker_foundry:block/melter_active", "y": 90, "uvlock": true}
+  }
+}

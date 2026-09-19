@@ -1,0 +1,10 @@
+{
+  "parent": "tinker_foundry:block/template/half_tank",
+  "textures": {
+    "front": "tinker_foundry:block/smeltery/controller/melter_inactive",
+    "top": "tinker_foundry:block/smeltery/tank/gauge_top",
+    "side": "tinker_foundry:block/smeltery/controller/melter_side",
+    "bottom": "tinker_foundry:block/smeltery/seared/bricks",
+    "inside": "tinker_foundry:block/smeltery/seared/bricks"
+  }
+}
