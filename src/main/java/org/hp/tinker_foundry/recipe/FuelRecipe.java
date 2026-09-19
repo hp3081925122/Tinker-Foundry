@@ -19,14 +19,15 @@ import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 固体或流体燃料定义，统一描述持续时间、温度和消耗速率。 */
-public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient> fluidFuel, int duration, int temperature, int consumption) implements Recipe<net.minecraft.world.item.crafting.SingleRecipeInput> {
+public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient> fluidFuel, int duration, int temperature, int consumption, int rate) implements Recipe<net.minecraft.world.item.crafting.SingleRecipeInput> {
     /** 燃料输入可以是物品标签或流体标签。 */
     public static final MapCodec<FuelRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
         Ingredient.CODEC.optionalFieldOf("item").forGetter(FuelRecipe::itemFuel),
         FluidIngredient.CODEC.optionalFieldOf("fluid").forGetter(FuelRecipe::fluidFuel),
         Codec.INT.fieldOf("duration").forGetter(FuelRecipe::duration),
         Codec.INT.fieldOf("temperature").forGetter(FuelRecipe::temperature),
-        Codec.INT.fieldOf("consumption").orElse(1).forGetter(FuelRecipe::consumption)
+        Codec.INT.fieldOf("consumption").orElse(1).forGetter(FuelRecipe::consumption),
+        Codec.intRange(1, Integer.MAX_VALUE).optionalFieldOf("rate", 10).forGetter(FuelRecipe::rate)
     ).apply(instance, FuelRecipe::new));
 
     /** 客户端同步配方内容。 */
@@ -37,7 +38,7 @@ public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient
         return new FuelRecipe(
             ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).decode(buffer),
             ByteBufCodecs.optional(FluidIngredient.STREAM_CODEC).decode(buffer),
-            buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()
+            buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()
         );
     }
 
@@ -48,6 +49,7 @@ public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient
         buffer.writeVarInt(recipe.duration);
         buffer.writeVarInt(recipe.temperature);
         buffer.writeVarInt(recipe.consumption);
+        buffer.writeVarInt(recipe.rate);
     }
 
     /** 匹配固体燃料。 */

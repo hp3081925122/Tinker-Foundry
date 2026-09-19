@@ -142,6 +142,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private int burnTime;
     /** 当前燃料提供的温度。 */
     private int fuelTemperature;
+    /** 每四刻施加一次的结构熔炼热量，由燃料配方决定。 */
+    private int fuelHeatingRate;
     /** 当前流体燃料段剩余的总消耗量。 */
     private int fuelFluidConsumption;
     /** 当前流体燃料段已经消耗的总量。 */
@@ -408,9 +410,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         } else if (isCastingTankBlock()) {
             tickCastingTank(level);
         } else if (isMeltingBlock()) {
-            tickMelting(level);
+            // 多方块按四刻周期加热，独立设备暂时保留各自原有处理周期。
+            if (!isStructureController() || level.getGameTime() % 4 == 1) tickMelting(level);
             // 冶炼炉允许原地合金；铸造炉按原版设计保留分离产物，不自动合金。
-            if (isSmelteryController() && level.getGameTime() % 10 == 0) tickStructureAlloying(level);
+            if (isSmelteryController() && level.getGameTime() % 4 == 2) tickStructureAlloying(level);
         } else if (isDrain()) {
             tickDrain(level);
         } else if (isFaucet()) {
@@ -529,18 +532,26 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             if (displaySlot < 0) {
                 displaySlot = index;
             }
-            if (!hasHeat(level, recipe.temperature())) {
-                setInputProgress(index, 0);
+            // 已经熔化但空间不足的物品不重复点火，腾出空间后直接交付产物。
+            boolean heated = isStructureController() && inputProgress[index] >= recipe.time();
+            if (!heated && !hasHeat(level, recipe.temperature())) {
+                setInputProgress(index, isStructureController() ? Math.max(0, inputProgress[index] - 5) : 0);
                 inputStatuses[index] = INPUT_STATUS_NO_HEAT;
                 continue;
             }
-            if (fill(recipe.result(), FluidAction.SIMULATE) != recipe.result().getAmount()) {
+            // 结构熔炼允许先完成加热再等待储液空间，不能因满罐停止升温。
+            if ((!isStructureController() || heated)
+                && fill(recipe.result(), FluidAction.SIMULATE) != recipe.result().getAmount()) {
                 inputStatuses[index] = INPUT_STATUS_NO_SPACE;
                 continue;
             }
             inputStatuses[index] = INPUT_STATUS_PROCESSING;
-            setInputProgress(index, Math.min(recipe.time(), inputProgress[index] + 1));
-            if (inputProgress[index] >= recipe.time()) {
+            if (!heated) {
+                int rate = isStructureController() ? Math.max(1, fuelHeatingRate) : 1;
+                setInputProgress(index, (int) Math.min(recipe.time(), (long) inputProgress[index] + rate));
+            }
+            // 上游在下一次加热周期提交已完成的物品，避免本周期提前完成。
+            if (heated || !isStructureController() && inputProgress[index] >= recipe.time()) {
                 inputs[index].shrink(1);
                 if (inputs[index].isEmpty()) {
                     inputs[index] = ItemStack.EMPTY;
@@ -878,6 +889,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (consumeOwnFuel(level, requiredTemperature)) {
             return true;
         }
+        // 多方块只允许使用已登记的结构储罐，不能绕过结构通过外部加热器供热。
+        if (isStructureController()) return false;
         if (level != null) {
             for (Direction direction : Direction.values()) {
                 if (level.getBlockEntity(worldPosition.relative(direction)) instanceof FoundryBlockEntity heater && heater.isHeater()
@@ -908,9 +921,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                     burnTime = Math.max(1, recipe.duration());
                     fuelBurnDuration = burnTime;
                     fuelTemperature = recipe.temperature();
+                    fuelHeatingRate = recipe.rate();
                     fuelFluidConsumption = 0;
-                    TinkerFoundry.LOGGER.debug("[fuel] controller={} source={} recipe={} temperature={} consumedMb={} quality={} costPerFourTicks={}",
-                        worldPosition, structureFuelTankPos, found.get().id(), fuelTemperature, recipe.consumption(), fuelBurnDuration, structureFuelRate);
+                    TinkerFoundry.LOGGER.debug("[fuel] controller={} source={} recipe={} temperature={} consumedMb={} quality={} costPerFourTicks={} heatingRate={}",
+                        worldPosition, structureFuelTankPos, found.get().id(), fuelTemperature, recipe.consumption(), fuelBurnDuration, structureFuelRate, fuelHeatingRate);
                     break;
                 }
             }
@@ -1444,6 +1458,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         tag.putInt("BurnTime", burnTime);
         tag.putInt("FuelTemperature", fuelTemperature);
+        tag.putInt("FuelHeatingRate", fuelHeatingRate);
         tag.putInt("FuelFluidConsumption", fuelFluidConsumption);
         tag.putInt("FuelFluidConsumed", fuelFluidConsumed);
         tag.putInt("FuelBurnDuration", fuelBurnDuration);
@@ -1524,6 +1539,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         burnTime = tag.getInt("BurnTime");
         fuelTemperature = tag.getInt("FuelTemperature");
+        fuelHeatingRate = tag.getInt("FuelHeatingRate");
         fuelFluidConsumption = tag.getInt("FuelFluidConsumption");
         fuelFluidConsumed = tag.getInt("FuelFluidConsumed");
         fuelBurnDuration = tag.getInt("FuelBurnDuration");

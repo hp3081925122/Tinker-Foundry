@@ -3,5 +3,6 @@
   "fluid": {"fluid": "minecraft:lava"},
   "duration": 100,
   "temperature": 1000,
-  "consumption": 50
+  "consumption": 50,
+  "rate": 10
 }

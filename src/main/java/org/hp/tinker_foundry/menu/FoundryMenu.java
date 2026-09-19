@@ -63,6 +63,8 @@ public final class FoundryMenu extends AbstractContainerMenu {
     private final Container bucketContainer;
     /** 当前菜单的流体容器传输模式。 */
     private TransferDirection transferDirection = TransferDirection.AUTO;
+    /** 同一游戏刻只自动处理一次，避免菜单重复广播加速流体传输。 */
+    private long lastBucketProcessTick = Long.MIN_VALUE;
     /** 创建客户端镜像菜单。 */
     public FoundryMenu(int containerId, Inventory inventory) {
         this(containerId, inventory, new SimpleContainer(FoundryBlockEntity.CONTAINER_SIZE), new SimpleContainer(STRUCTURE_BUCKET_SLOTS),
@@ -529,13 +531,17 @@ public final class FoundryMenu extends AbstractContainerMenu {
             if (id >= 16 && id < 16 + org.hp.tinker_foundry.common.StructureFluidTank.MAX_LAYERS) {
                 if (player.level().isClientSide) return true;
                 if (!(container instanceof FoundryBlockEntity entity) || !entity.isStructureValid()) return false;
-                return getCarried().isEmpty() ? entity.selectStructureFluid(id - 16)
+                boolean changed = getCarried().isEmpty() ? entity.selectStructureFluid(id - 16)
                     : transferHeldFluid(player, entity, getCarried(), id - 16, TransferDirection.FILL_ITEM);
+                // 更换排液层后重新判断等待中的容器，不要求玩家取出再放入。
+                if (changed) processBucketInput(entity);
+                return changed;
             }
             if (id == 0) {
                 transferDirection = transferDirection.next();
                 if (!player.level().isClientSide) {
                     TinkerFoundry.LOGGER.debug("[menu] structure transfer mode changed to {}", transferDirection);
+                    if (container instanceof FoundryBlockEntity entity) processBucketInput(entity);
                 }
                 return true;
             }
@@ -711,7 +717,8 @@ public final class FoundryMenu extends AbstractContainerMenu {
                 return ItemStack.EMPTY;
             }
             FluidStack available = entity.getFluidInTank(tank);
-            if (available.getAmount() < 1000 || available.getFluid().getBucket() == null) {
+            if (available.getAmount() < 1000 || available.getFluid().getBucket() == null
+                || available.getFluid().getBucket() == Items.AIR) {
                 return ItemStack.EMPTY;
             }
             FluidStack drained = entity.drainTank(tank, 1000, FluidAction.SIMULATE);
@@ -733,9 +740,23 @@ public final class FoundryMenu extends AbstractContainerMenu {
         return new ItemStack(Items.BUCKET);
     }
 
+    /** 菜单持续同步时重试等待中的桶，覆盖新产液和玩家取走输出后的情况。 */
+    @Override
+    public void broadcastChanges() {
+        if (!clientSide && container instanceof FoundryBlockEntity entity && entity.getLevel() != null) {
+            long tick = entity.getLevel().getGameTime();
+            if (lastBucketProcessTick != tick) {
+                lastBucketProcessTick = tick;
+                processBucketInput(entity);
+            }
+        }
+        // 必须先完成传输，再让原版同步本轮变化的输入和输出槽。
+        super.broadcastChanges();
+    }
+
     /** 在桶槽中处理一个容器，并把处理结果放到输出槽，避免容器被吞掉。 */
     private void processBucketInput(FoundryBlockEntity entity) {
-        if (screenKind() != 3) {
+        if (clientSide || screenKind() != 3 || !entity.isStructureValid()) {
             return;
         }
         ItemStack input = bucketContainer.getItem(0);

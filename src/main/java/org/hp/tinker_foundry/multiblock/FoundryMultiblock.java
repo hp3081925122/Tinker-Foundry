@@ -38,7 +38,9 @@ public final class FoundryMultiblock {
 
             @Override
             public int capacity(int shellWidth, int shellDepth, int shellHeight, int interiorBlocks) {
-                return Math.max(MINIMUM_CAPACITY, shellWidth * shellDepth * shellHeight * CAPACITY_PER_SHELL_BLOCK);
+                // 上游容量包含墙和底板，但不把检测到的可选封顶计入容量。
+                int innerHeight = interiorBlocks / ((shellWidth - 2) * (shellDepth - 2));
+                return shellWidth * shellDepth * (innerHeight + 1) * CAPACITY_PER_SHELL_BLOCK;
             }
 
             @Override

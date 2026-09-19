@@ -32,7 +32,8 @@ public final class SmelteryMultiblock {
 
             @Override
             public int capacity(int shellWidth, int shellDepth, int shellHeight, int interiorBlocks) {
-                return Math.max(MINIMUM_CAPACITY, interiorBlocks * CAPACITY_PER_INTERIOR_BLOCK);
+                // 实际储液量只由炉腔体积决定，不能给小型炉额外保底容量。
+                return interiorBlocks * CAPACITY_PER_INTERIOR_BLOCK;
             }
 
             @Override
