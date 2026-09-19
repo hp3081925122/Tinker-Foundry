@@ -19,13 +19,21 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 流体经过可选模具冷却后产出物品。 */
-public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time) implements Recipe<FluidRecipeInput> {
+public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time,
+                            boolean castConsumed, boolean switchSlots) implements Recipe<FluidRecipeInput> {
+    /** 保留旧构造签名，默认使用可重复铸模且不切换槽位。 */
+    public CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time) {
+        this(fluid, mold, result, time, false, false);
+    }
+
     /** 浇注配方支持可选模具和冷却时间。 */
     public static final MapCodec<CastingRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
         SizedFluidIngredient.NESTED_CODEC.fieldOf("fluid").forGetter(CastingRecipe::fluid),
         Ingredient.CODEC.optionalFieldOf("mold").forGetter(CastingRecipe::mold),
         ItemStack.CODEC.fieldOf("result").forGetter(CastingRecipe::result),
-        Codec.INT.fieldOf("time").orElse(60).forGetter(CastingRecipe::time)
+        Codec.INT.fieldOf("time").orElse(60).forGetter(CastingRecipe::time),
+        Codec.BOOL.optionalFieldOf("cast_consumed", false).forGetter(CastingRecipe::castConsumed),
+        Codec.BOOL.optionalFieldOf("switch_slots", false).forGetter(CastingRecipe::switchSlots)
     ).apply(instance, CastingRecipe::new));
 
     /** 客户端同步配方内容。 */
@@ -37,7 +45,9 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
             SizedFluidIngredient.STREAM_CODEC.decode(buffer),
             ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).decode(buffer),
             ItemStack.STREAM_CODEC.decode(buffer),
-            buffer.readVarInt()
+            buffer.readVarInt(),
+            buffer.readBoolean(),
+            buffer.readBoolean()
         );
     }
 
@@ -47,6 +57,8 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
         ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).encode(buffer, recipe.mold);
         ItemStack.STREAM_CODEC.encode(buffer, recipe.result);
         buffer.writeVarInt(recipe.time);
+        buffer.writeBoolean(recipe.castConsumed);
+        buffer.writeBoolean(recipe.switchSlots);
     }
 
     /** 校验流体和可选模具。 */

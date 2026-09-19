@@ -7,9 +7,12 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
@@ -19,6 +22,7 @@ import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.menu.FoundryMenu;
+import org.hp.tinker_foundry.registry.TFFluids;
 
 /** 使用独立冶炼界面材质绘制熔炼、合金和加热设备。 */
 public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
@@ -336,8 +340,15 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         if (menu.screenKind() == 3) {
             List<Component> tooltip = new ArrayList<>();
             if (!stack.isEmpty()) {
-                tooltip.add(stack.getHoverName());
-                tooltip.add(formatVolume(stack.getAmount()));
+                // 流体悬停提示按流体类型选择名称和单位，不能把药水等非金属统一换算成锭。
+                PotionContents potion = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
+                Component fluidName = stack.getHoverName();
+                if (potion.potion().isPresent()) {
+                    // 使用原版药水命名键，让迅捷、跳跃等流体显示为具体药水名称。
+                    fluidName = Component.translatable(Potion.getName(potion.potion(), "item.minecraft.potion.effect."));
+                }
+                tooltip.add(fluidName);
+                tooltip.add(formatFluidVolume(stack));
                 tooltip.add(Component.translatable("gui.tinker_foundry.tank.select").withStyle(net.minecraft.ChatFormatting.GRAY));
             } else {
                 int used = menu.structureFluids().stream().mapToInt(FluidStack::getAmount).sum();
@@ -603,6 +614,44 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             text.append(Component.literal(remainder + " mB"));
         }
         return text;
+    }
+
+    /** 参照匠魂的流体标签规则显示数量：金属用锭粒，药水用瓶和液滴，其余流体使用毫桶。 */
+    private Component formatFluidVolume(FluidStack stack) {
+        if (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())) {
+            return formatVolume(stack.getAmount());
+        }
+        if (stack.get(DataComponents.POTION_CONTENTS) != null) {
+            return formatPotionVolume(stack.getAmount());
+        }
+        return formatRawVolume(stack.getAmount());
+    }
+
+    /** 药水按 250 mB 一瓶、50 mB 一液滴显示，和 1.20.1 Forge 匠魂的 bottle 提示规则一致。 */
+    private Component formatPotionVolume(int amount) {
+        if (Screen.hasShiftDown()) {
+            return formatBucketVolume(amount);
+        }
+        var text = Component.empty();
+        if (amount >= 250) {
+            text.append(Component.translatable("gui.tinker_foundry.unit.bottle", amount / 250));
+        }
+        int remainder = amount % 250;
+        if (remainder >= 50) {
+            if (!text.getString().isEmpty()) text.append(" ");
+            text.append(Component.translatable("gui.tinker_foundry.unit.drop", remainder / 50));
+            remainder %= 50;
+        }
+        if (remainder > 0 || amount == 0) {
+            if (!text.getString().isEmpty()) text.append(" ");
+            text.append(Component.literal(remainder + " mB"));
+        }
+        return text;
+    }
+
+    /** 非金属且没有专用单位的流体保持真实毫桶数量，避免产生误导性的金属单位。 */
+    private Component formatRawVolume(int amount) {
+        return Component.literal(amount + " mB");
     }
 
     /** 燃料按桶和毫桶显示，避免把熔岩当作金属锭或把不足一桶的余量截断。 */

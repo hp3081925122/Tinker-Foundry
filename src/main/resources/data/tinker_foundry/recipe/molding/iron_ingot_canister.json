@@ -1,0 +1,8 @@
+{
+  "type": "tinker_foundry:molding",
+  "mold": {"item": "tinker_foundry:copper_canister"},
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:iron"}, "amount": 90},
+  "result": {"id": "minecraft:iron_ingot", "count": 1},
+  "time": 60,
+  "remainder": {"id": "tinker_foundry:copper_canister", "count": 1}
+}

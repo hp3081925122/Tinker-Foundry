@@ -2,6 +2,7 @@
   "type": "tinker_foundry:fuel",
   "item": {"tag": "minecraft:coals"},
   "duration": 1600,
-  "temperature": 2000,
-  "consumption": 1
+  "temperature": 800,
+  "consumption": 1,
+  "rate": 8
 }

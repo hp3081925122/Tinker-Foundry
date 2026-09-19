@@ -286,15 +286,14 @@ public final class FoundryGameTests {
         helper.succeed();
     }
 
-    /** 验证已保留的独立金属锭、粒和块注册项没有随流体体系删除。 */
+    /** 验证原有铁、金、铜熔融流体仍然注册，避免误删原版金属配方依赖。 */
     @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 20)
-    public static void internalMetalRegistrations(GameTestHelper helper) {
-        // 确认独立金属产物仍全部注册，删除范围不应波及物品和方块注册。
-        for (String metal : TFBlocks.INTERNAL_METALS) {
-            helper.assertTrue(TFItems.METAL_INGOTS.containsKey(metal), "missing internal ingot registration: " + metal);
-            helper.assertTrue(TFItems.METAL_NUGGETS.containsKey(metal), "missing internal nugget registration: " + metal);
-            helper.assertTrue(TFItems.METAL_BLOCKS.containsKey(metal), "missing internal block registration: " + metal);
-        }
+    public static void originalMetalFluidRegistrations(GameTestHelper helper) {
+        // 三种原有基础金属流体仍由本模组注册，供熔炼和浇注配方使用。
+        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.size() == 3, "original metal fluid registration count changed");
+        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.containsKey("iron"), "missing original iron fluid registration");
+        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.containsKey("gold"), "missing original gold fluid registration");
+        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.containsKey("copper"), "missing original copper fluid registration");
         helper.succeed();
     }
 

@@ -16,10 +16,16 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 支持模具、容器输入以及明确返还物品的浇注配方。 */
-public record MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemStack result, int time, ItemStack remainder) implements Recipe<FluidRecipeInput> {
+public record MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemStack result, int time, ItemStack remainder,
+                            boolean patternConsumed) implements Recipe<FluidRecipeInput> {
     /** 保留不带返还物品的简写构造方式。 */
     public MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemStack result, int time) {
-        this(mold, fluid, result, time, ItemStack.EMPTY);
+        this(mold, fluid, result, time, ItemStack.EMPTY, true);
+    }
+
+    /** 保留旧构造签名，兼容当前模具配方原本的消耗行为。 */
+    public MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemStack result, int time, ItemStack remainder) {
+        this(mold, fluid, result, time, remainder, true);
     }
 
     /** 模具配方输入、流体输入和输出统一由 Codec 读写。 */
@@ -28,7 +34,8 @@ public record MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemSta
         SizedFluidIngredient.NESTED_CODEC.fieldOf("fluid").forGetter(MoldingRecipe::fluid),
         ItemStack.CODEC.fieldOf("result").forGetter(MoldingRecipe::result),
         Codec.INT.fieldOf("time").orElse(60).forGetter(MoldingRecipe::time),
-        ItemStack.CODEC.optionalFieldOf("remainder", ItemStack.EMPTY).forGetter(MoldingRecipe::remainder)
+        ItemStack.CODEC.optionalFieldOf("remainder", ItemStack.EMPTY).forGetter(MoldingRecipe::remainder),
+        Codec.BOOL.optionalFieldOf("pattern_consumed", true).forGetter(MoldingRecipe::patternConsumed)
     ).apply(instance, MoldingRecipe::new));
 
     /** 客户端同步配方内容。 */
@@ -37,7 +44,7 @@ public record MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemSta
     /** 从网络读取模具配方。 */
     private static MoldingRecipe readNetwork(RegistryFriendlyByteBuf buffer) {
         return new MoldingRecipe(Ingredient.CONTENTS_STREAM_CODEC.decode(buffer), SizedFluidIngredient.STREAM_CODEC.decode(buffer),
-            ItemStack.STREAM_CODEC.decode(buffer), buffer.readVarInt(), ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer));
+            ItemStack.STREAM_CODEC.decode(buffer), buffer.readVarInt(), ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer), buffer.readBoolean());
     }
 
     /** 向网络写入模具配方。 */
@@ -47,6 +54,7 @@ public record MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemSta
         ItemStack.STREAM_CODEC.encode(buffer, recipe.result);
         buffer.writeVarInt(recipe.time);
         ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, recipe.remainder);
+        buffer.writeBoolean(recipe.patternConsumed);
     }
 
     /** 模具和流体必须同时匹配。 */

@@ -110,7 +110,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                 : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         // 浇注台和浇注盆保留自身的物品交互，流体容器则进入同一套受限流体传输逻辑。
-        if (!fluidContainer && !entity.isCastingBlock()) {
+        if (!fluidContainer && !entity.isCastingBlock() && !entity.isFuelTankBlock()) {
             TinkerFoundry.LOGGER.debug("[interaction] ignored item={} on block={} at {}", stack.getItem(), state.getBlock(), pos);
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
@@ -167,7 +167,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                 ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
         }
         // 只有浇注台和浇注盆允许普通手持物走专用铸造输入逻辑。
-        if (entity.isCastingBlock() && entity.insertItem(stack)) {
+        if ((entity.isCastingBlock() || entity.isFuelTankBlock()) && entity.insertItem(stack)) {
             return ItemInteractionResult.SUCCESS;
         }
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;

@@ -1,7 +1,5 @@
 package org.hp.tinker_foundry.registry;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.FoundryEntityBlock;
@@ -20,9 +18,6 @@ import net.minecraft.world.level.material.MapColor;
 
 /** 冶炼链全部方块注册表。 */
 public final class TFBlocks {
-    /** 独立模组提供的基础金属和合金存储方块名称。 */
-    public static final String[] INTERNAL_METALS = {"tin", "lead", "silver", "nickel", "zinc", "aluminum", "steel", "bronze", "brass", "electrum", "invar", "constantan"};
-
     /** 普通冶炼砖。 */
     public static final DeferredBlock<Block> SEARED_BRICK = simple("seared_brick", MapColor.COLOR_GRAY);
     /** 冶炼玻璃。 */
@@ -70,8 +65,6 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SEARED_CASTING_TANK = entity("seared_casting_tank");
     /** 焦黑专用小型浇注储液罐。 */
     public static final DeferredBlock<Block> SCORCHED_CASTING_TANK = entity("scorched_casting_tank");
-    /** 独立金属存储方块，供本模组完整浇注链使用。 */
-    public static final Map<String, DeferredBlock<Block>> METAL_BLOCKS = registerMetalBlocks();
     /** 浇注台。 */
     public static final DeferredBlock<Block> CASTING_TABLE = entity("casting_table");
     /** 浇注盆。 */
@@ -144,17 +137,6 @@ public final class TFBlocks {
     /** 注册只占据贴附面薄片空间的流体计。 */
     private static DeferredBlock<Block> gauge(String name) {
         return TinkerFoundry.BLOCKS.register(name, () -> new FoundryGaugeBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(2.0f, 6.0f)));
-    }
-
-    /** 注册没有额外方块逻辑的金属存储方块。 */
-    private static Map<String, DeferredBlock<Block>> registerMetalBlocks() {
-        Map<String, DeferredBlock<Block>> blocks = new LinkedHashMap<>();
-        for (String metal : INTERNAL_METALS) {
-            blocks.put(metal, TinkerFoundry.BLOCKS.register(metal + "_block", () -> new Block(
-                BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(3.0f, 6.0f)
-            )));
-        }
-        return Map.copyOf(blocks);
     }
 
     private TFBlocks() {

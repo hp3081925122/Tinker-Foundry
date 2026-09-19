@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/drowned",
+  "result": {
+    "id": "tinker_foundry:copper",
+    "amount": 10
+  },
+  "damage": 4
+}

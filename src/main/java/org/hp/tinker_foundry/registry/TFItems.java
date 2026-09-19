@@ -1,16 +1,15 @@
 package org.hp.tinker_foundry.registry;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.WrittenBookItem;
 import net.neoforged.neoforge.registries.DeferredItem;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.item.PortableTankItem;
 import org.hp.tinker_foundry.item.FoundryTankItem;
 import org.hp.tinker_foundry.item.FoundryTooltipBlockItem;
+import org.hp.tinker_foundry.item.FoundryGuideBookItem;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 冶炼方块、桶和基础便携容器的物品注册表。 */
@@ -61,14 +60,8 @@ public final class TFItems {
     public static final DeferredItem<FoundryTankItem> SEARED_CASTING_TANK = tank("seared_casting_tank", TFBlocks.SEARED_CASTING_TANK, FluidValues.BUCKET, false);
     /** 焦黑小型浇注储液罐物品。 */
     public static final DeferredItem<FoundryTankItem> SCORCHED_CASTING_TANK = tank("scorched_casting_tank", TFBlocks.SCORCHED_CASTING_TANK, FluidValues.BUCKET, false);
-    /** 独立金属锭物品。 */
-    public static final Map<String, DeferredItem<Item>> METAL_INGOTS = registerMetalItems("ingot");
-    /** 独立金属粒物品。 */
-    public static final Map<String, DeferredItem<Item>> METAL_NUGGETS = registerMetalItems("nugget");
     /** 原版没有铜粒，因此由独立命名空间提供铜粒以闭合铜的浇注链。 */
     public static final DeferredItem<Item> COPPER_NUGGET = simple("copper_nugget");
-    /** 独立金属块物品。 */
-    public static final Map<String, DeferredItem<Item>> METAL_BLOCKS = registerMetalBlocks();
     /** 浇注台物品。 */
     public static final DeferredItem<Item> CASTING_TABLE = block("casting_table", TFBlocks.CASTING_TABLE);
     /** 浇注盆物品。 */
@@ -97,12 +90,19 @@ public final class TFItems {
     /** 一次性粒红砂模。 */
     public static final DeferredItem<Item> NUGGET_RED_SAND_CAST = simple("nugget_red_sand_cast");
 
+    /** 保留原有熔融铁桶，供原版铁的熔炼和浇注配方使用。 */
+    public static final DeferredItem<BucketItem> IRON_BUCKET = bucket("iron", TFFluids.IRON);
+    /** 保留原有熔融金桶，供原版金的熔炼和浇注配方使用。 */
+    public static final DeferredItem<BucketItem> GOLD_BUCKET = bucket("gold", TFFluids.GOLD);
+    /** 保留原有熔融铜桶，供原版铜的熔炼和浇注配方使用。 */
+    public static final DeferredItem<BucketItem> COPPER_BUCKET = bucket("copper", TFFluids.COPPER);
+
     /** 便携储液罐。 */
     public static final DeferredItem<PortableTankItem> PORTABLE_TANK = TinkerFoundry.ITEMS.register("portable_tank", () -> new PortableTankItem(8000, new Item.Properties()));
     /** 铜制便携罐。 */
     public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.register("copper_canister", () -> new PortableTankItem(FluidValues.INGOT, new Item.Properties()));
     /** 仅包含本项目冶炼内容的教程书。 */
-    public static final DeferredItem<WrittenBookItem> GUIDE_BOOK = TinkerFoundry.ITEMS.register("foundry_guide", () -> new WrittenBookItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<FoundryGuideBookItem> GUIDE_BOOK = TinkerFoundry.ITEMS.register("foundry_guide", () -> new FoundryGuideBookItem(new Item.Properties().stacksTo(1)));
 
     /** 注册方块物品。 */
     private static DeferredItem<Item> block(String name, net.neoforged.neoforge.registries.DeferredBlock<? extends net.minecraft.world.level.block.Block> block) {
@@ -124,24 +124,6 @@ public final class TFItems {
         return TinkerFoundry.ITEMS.register(name + "_bucket", () -> new BucketItem(fluid.get(), new Item.Properties().stacksTo(1)));
     }
 
-    /** 注册基础金属锭或粒，所有结果都保留在独立命名空间。 */
-    private static Map<String, DeferredItem<Item>> registerMetalItems(String form) {
-        Map<String, DeferredItem<Item>> items = new LinkedHashMap<>();
-        for (String metal : TFBlocks.INTERNAL_METALS) {
-            items.put(metal, TinkerFoundry.ITEMS.register(metal + "_" + form, () -> new Item(new Item.Properties())));
-        }
-        return Map.copyOf(items);
-    }
-
-    /** 为独立金属块创建对应的方块物品。 */
-    private static Map<String, DeferredItem<Item>> registerMetalBlocks() {
-        Map<String, DeferredItem<Item>> items = new LinkedHashMap<>();
-        for (String metal : TFBlocks.INTERNAL_METALS) {
-            items.put(metal, block(metal + "_block", TFBlocks.METAL_BLOCKS.get(metal)));
-        }
-        return Map.copyOf(items);
-    }
-
     /** 实体产液和副产物使用相同的标准流体桶能力。 */
     public static final Map<String, DeferredItem<BucketItem>> EXTRA_BUCKETS = registerExtraBuckets();
 
@@ -155,6 +137,9 @@ public final class TFItems {
     /** 为流体基类提供对应桶的延迟查找。 */
     public static Item bucketFor(String name) {
         return switch (name) {
+            case "iron" -> IRON_BUCKET.get();
+            case "gold" -> GOLD_BUCKET.get();
+            case "copper" -> COPPER_BUCKET.get();
             default -> EXTRA_BUCKETS.get(name).get();
         };
     }

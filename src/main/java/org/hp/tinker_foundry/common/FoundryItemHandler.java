@@ -21,13 +21,13 @@ public final class FoundryItemHandler implements IItemHandler {
     @Override
     public int getSlots() {
         FoundryBlockEntity entity = target();
-        return entity == null ? 0 : entity.isHeater() ? 1
+        return entity == null ? 0 : entity.isFuelTankBlock() || entity.isHeater() ? 1
             : entity.inputSlotCount() + (entity.isCastingBlock() || entity.isCastingTankBlock() ? 2 : 0);
     }
 
     /** 将能力编号映射为容器编号，避开保留的隐藏槽。 */
     private int mapped(FoundryBlockEntity entity, int slot) {
-        if (entity.isHeater()) return FoundryBlockEntity.FUEL_SLOT;
+        if (entity.isFuelTankBlock() || entity.isHeater()) return FoundryBlockEntity.FUEL_SLOT;
         int count = entity.inputSlotCount();
         return slot < count ? FoundryBlockEntity.inputContainerSlot(slot)
             : slot == count ? FoundryBlockEntity.OUTPUT_SLOT : FoundryBlockEntity.REMAINDER_SLOT;

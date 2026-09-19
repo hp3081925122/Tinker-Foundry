@@ -21,6 +21,45 @@ public final class TFFluids {
     /** 记录每种熔融流体对应的液体方块，供桶放置和流体属性回调使用。 */
     private static final Map<String, DeferredBlock<LiquidBlock>> FLUID_BLOCKS = new HashMap<>();
 
+    /** 保留原有铁、金、铜熔融流体的颜色。 */
+    public static final Map<String, Integer> ORIGINAL_COLORS = Map.of(
+        "iron", 0xFFE1E1E1,
+        "gold", 0xFFFFD43B,
+        "copper", 0xFFF47B45
+    );
+
+    /** 保留原有铁、金、铜熔融流体类型，避免原版金属配方失效。 */
+    public static final DeferredHolder<FluidType, FluidType> IRON_TYPE = moltenType("iron", ORIGINAL_COLORS.get("iron"), 1100, 12);
+    public static final DeferredHolder<FluidType, FluidType> GOLD_TYPE = moltenType("gold", ORIGINAL_COLORS.get("gold"), 1000, 12);
+    public static final DeferredHolder<FluidType, FluidType> COPPER_TYPE = moltenType("copper", ORIGINAL_COLORS.get("copper"), 800, 12);
+
+    /** 保留原有铁、金、铜源流体。 */
+    public static final DeferredHolder<Fluid, BaseFlowingFluid.Source> IRON = source("iron", IRON_TYPE);
+    public static final DeferredHolder<Fluid, BaseFlowingFluid.Source> GOLD = source("gold", GOLD_TYPE);
+    public static final DeferredHolder<Fluid, BaseFlowingFluid.Source> COPPER = source("copper", COPPER_TYPE);
+
+    /** 保留原有铁、金、铜流动流体。 */
+    public static final DeferredHolder<Fluid, BaseFlowingFluid.Flowing> IRON_FLOWING = flowing("iron", IRON_TYPE);
+    public static final DeferredHolder<Fluid, BaseFlowingFluid.Flowing> GOLD_FLOWING = flowing("gold", GOLD_TYPE);
+    public static final DeferredHolder<Fluid, BaseFlowingFluid.Flowing> COPPER_FLOWING = flowing("copper", COPPER_TYPE);
+
+    /** 保留原有铁、金、铜液体方块。 */
+    public static final DeferredBlock<LiquidBlock> IRON_BLOCK = registerFluidBlock("iron", IRON);
+    public static final DeferredBlock<LiquidBlock> GOLD_BLOCK = registerFluidBlock("gold", GOLD);
+    public static final DeferredBlock<LiquidBlock> COPPER_BLOCK = registerFluidBlock("copper", COPPER);
+
+    /** 客户端和测试共用的原有金属流体注册表。 */
+    public static final Map<String, DeferredHolder<FluidType, FluidType>> ORIGINAL_TYPES = Map.of(
+        "iron", IRON_TYPE,
+        "gold", GOLD_TYPE,
+        "copper", COPPER_TYPE
+    );
+    public static final Map<String, DeferredHolder<Fluid, BaseFlowingFluid.Source>> ORIGINAL_SOURCES = Map.of(
+        "iron", IRON,
+        "gold", GOLD,
+        "copper", COPPER
+    );
+
     /** 实体熔炼与矿物副产物所需的独立流体，不依赖匠魂本体注册表。 */
     public static final Map<String, Integer> EXTRA_COLORS = Map.ofEntries(
         Map.entry("cobalt", 0xFF3677BA),

@@ -97,7 +97,7 @@ public final class TinkerFoundry {
         });
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
             // 无物品功能的储罐、排液口和导管不暴露通用的隐藏容器。
-            if (entity.isMeltingBlock() || entity.isHeater() || entity.isCastingBlock() || entity.isCastingTankBlock()
+            if (entity.isMeltingBlock() || entity.isHeater() || entity.isFuelTankBlock() || entity.isCastingBlock() || entity.isCastingTankBlock()
                 || entity.getBlockState().is(TFBlocks.CHUTE.get())) return new org.hp.tinker_foundry.common.FoundryItemHandler(entity);
             return null;
         });
