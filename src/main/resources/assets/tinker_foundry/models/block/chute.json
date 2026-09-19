@@ -1,1 +1,11 @@
-{"render_type":"minecraft:cutout","parent":"minecraft:block/block","textures":{"particle":"tinker_foundry:block/foundry/scorched/bricks","bricks":"tinker_foundry:block/foundry/scorched/bricks","back":"tinker_foundry:block/foundry/io/back","top":"tinker_foundry:block/foundry/io/chute_top_inactive","side":"tinker_foundry:block/foundry/io/chute_side_inactive"},"elements":[{"from":[0,0,0],"to":[16,16,16],"faces":{"north":{"texture":"#back","cullface":"north"},"east":{"texture":"#bricks","cullface":"east"},"south":{"texture":"#bricks","cullface":"south"},"west":{"texture":"#bricks","cullface":"west"},"up":{"texture":"#top","cullface":"up"},"down":{"texture":"#bricks","cullface":"down"}}},{"from":[3,3,-1],"to":[13,13,1],"faces":{"north":{"texture":"#side","cullface":"north"},"east":{"texture":"#side"},"west":{"texture":"#side"},"up":{"texture":"#side"},"down":{"texture":"#side"}}},{"from":[4,4,0],"to":[12,12,1],"faces":{"north":{"texture":"#top","cullface":"north"}}}]}
+{
+  "render_type": "minecraft:cutout",
+  "parent": "tinker_foundry:block/template/chute",
+  "textures": {
+    "particle": "tinker_foundry:block/foundry/scorched/bricks",
+    "bricks": "tinker_foundry:block/foundry/scorched/bricks",
+    "back": "tinker_foundry:block/foundry/io/back",
+    "top": "tinker_foundry:block/foundry/io/chute_top_inactive",
+    "side": "tinker_foundry:block/foundry/io/chute_side_inactive"
+  }
+}

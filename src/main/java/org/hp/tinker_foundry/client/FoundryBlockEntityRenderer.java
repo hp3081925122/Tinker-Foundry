@@ -312,8 +312,21 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
         float u1 = sprite.getU1();
         float v0 = sprite.getV0();
         float v1 = sprite.getV1();
-        float low = 0.28F;
-        float high = low + 0.44F * ratio;
+        // 使用上游量规内部的 5..11 像素面板和 6..11 像素液位范围，避免流体越过边框。
+        float faceMin = 5.0F / 16.0F;
+        float faceMax = 11.0F / 16.0F;
+        float fillMin = 6.0F / 16.0F;
+        float fillMax = 11.0F / 16.0F;
+        float high = fillMin + (fillMax - fillMin) * ratio;
+        float upperFillMin = 5.0F / 16.0F;
+        float upperFillMax = 10.0F / 16.0F;
+        float upperHigh = upperFillMin + (upperFillMax - upperFillMin) * ratio;
+        float northPlane = 15.5F / 16.0F;
+        float southPlane = 0.5F / 16.0F;
+        float westPlane = 15.5F / 16.0F;
+        float eastPlane = 0.5F / 16.0F;
+        float downPlane = 15.5F / 16.0F;
+        float upPlane = 0.5F / 16.0F;
         int red = (tint >> 16) & 255;
         int green = (tint >> 8) & 255;
         int blue = tint & 255;
@@ -323,22 +336,22 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
         // 按上游六向模型的面位置绘制液面，并补绘反向面避免实体层背面剔除。
         switch (facing) {
             case NORTH -> drawDoubleSidedQuad(consumer, pose,
-                0.70F, low, 0.985F, 0.30F, low, 0.985F, 0.30F, high, 0.985F, 0.70F, high, 0.985F,
+                faceMax, fillMin, northPlane, faceMin, fillMin, northPlane, faceMin, high, northPlane, faceMax, high, northPlane,
                 u0, v1, u1, v0, red, green, blue, alpha, packedLight, 0, 0, -1);
             case SOUTH -> drawDoubleSidedQuad(consumer, pose,
-                0.30F, low, 0.015F, 0.70F, low, 0.015F, 0.70F, high, 0.015F, 0.30F, high, 0.015F,
+                faceMin, fillMin, southPlane, faceMax, fillMin, southPlane, faceMax, high, southPlane, faceMin, high, southPlane,
                 u0, v1, u1, v0, red, green, blue, alpha, packedLight, 0, 0, 1);
             case WEST -> drawDoubleSidedQuad(consumer, pose,
-                0.985F, low, 0.30F, 0.985F, low, 0.70F, 0.985F, high, 0.70F, 0.985F, high, 0.30F,
+                westPlane, fillMin, faceMin, westPlane, fillMin, faceMax, westPlane, high, faceMax, westPlane, high, faceMin,
                 u0, v1, u1, v0, red, green, blue, alpha, packedLight, -1, 0, 0);
             case EAST -> drawDoubleSidedQuad(consumer, pose,
-                0.015F, low, 0.70F, 0.015F, low, 0.30F, 0.015F, high, 0.30F, 0.015F, high, 0.70F,
+                eastPlane, fillMin, faceMax, eastPlane, fillMin, faceMin, eastPlane, high, faceMin, eastPlane, high, faceMax,
                 u0, v1, u1, v0, red, green, blue, alpha, packedLight, 1, 0, 0);
             case DOWN -> drawDoubleSidedQuad(consumer, pose,
-                0.30F, 0.985F, low, 0.70F, 0.985F, low, 0.70F, 0.985F, high, 0.30F, 0.985F, high,
+                faceMin, downPlane, fillMin, faceMax, downPlane, fillMin, faceMax, downPlane, high, faceMin, downPlane, high,
                 u0, v1, u1, v0, red, green, blue, alpha, packedLight, 0, -1, 0);
             case UP -> drawDoubleSidedQuad(consumer, pose,
-                0.30F, 0.015F, high, 0.70F, 0.015F, high, 0.70F, 0.015F, low, 0.30F, 0.015F, low,
+                faceMin, upPlane, upperHigh, faceMax, upPlane, upperHigh, faceMax, upPlane, upperFillMin, faceMin, upPlane, upperFillMin,
                 u0, v1, u1, v0, red, green, blue, alpha, packedLight, 0, 1, 0);
         }
     }

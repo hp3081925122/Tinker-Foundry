@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:potion"}, "amount": 250},
+  "mold": {"item": "minecraft:glass_bottle"},
+  "result": {"id": "minecraft:potion", "count": 1},
+  "time": 5,
+  "cast_consumed": true,
+  "copy_potion_contents": true
+}

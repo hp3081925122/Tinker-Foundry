@@ -20,9 +20,11 @@ import mezz.jei.api.registration.IRecipeRegistration;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
+import com.mojang.datafixers.util.Either;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -32,6 +34,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -479,6 +483,19 @@ public final class FoundryJeiPlugin implements IModPlugin {
             builder.addOutputSlot(115, 11)
                 .setFluidRenderer(FluidValues.INGOT * 2L, false, 16, 32)
                 .addIngredient(NeoForgeTypes.FLUID_STACK, recipe.result())
+                // JEI 默认只显示流体类型；药水流体需要把组件中的具体药水名称写回第一行提示。
+                .addRichTooltipCallback((slot, tooltip) -> {
+                    PotionContents potionContents = recipe.result().getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
+                    if (potionContents.potion().isPresent()) {
+                        Component potionName = Component.translatable(Potion.getName(potionContents.potion(), "item.minecraft.potion.effect."));
+                        List<Either<net.minecraft.network.chat.FormattedText, net.minecraft.world.inventory.tooltip.TooltipComponent>> lines = tooltip.getLines();
+                        if (!lines.isEmpty()) {
+                            lines.set(0, Either.left(potionName));
+                        } else {
+                            tooltip.add(potionName);
+                        }
+                    }
+                })
                 .setSlotName("result");
             // 下方显示当前同步燃料配方中的流体燃料，不把燃料逻辑硬编码到 JEI 分类。
             builder.addSlot(RecipeIngredientRole.CATALYST, 75, 43)

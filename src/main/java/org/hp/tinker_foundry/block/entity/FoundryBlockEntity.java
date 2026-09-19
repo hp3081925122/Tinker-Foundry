@@ -767,7 +767,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         FluidRecipeInput recipeInput = new FluidRecipeInput(List.of(fluid), inputs[0]);
         Optional<RecipeHolder<CastingRecipe>> casting = level.getRecipeManager().getRecipeFor(TFRecipes.CASTING.get(), recipeInput, level);
         if (casting.isPresent()) {
-            finishCasting(casting.get().value());
+            finishCasting(casting.get().value(), recipeInput, level.registryAccess());
             return;
         }
         Optional<RecipeHolder<MoldingRecipe>> molding = level.getRecipeManager().getRecipeFor(TFRecipes.MOLDING.get(), recipeInput, level);
@@ -853,12 +853,14 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     }
 
     /** 冷却并完成铸造配方，按配方字段处理铸模消耗和槽位切换。 */
-    private void finishCasting(CastingRecipe recipe) {
+    private void finishCasting(CastingRecipe recipe, FluidRecipeInput recipeInput, net.minecraft.core.HolderLookup.Provider registries) {
         processTime = recipe.time();
         progress++;
+        // 先按当前流体组装结果，确保药水瓶继承实际流体中的药水内容。
+        ItemStack assembledResult = recipe.assemble(recipeInput, registries);
         boolean canStoreResult = recipe.switchSlots()
             ? recipe.castConsumed() ? output.isEmpty() : canAcceptOutput(inputs[0].copyWithCount(1))
-            : canAcceptOutput(recipe.result());
+            : canAcceptOutput(assembledResult);
         if (progress >= processTime && canStoreResult) {
             if (recipe.switchSlots()) {
                 // 匠魂的多步铸造把旧输入留在输出槽，把新结果放回输入槽。
@@ -867,7 +869,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 }
                 inputs[0] = recipe.result().copy();
             } else {
-                addOutput(recipe.result());
+                addOutput(assembledResult);
                 if (recipe.castConsumed() && recipe.mold().isPresent()) {
                     inputs[0].shrink(1);
                     if (inputs[0].isEmpty()) inputs[0] = ItemStack.EMPTY;
