@@ -70,6 +70,8 @@ public final class TFFluids {
         Map.entry("ender", 0xFF18776D),
         Map.entry("seared_stone", 0xFF5C504E),
         Map.entry("molten_emerald", 0xFF29D581),
+        // 1.20.1 匠魂存在熔融钻石，独立冶炼系统为其提供对应流体注册。
+        Map.entry("molten_diamond", 0xFF5DCEFF),
         Map.entry("magma", 0xFFEE5C16),
         Map.entry("meat_soup", 0xFFBC8F6A),
         Map.entry("potion", 0xFF7654C4),

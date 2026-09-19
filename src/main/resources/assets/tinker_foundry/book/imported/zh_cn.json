@@ -1,0 +1,632 @@
+{
+  "intro": [
+    {
+      "name": "introduction",
+      "type": "mantle:text",
+      "source": "puny_smelting/introduction/thruul.json",
+      "content": {
+        "title": "Tinker Foundry",
+        "text": [
+          {
+            "text": "这是 Minecraft 1.21.1 NeoForge 的独立冶炼与浇注模组。本书介绍熔炼器、冶炼炉、铸造炉、合金炉、燃料、铸模与流体搬运。",
+            "paragraph": true
+          },
+          {
+            "text": "从熔炼器和加热器开始，将物品熔成流体，再经浇注设备制成物品。冶炼炉可在内部合金；铸造炉分离主产物和副产物，配合独立合金炉继续加工。",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "melter": [
+    {
+      "name": "melter",
+      "type": "mantle:text",
+      "source": "puny_smelting/melting/melter.json",
+      "content": {
+        "title": "熔炼器",
+        "text": [
+          {
+            "text": "熔炼器有三个并行输入槽，每槽放一个物品。储液容量为 4000 mB，只能容纳一种流体；先排空不相容的流体，再处理其他材料。",
+            "paragraph": true
+          },
+          {
+            "text": "燃料来源放在熔炼器正下方。加热器提供固体燃料，流体储罐提供满足燃料配方的液体。燃料温度必须达到熔炼配方要求。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/melter.png"
+        }
+      }
+    },
+    {
+      "name": "features",
+      "type": "mantle:text",
+      "source": "puny_smelting/melting/features.json",
+      "content": {
+        "title": "计量与温度",
+        "text": [
+          {
+            "text": "一粒金属为 10 mB，一锭为 90 mB，一块为 810 mB，一桶为 1000 mB。铜、金、铁的锭/粒/块熔炼温度分别为 500、700、800°C。",
+            "paragraph": true
+          },
+          {
+            "text": "钻石熔炼为 100 mB，需 1450°C；绿宝石熔炼为 100 mB，需 934°C。煤的温度不足以熔炼这两种宝石。",
+            "paragraph": true
+          },
+          {
+            "text": "矿石主产量与铸造炉副产物由具体熔炼配方决定，不存在适用于所有物品的固定增产。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "operation",
+      "type": "mantle:text",
+      "source": "puny_smelting/melting/meltergui2.json",
+      "content": {
+        "title": "熔炼操作",
+        "text": [
+          {
+            "text": "右键设备打开界面，在输入槽放入有熔炼配方的物品。不同槽独立加热，温度不足时不能继续升温；燃料耗尽后进度会逐步冷却。",
+            "paragraph": true
+          },
+          {
+            "text": "加热完成但储液空间不足时会等待，排出流体后提交产物。尚未完全熔化的物品可以通过物品接口取出；改换输入会重置相关进度。",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "moving_fluids": [
+    {
+      "name": "moving_fluids",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/intro.json",
+      "content": {
+        "title": "流体转移",
+        "text": [
+          {
+            "text": "用桶、铜制便携罐或便携储液罐对设备交互可转移流体。普通空桶需要完整的 1000 mB，不足一桶不能取出。",
+            "paragraph": true
+          },
+          {
+            "text": "多流体炉体按所选底层流体排出，先在控制器界面选择需要的流体，再通过排液口提取。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/movingfluids.png"
+        }
+      }
+    },
+    {
+      "name": "faucets",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/faucet2.json",
+      "content": {
+        "title": "浇注口",
+        "text": [
+          {
+            "text": "浇注口从自身朝向的反面取液，沿朝向向相邻设备输出。自动传输持续运行，空手右键也会立即尝试一次传输。",
+            "paragraph": true
+          },
+          {
+            "text": "每次抽取或输出最多 1000 mB，目标必须能实际接收。当前主动搬运逻辑连接本模组设备；不要按原书理解为红石脉冲启动或固定向下浇注。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/faucet_pour.png"
+        }
+      }
+    },
+    {
+      "name": "copper_cans",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/copper_can.json",
+      "content": {
+        "title": "便携容器",
+        "text": [
+          {
+            "text": "铜制便携罐容量为 90 mB，即一锭。便携储液罐容量为 8000 mB。两者都不可堆叠，保存单一流体。",
+            "paragraph": true
+          },
+          {
+            "text": "容器可用于机器流体交互；专用方块储罐也可作为携液物品搬运，放置时恢复其流体。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "copper_cans_craft",
+      "type": "mantle:crafting",
+      "source": "puny_smelting/movingfluids/copper_can_craft.json",
+      "content": {
+        "title": "铜制便携罐合成",
+        "text": [
+          {
+            "text": "以下为本项目当前工作台配方。",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:copper_canister",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "CCC",
+            "C C",
+            "CCC"
+          ],
+          "key": {
+            "C": {
+              "tag": "c:ingots/copper"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:copper_canister",
+            "count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "gauge",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/gauge.json",
+      "content": {
+        "title": "流体计",
+        "text": [
+          {
+            "text": "将流体计贴在冶炼设备旁，用于读取相邻设备的流体与容量。合金炉显示产出槽，多方块显示控制器储液。",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "casting": [
+    {
+      "name": "casting",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/intro.json",
+      "content": {
+        "title": "浇注",
+        "text": [
+          {
+            "text": "浇注台和浇注盆接收熔融流体与配方要求的铸模或物品，等待冷却后得到成品。空手右键浇注设备可取出产物。",
+            "paragraph": true
+          },
+          {
+            "text": "铸造只消耗配方规定的流体量。可重复铸模保留；砂模是否消耗由配方决定。输出空间不足时等待，不会继续交付成品。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "sand_cast",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/sandcast.json",
+      "content": {
+        "title": "砂模",
+        "text": [
+          {
+            "text": "本项目的锭、粒砂模及红砂模可在工作台直接合成。它们是有形状的物品，不需要部件制造台，也没有取出后恢复空白砂模的机制。",
+            "paragraph": true
+          },
+          {
+            "text": "将适用砂模放入浇注设备，注入配方要求的流体，冷却后取出成品；一次性砂模按配方消耗。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "sand_cast_craft",
+      "type": "mantle:crafting",
+      "source": "puny_smelting/casting/sandcast_craft.json",
+      "content": {
+        "title": "锭砂模合成",
+        "text": [
+          {
+            "text": "六个沙子按上下两排排列，制成一个锭砂模。",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:sand_cast_ingot",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "SSS",
+            "   ",
+            "SSS"
+          ],
+          "key": {
+            "S": {
+              "item": "minecraft:sand"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:ingot_sand_cast",
+            "count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_cast",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/goldcast.json",
+      "content": {
+        "title": "可重复铸模",
+        "text": [
+          {
+            "text": "在浇注设备中放入符合 c:ingots 标签的锭，注入 90 mB 熔融金，经过配方规定的 60 刻冷却制成锭铸模。作为样品的锭会消耗。",
+            "paragraph": true
+          },
+          {
+            "text": "粒铸模使用对应粒样品的配方。获得的金属铸模可反复浇注；原书工具部件的铸模不属于本项目。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "automation",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/automation.json",
+      "content": {
+        "title": "自动化",
+        "text": [
+          {
+            "text": "浇注设备的物品接口提供输入槽、成品槽和返还物槽，成品槽禁止插入物品。使用漏斗或兼容物品管道投料、取出成品。",
+            "paragraph": true
+          },
+          {
+            "text": "为可重复铸模保留输入槽，及时清空输出。不要依赖原书的红石换槽说明；当前换槽行为由配方字段控制。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/cast_automation.png"
+        }
+      }
+    },
+    {
+      "name": "casting_tank",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/casting_tank.json",
+      "content": {
+        "title": "浇注储液罐",
+        "text": [
+          {
+            "text": "浇注储液罐容量为 1000 mB，自动处理桶、便携罐以及专用储液罐物品。通过物品接口放入容器，处理后从输出槽取走。",
+            "paragraph": true
+          },
+          {
+            "text": "装液容器尝试向储罐倒入；空便携罐尝试取走可容纳的流体。空桶要求完整一桶。输出未清空时不会继续处理。",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "alloyer": [
+    {
+      "name": "alloy",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/alloyer/features.json",
+      "content": {
+        "title": "合金炉",
+        "text": [
+          {
+            "text": "合金炉只接收流体，不熔炼固体。它有四个各 4000 mB 的输入槽和一个 8000 mB 的输出槽。至少两份流体输入满足配方与温度要求后开始加工。",
+            "paragraph": true
+          },
+          {
+            "text": "每次合金加工需要 100 刻，完成时确认输出能够完整容纳产物，再扣除输入。铸造炉不会自行合金，可将其流体送到合金炉处理。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/alloyer.png"
+        }
+      }
+    }
+  ],
+  "smeltery": [
+    {
+      "name": "features",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/features.json",
+      "content": {
+        "title": "冶炼炉容量与加工",
+        "text": [
+          {
+            "text": "冶炼炉可并行熔炼、多流体储存以及原地合金。每个炉腔方块提供一个物品输入槽，槽内限一个物品。",
+            "paragraph": true
+          },
+          {
+            "text": "结构计算容量为炉腔体积 × 1080 mB；当前流体存储接口实际使用 max(4000, 结构计算容量)，因此极小炉体的显示容量和可存储容量可能不同。",
+            "paragraph": true
+          },
+          {
+            "text": "燃料倍率为 1 + floor((2×内宽×炉腔高度 + 2×内深×炉腔高度 + 内宽×内深)/15)。扩建会增加燃料消耗。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "structurereq",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/structurerequirements.json",
+      "content": {
+        "title": "冶炼炉结构",
+        "text": [
+          {
+            "text": "矩形炉腔的内宽、内深为 1–14，炉腔高为 1–63；含底板总高为 2–64，最大外形为 16×16×64。顶部开放，不把封顶计入结构。",
+            "paragraph": true
+          },
+          {
+            "text": "底板中心使用冶炼炉底板标签允许的方块，不能用玻璃。四面侧壁围住空炉腔；角柱和底板外框不参与冶炼炉验证。",
+            "paragraph": true
+          },
+          {
+            "text": "控制器在侧壁上，正面朝外、背面面向炉腔。冶炼炉控制器不能放在底板层。结构无效时右键显示错误，不能打开控制器界面。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "controller",
+      "type": "mantle:crafting",
+      "source": "mighty_smelting/smeltery/controller.json",
+      "content": {
+        "title": "冶炼炉控制器合成",
+        "text": [
+          {
+            "text": "按照当前工作台配方制作控制器；本项目不采用原书向焦黑砖浇铜的控制器配方。",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:smeltery_controller",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "BBB",
+            "BFB",
+            "BBB"
+          ],
+          "key": {
+            "B": {
+              "item": "tinker_foundry:seared_brick"
+            },
+            "F": {
+              "item": "minecraft:furnace"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:smeltery_controller",
+            "count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "seared_tanks",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/tanks.json",
+      "content": {
+        "title": "储罐与燃料",
+        "text": [
+          {
+            "text": "冶炼储液罐和焦黑储液罐均为 4320 mB（48 锭）；燃料罐为 4000 mB；浇注储液罐为 1000 mB；冶炼灯为 50 mB。",
+            "paragraph": true
+          },
+          {
+            "text": "多方块从有效结构内登记的燃料储罐获取燃料。储液与燃料是不同用途；需要在燃料来源中加入可燃配方支持的流体。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "seared_drain",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/seared_drain.json",
+      "content": {
+        "title": "炉体接口",
+        "text": [
+          {
+            "text": "排液口提供控制器的流体输入与输出，默认排出所选底层。导入槽为物品自动化代理控制器库存，拆除结构后不再提供可用槽。",
+            "paragraph": true
+          },
+          {
+            "text": "流体管道与排液口的详细侧面过滤规则应结合当前附件实现使用；本书不沿用原书铜罐过滤槽的操作。",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "blazing_blood": [
+    {
+      "name": "intro",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/blazing_blood/intro.json",
+      "content": {
+        "title": "高温燃料",
+        "text": [
+          {
+            "text": "煤：800°C；1个；1600；速率8。",
+            "paragraph": true
+          },
+          {
+            "text": "熔岩：1000°C；50mB；100；速率10。",
+            "paragraph": true
+          },
+          {
+            "text": "烈焰血：1800°C；50mB；150；速率18",
+            "paragraph": true
+          },
+          {
+            "text": "持续参数与炉体燃料倍率共同决定实际使用时长，不是每份都固定工作相同秒数。",
+            "paragraph": true
+          },
+          {
+            "text": "高温燃料可满足更高温度配方，例如钻石要求的 1450°C。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "melting",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/blazing_blood/melting.json",
+      "content": {
+        "title": "获取烈焰血",
+        "text": [
+          {
+            "text": "将烈焰人置于有效且有燃料的炉腔中。烈焰人实体熔炼配方每次成功造成 2 点伤害，产出 20 mB 烈焰血。",
+            "paragraph": true
+          },
+          {
+            "text": "实体需要实际受到伤害才会产液；抗火效果、黑名单和伤害免疫都会阻止产液。准备初始燃料并为产物流体留出空间。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/blaze_smeltery.png"
+        }
+      }
+    }
+  ],
+  "foundry": [
+    {
+      "name": "features",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/foundry/features.json",
+      "content": {
+        "title": "铸造炉",
+        "text": [
+          {
+            "text": "铸造炉熔炼时使用配方的铸造炉主产物，并依次加入副产物，不在内部合金。每个炉腔方块提供一个单物品输入槽。",
+            "paragraph": true
+          },
+          {
+            "text": "容量为外宽 × 外深 ×（炉腔高 + 1）× 720 mB，包含整个外包围体积。燃料倍率为 1 + floor((2×外宽×炉腔高 + 2×(外深−2)×炉腔高 + 外宽×外深)/18)。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/scorched_casting.png"
+        }
+      }
+    },
+    {
+      "name": "byproducts",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/foundry/byproducts.json",
+      "content": {
+        "title": "副产物与空间",
+        "text": [
+          {
+            "text": "副产物不是所有熔炼配方都有。只有铸造炉按配方提取副产物，普通熔炼器和冶炼炉不提取。",
+            "paragraph": true
+          },
+          {
+            "text": "提交前只检查主产物能否完整放入；副产物随后依次注入，空间不足的部分会损失。加工前为全部产物流体预留空间，并及时排液。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "structurereq",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/foundry/structurerequirements.json",
+      "content": {
+        "title": "铸造炉结构",
+        "text": [
+          {
+            "text": "尺寸范围同冶炼炉：内宽、内深 1–14，炉腔高 1–63，含底板总高 2–64，顶部开放。使用焦黑外壳和铸造炉底板标签对应的材料。",
+            "paragraph": true
+          },
+          {
+            "text": "铸造炉必须补齐四根角柱和底板外框；底板中心不能用玻璃。控制器正面朝外，可以位于侧壁，也可以在底层外框，此时其内侧上一格必须是炉腔。",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "controller",
+      "type": "mantle:crafting",
+      "source": "fantastic_foundry/foundry/controller.json",
+      "content": {
+        "title": "铸造炉控制器合成",
+        "text": [
+          {
+            "text": "以下为本项目当前工作台配方。",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:foundry_controller",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "BBB",
+            "BFB",
+            "BBB"
+          ],
+          "key": {
+            "B": {
+              "item": "tinker_foundry:scorched_brick"
+            },
+            "F": {
+              "item": "minecraft:blast_furnace"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:foundry_controller",
+            "count": 1
+          }
+        }
+      }
+    }
+  ],
+  "entity_melting": [
+    {
+      "name": "entitymelting",
+      "type": "mantle:text",
+      "source": "mighty_smelting/entitymelting/entitymelting.json",
+      "content": {
+        "title": "实体熔炼",
+        "text": [
+          {
+            "text": "有效冶炼炉和铸造炉每 20 刻检查一次炉腔实体。掉落物可被吸入真实库存，不需要燃料；生物熔炼需要燃料，并且成功造成伤害才产液。",
+            "paragraph": true
+          },
+          {
+            "text": "创造模式无敌玩家、具有抗火效果的生物及黑名单实体不会产液。实体配方指定产物和伤害量；不要为了产液把自身安全寄托于原书描述。",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/entitymelting.png"
+        }
+      }
+    }
+  ],
+  "_names": {},
+  "_illustrations": {}
+}

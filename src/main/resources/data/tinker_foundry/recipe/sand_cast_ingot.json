@@ -1,5 +1,6 @@
 {
-  "type": "minecraft:crafting_shapeless",
-  "ingredients": [{"item": "minecraft:sand"}],
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["SSS", "   ", "SSS"],
+  "key": {"S": {"item": "minecraft:sand"}},
   "result": {"id": "tinker_foundry:ingot_sand_cast", "count": 1}
 }

@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"tag": "c:gems/emerald"},
+  "result": {"id": "tinker_foundry:molten_emerald", "amount": 100},
+  "temperature": 934,
+  "time": 64
+}

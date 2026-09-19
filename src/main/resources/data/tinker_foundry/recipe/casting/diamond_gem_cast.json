@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:molten_diamond"}, "amount": 100},
+  "mold": {"item": "tinker_foundry:gem_cast"},
+  "result": {"id": "minecraft:diamond", "count": 1},
+  "time": 83
+}

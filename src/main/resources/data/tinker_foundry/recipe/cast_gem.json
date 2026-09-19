@@ -1,0 +1,8 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:gold"}, "amount": 90},
+  "mold": {"tag": "c:gems"},
+  "result": {"id": "tinker_foundry:gem_cast", "count": 1},
+  "time": 60,
+  "cast_consumed": true
+}

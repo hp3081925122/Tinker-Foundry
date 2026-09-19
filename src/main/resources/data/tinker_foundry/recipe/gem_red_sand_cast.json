@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["S S", "   ", "S S"],
+  "key": {"S": {"item": "minecraft:red_sand"}},
+  "result": {"id": "tinker_foundry:gem_red_sand_cast", "count": 1}
+}

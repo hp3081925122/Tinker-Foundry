@@ -89,6 +89,12 @@ public final class TFItems {
     public static final DeferredItem<Item> INGOT_RED_SAND_CAST = simple("ingot_red_sand_cast");
     /** 一次性粒红砂模。 */
     public static final DeferredItem<Item> NUGGET_RED_SAND_CAST = simple("nugget_red_sand_cast");
+    /** 可重复使用的宝石铸模，使用宝石与熔融金制作。 */
+    public static final DeferredItem<Item> GEM_CAST = simple("gem_cast");
+    /** 一次性宝石砂模，使用四角沙子制作。 */
+    public static final DeferredItem<Item> GEM_SAND_CAST = simple("gem_sand_cast");
+    /** 一次性宝石红砂模，使用四角红沙制作。 */
+    public static final DeferredItem<Item> GEM_RED_SAND_CAST = simple("gem_red_sand_cast");
 
     /** 保留原有熔融铁桶，供原版铁的熔炼和浇注配方使用。 */
     public static final DeferredItem<BucketItem> IRON_BUCKET = bucket("iron", TFFluids.IRON);

@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:molding",
+  "mold": {"item": "tinker_foundry:gem_sand_cast"},
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:molten_emerald"}, "amount": 100},
+  "result": {"id": "minecraft:emerald", "count": 1},
+  "time": 68
+}

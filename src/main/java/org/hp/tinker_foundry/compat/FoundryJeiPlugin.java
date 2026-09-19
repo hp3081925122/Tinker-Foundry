@@ -374,14 +374,16 @@ public final class FoundryJeiPlugin implements IModPlugin {
 
     /** 模具配方的 JEI 分类。 */
     private static final class MoldingCategory extends FoundryCategory<MoldingRecipe> {
-        /** 模具输入的方向提示图标。 */
-        private final IDrawable moldArrow;
+        /** 当前分类使用的 JEI 图形助手，用于按配方冷却时间创建箭头动画。 */
+        private final IGuiHelper guiHelper;
         /** 流体输入槽的官方罐体覆盖层。 */
         private final IDrawable tankOverlay;
         /** 铸件台装饰图标。 */
         private final IDrawable castingTable;
-        /** 铸造盆装饰图标。 */
-        private final IDrawable castingBasin;
+        /** 模具消耗状态图标。 */
+        private final IDrawable castConsumed;
+        /** 模具保留状态图标。 */
+        private final IDrawable castKept;
 
         /** 创建压模分类。 */
         private MoldingCategory(IGuiHelper guiHelper) {
@@ -389,36 +391,56 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 MOLDING_TYPE,
                 Component.translatable("jei.tinker_foundry.molding.title"),
                 guiHelper.createDrawableItemLike(TFItems.INGOT_SAND_CAST.get()),
-                guiHelper.createDrawable(CASTING_BACKGROUND, 0, 0, 70, 57),
-                70,
-                57
+                guiHelper.createDrawable(CASTING_BACKGROUND, 0, 0, 117, 54),
+                117,
+                54
             );
-            this.moldArrow = guiHelper.createDrawable(CASTING_BACKGROUND, 70, 55, 6, 10);
+            // 保存图形助手，使每条配方都能使用自己的冷却时间创建箭头动画。
+            this.guiHelper = guiHelper;
             this.tankOverlay = guiHelper.createDrawable(CASTING_BACKGROUND, 133, 0, 32, 32);
             this.castingTable = guiHelper.createDrawable(CASTING_BACKGROUND, 117, 0, 16, 16);
-            this.castingBasin = guiHelper.createDrawable(CASTING_BACKGROUND, 117, 16, 16, 16);
+            this.castConsumed = guiHelper.createDrawable(CASTING_BACKGROUND, 141, 32, 13, 11);
+            this.castKept = guiHelper.createDrawable(CASTING_BACKGROUND, 141, 43, 13, 11);
         }
 
-        /** 显示模具、流体输入和物品输出。 */
+        /** 按匠魂铸造卡片的三段式位置显示流体、模具和物品产物。 */
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, MoldingRecipe recipe, IFocusGroup focuses) {
-            IRecipeSlotBuilder mold = addItemInput(builder, recipe.mold(), 3, 1).setSlotName("mold");
+            // 模具消耗时作为输入，不消耗时作为催化剂，保持 JEI 查询语义与实际配方一致。
+            RecipeIngredientRole moldRole = recipe.patternConsumed() ? RecipeIngredientRole.INPUT : RecipeIngredientRole.CATALYST;
+            IRecipeSlotBuilder mold = builder.addSlot(moldRole, 38, 19)
+                .addIngredients(recipe.mold())
+                .setSlotName("mold");
             if (recipe.patternConsumed()) {
                 mold.addRichTooltipCallback((slot, tooltip) -> tooltip.add(Component.translatable("jei.tinker_foundry.molding.pattern_consumed")));
             }
-            addFluidInput(builder, recipe.fluid(), 3, 24, 32, 32)
+            // 流体槽使用匠魂铸造卡片的左侧 32x32 罐体区域。
+            addFluidInput(builder, recipe.fluid(), 3, 3, 32, 32)
                 .setOverlay(tankOverlay, 0, 0)
                 .setSlotName("fluid");
-            addItemOutput(builder, recipe.result(), 51, 24).setSlotName("result");
+            // 物品产物使用右侧输出槽，避免与中间模具和箭头重叠。
+            addItemOutput(builder, recipe.result(), 93, 18).setSlotName("result");
         }
 
-        /** 显示模具消耗提示以及可用的铸件台和铸造盆。 */
+        /** 显示匠魂铸造卡片的时间、箭头、设备和模具消耗状态。 */
         @Override
         public void createRecipeExtras(IRecipeExtrasBuilder builder, MoldingRecipe recipe, IFocusGroup focuses) {
-            builder.addRecipeArrowWidget().setPosition(24, 23);
-            builder.addDrawableWidget(moldArrow).setPosition(8, 17);
-            builder.addDrawableWidget(castingTable).setPosition(3, 40);
-            builder.addDrawableWidget(castingBasin).setPosition(51, 40);
+            // 时间文字沿用匠魂的秒数显示，并放在卡片顶部中央。
+            builder.addText(Component.translatable("jei.tinker_foundry.time", recipe.time() / 20), 144, 9)
+                .setPosition(0, 2)
+                .setColor(Color.GRAY.getRGB())
+                .setTextAlignment(HorizontalAlignment.CENTER);
+            // 箭头使用官方铸造背景中的 24x17 动画切片。
+            IDrawable arrow = guiHelper.drawableBuilder(CASTING_BACKGROUND, 117, 32, 24, 17)
+                .buildAnimated(Math.max(1, recipe.time()), StartDirection.LEFT, false);
+            builder.addDrawableWidget(arrow).setPosition(58, 18);
+            // 使用单个居中的铸件台图标，使模具槽正对设备，匹配匠魂铸造卡片。
+            builder.addDrawableWidget(castingTable).setPosition(38, 35);
+            // 用官方状态图标表达模具是否消耗，并保留可悬停的中文说明。
+            builder.addDrawableWidget(recipe.patternConsumed() ? castConsumed : castKept)
+                .setPosition(63, 39)
+                .setTooltip(Component.translatable(recipe.patternConsumed()
+                    ? "jei.tinker_foundry.molding.pattern_consumed" : "jei.tinker_foundry.molding.pattern_kept"));
         }
     }
 
@@ -449,7 +471,8 @@ public final class FoundryJeiPlugin implements IModPlugin {
         public void setRecipe(IRecipeLayoutBuilder builder, EntityMeltingRecipe recipe, IFocusGroup focuses) {
             // 使用实体标签解析出的刷怪蛋作为 JEI 可查询输入，避免把标签文字挤进配方卡片。
             List<ItemStack> entities = entityDisplayStacks(recipe);
-            builder.addInputSlot(19, 11)
+            // 刷怪蛋使用 18x18 物品槽，水平居中放入左侧 32x32 熔炉腔体，避免贴在左墙边。
+            builder.addInputSlot(26, 11)
                 .addItemStacks(entities)
                 .setSlotName("entity");
             // 右侧输出使用窄型流体槽，背景中的砖墙和液面由实体熔炼专用切片提供。
