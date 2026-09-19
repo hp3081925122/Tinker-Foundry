@@ -100,9 +100,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         // 菜单设备的普通手持物只负责打开菜单，不再触发基类的隐式物品插入。
-        boolean fluidContainer = stack.getItem() instanceof BucketItem
-            || stack.getItem() instanceof PortableTankItem
-            || stack.getItem() instanceof FoundryTankItem;
+        boolean fluidContainer = net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(stack).isPresent();
         if (entity.hasMenuScreen() && !fluidContainer) {
             if (level.isClientSide) {
                 return ItemInteractionResult.sidedSuccess(true);
@@ -161,54 +159,12 @@ public class FoundryEntityBlock extends BaseEntityBlock {
     /** 统一处理设备和冶炼灯的容器交互，避免两个方块类出现不同的流体规则。 */
     static ItemInteractionResult handleItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
                                               Player player, InteractionHand hand, FoundryBlockEntity entity) {
-        if (stack.getItem() instanceof PortableTankItem tankItem || stack.getItem() instanceof FoundryTankItem) {
-            // 只有熔炼设备、储液罐和排液口接受容器流体交互，其他附件交给默认交互处理。
-            if (!entity.hasMenuScreen() && !entity.isTankBlock() && !entity.isCastingBlock()
-                && !state.is(org.hp.tinker_foundry.registry.TFBlocks.DRAIN.get())) {
-                return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-            }
-            int tankCapacity = stack.getItem() instanceof PortableTankItem portable ? portable.capacity() : ((FoundryTankItem) stack.getItem()).capacity();
-            boolean allowFuel = stack.getItem() instanceof FoundryTankItem foundryTank && foundryTank.allowsFuel();
-            PortableTankFluidHandler tank = new PortableTankFluidHandler(stack, tankCapacity, allowFuel);
-            net.neoforged.neoforge.fluids.FluidStack tankFluid = tank.getFluidInTank(0);
-            if (!tankFluid.isEmpty()) {
-                int moved = entity.fill(tankFluid, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.SIMULATE);
-                if (moved > 0) {
-                    tank.drain(moved, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
-                    entity.fill(tankFluid.copyWithAmount(moved), net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
-                    return ItemInteractionResult.SUCCESS;
-                }
-            } else {
-                net.neoforged.neoforge.fluids.FluidStack drained = entity.drain(tank.getTankCapacity(0), net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.SIMULATE);
-                int accepted = tank.fill(drained, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.SIMULATE);
-                if (accepted > 0) {
-                    entity.drain(accepted, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
-                    tank.fill(drained.copyWithAmount(accepted), net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
-                    return ItemInteractionResult.SUCCESS;
-                }
-            }
-            return ItemInteractionResult.FAIL;
-        }
-        if (stack.getItem() instanceof BucketItem bucket) {
-            // 只有菜单设备、浇注设备、储液罐和排液口允许桶参与流体传输。
-            if (!entity.isCastingBlock() && (!entity.hasMenuScreen() && !entity.isTankBlock()
-                && !state.is(org.hp.tinker_foundry.registry.TFBlocks.DRAIN.get()))) {
-                return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-            }
-            if (bucket.content == net.minecraft.world.level.material.Fluids.EMPTY) {
-                net.neoforged.neoforge.fluids.FluidStack drained = entity.drain(1000, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
-                if (drained.isEmpty()) return ItemInteractionResult.FAIL;
-                giveContainerResult(player, hand, stack, new ItemStack(drained.getFluid().getBucket()));
-                return ItemInteractionResult.SUCCESS;
-            }
-            // 加热器和独立燃料罐允许接收燃料流体，其他设备只接受本模组的熔融金属流体。
-            if (!TFFluids.isFoundryFluid(bucket.content) && !entity.isHeater() && !entity.isFuelTankBlock()) {
-                return ItemInteractionResult.FAIL;
-            }
-            int filled = entity.fill(new net.neoforged.neoforge.fluids.FluidStack(bucket.content, 1000), net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
-            if (filled != 1000) return ItemInteractionResult.FAIL;
-            giveContainerResult(player, hand, stack, new ItemStack(Items.BUCKET));
-            return ItemInteractionResult.SUCCESS;
+        if (net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(stack).isPresent()) {
+            // 普通空桶也先模拟完整传输，禁止不足一桶时先扣液再返回失败。
+            var handler = level.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, null);
+            if (handler == null) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return net.neoforged.neoforge.fluids.FluidUtil.interactWithFluidHandler(player, hand, handler)
+                ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
         }
         // 只有浇注台和浇注盆允许普通手持物走专用铸造输入逻辑。
         if (entity.isCastingBlock() && entity.insertItem(stack)) {
@@ -217,20 +173,6 @@ public class FoundryEntityBlock extends BaseEntityBlock {
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
-    /** 在保留原堆叠剩余数量的前提下返还空桶或满桶。 */
-    private static void giveContainerResult(Player player, InteractionHand hand, ItemStack original, ItemStack result) {
-        if (player.getAbilities().instabuild) {
-            player.setItemInHand(hand, result);
-            return;
-        }
-        original.shrink(1);
-        if (original.isEmpty()) {
-            player.setItemInHand(hand, result);
-        } else {
-            player.setItemInHand(hand, original);
-            player.getInventory().placeItemBackInInventory(result);
-        }
-    }
 
     /** 返回方块自身的编解码器。 */
     @Override

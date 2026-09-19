@@ -88,7 +88,7 @@ public final class FoundryWorldEvents {
                     }
                     BlockPos controller = foundry.getBlockPos();
                     if (Math.abs(controller.getX() - changedPos.getX()) <= 16
-                        && Math.abs(controller.getY() - changedPos.getY()) <= 16
+                        && Math.abs(controller.getY() - changedPos.getY()) <= 64
                         && Math.abs(controller.getZ() - changedPos.getZ()) <= 16) {
                         foundry.markStructureDirty();
                     }

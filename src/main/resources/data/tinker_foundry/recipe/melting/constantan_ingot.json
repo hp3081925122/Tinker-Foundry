@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:ingots/constantan"},
-  "result": {"id": "tinker_foundry:constantan", "amount": 90},
-  "temperature": 920,
-  "time": 64
-}

@@ -81,7 +81,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 菜单状态字段总数。 */
     public static final int MENU_DATA_COUNT = MENU_FUEL_DURATION_INDEX + 1;
     /** 四个整数同步一个输入，保证数据槽编号不超出原版短整数边界。 */
-    public static final int MAX_STRUCTURE_INPUTS = BASE_INPUT_SLOTS + (Short.MAX_VALUE - MENU_DATA_COUNT) / 4;
+    public static final int MAX_STRUCTURE_INPUTS = 14 * 14 * 63;
     /** 逐槽状态：没有输入或没有可用配方。 */
     public static final int INPUT_STATUS_EMPTY = 0;
     /** 逐槽状态：正在处理。 */
@@ -144,6 +144,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private int fuelTemperature;
     /** 每四刻施加一次的结构熔炼热量，由燃料配方决定。 */
     private int fuelHeatingRate;
+    /** 同一周期的流体和物品变化合并为一次世界同步。 */
+    private boolean worldSyncDirty;
     /** 当前流体燃料段剩余的总消耗量。 */
     private int fuelFluidConsumption;
     /** 当前流体燃料段已经消耗的总量。 */
@@ -216,6 +218,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         entity.refreshStructureIfDirty();
         entity.tickProcess(level);
         entity.updateActiveBlockState(level);
+        if (entity.worldSyncDirty && level.getGameTime() % 4 == 3) {
+            entity.worldSyncDirty = false;
+            level.sendBlockUpdated(pos, state, entity.getBlockState(), Block.UPDATE_CLIENTS);
+        }
         // 只有服务端状态发生变化时才写入区块脏标记，避免空设备产生持续存档开销。
         boolean stateChanged = oldProgress != entity.progress || oldProcessTime != entity.processTime || oldBurnTime != entity.burnTime
             || oldFuelTemperature != entity.fuelTemperature || oldStructureCapacity != entity.structureCapacity
@@ -246,6 +252,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         StructureErrorReason oldErrorReason = structureErrorReason;
         refreshStructure(level);
         structureDirty = false;
+        worldSyncDirty = true;
         if (!Objects.equals(oldErrorPos, structureErrorPos) || oldErrorReason != structureErrorReason) {
             // 结构错误只在变化时广播，避免每次控制器 tick 都向附近玩家发送载荷。
             FoundryNetworking.syncStructureError(this);
@@ -301,7 +308,11 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 // 直接使用结构检测器计算的燃料倍率，避免界面和燃烧各维护一套公式。
                 structureFuelRate = result.fuelRate();
                 for (BlockPos pos : BlockPos.betweenClosed(result.min(), result.max())) {
-                    if (level.getBlockEntity(pos) instanceof FoundryBlockEntity port && port.isDrain()) port.drainControllerPos = worldPosition;
+                    if (isStructurePart(pos) && level.getBlockEntity(pos) instanceof FoundryBlockEntity port
+                        && (port.isDrain() || port.isTransferBlock())) {
+                        port.drainControllerPos = worldPosition;
+                        port.setChanged();
+                    }
                 }
             }
             if (structureFuelTankPos == null || !structureFuelTanks.contains(structureFuelTankPos)) {
@@ -328,7 +339,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     }
 
     /** 在已通过验证的结构边界内收集全部燃料罐。 */
-    private static List<BlockPos> findStructureFuelTanks(Level level, BlockPos min, BlockPos max) {
+    private List<BlockPos> findStructureFuelTanks(Level level, BlockPos min, BlockPos max) {
         List<BlockPos> tanks = new java.util.ArrayList<>();
         if (min == null || max == null) {
             return tanks;
@@ -340,14 +351,16 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 for (int z = min.getZ(); z <= max.getZ(); z++) {
                     cursor.set(x, y, z);
                     BlockState state = level.getBlockState(cursor);
-                    if (!state.is(TFBlocks.SEARED_FUEL_TANK.get()) && !state.is(TFBlocks.SCORCHED_FUEL_TANK.get())) {
+                    if (!isStructurePart(cursor) || !state.is(isFoundryController()
+                        ? org.hp.tinker_foundry.multiblock.StructureTags.FOUNDRY_TANKS
+                        : org.hp.tinker_foundry.multiblock.StructureTags.SMELTERY_TANKS)) {
                         continue;
                     }
                     foundCandidate = true;
                     boolean hasBlockEntity = level.getBlockEntity(cursor) instanceof FoundryBlockEntity;
                     TinkerFoundry.LOGGER.debug("[structure] fuel tank candidate pos={} block={} hasBlockEntity={}",
                         cursor, BuiltInRegistries.BLOCK.getKey(state.getBlock()), hasBlockEntity);
-                    if (level.getBlockEntity(cursor) instanceof FoundryBlockEntity source && source.isFuelTankBlock()) {
+                    if (level.getBlockEntity(cursor) instanceof FoundryBlockEntity source && source.isTankBlock()) {
                         TinkerFoundry.LOGGER.debug("[structure] fuel tank accepted pos={} fluid={} amount={}",
                             cursor, source.getFluidInTank(0).getFluid(), source.getFluidInTank(0).getAmount());
                         tanks.add(cursor.immutable());
@@ -391,6 +404,16 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!structureValid) {
             progress = 0;
             processTime = 0;
+            // 结构损坏时保留尚未耗尽燃料的热量，燃料耗尽后每四刻冷却一次。
+            if (isStructureController()) {
+                if (level.getGameTime() % 4 == 1 && burnTime <= 0) {
+                    for (int index = 0; index < inputs.length; index++) {
+                        if (inputStatuses[index] != INPUT_STATUS_NO_SPACE) setInputProgress(index, Math.max(0, inputProgress[index] - 5));
+                    }
+                }
+                consumeBurningFuel();
+                return;
+            }
             // 无效结构只在进度实际清空时标记改变，避免空闲时持续同步。
             if (java.util.Arrays.stream(inputProgress).anyMatch(value -> value != 0)) {
                 java.util.Arrays.fill(inputProgress, 0);
@@ -410,21 +433,32 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         } else if (isCastingTankBlock()) {
             tickCastingTank(level);
         } else if (isMeltingBlock()) {
+            // 每秒检查一次炉腔实体；无燃料时仍吸入物品，生物燃料由tickEntities单独判断。
+            if (isStructureController() && level.getGameTime() % 20 == 12) tickEntities();
+            // 第零相位仅在确实有可加热物品或可合金配方时取得新燃料。
+            if (level.getGameTime() % 4 == 0 && burnTime <= 0) {
+                int possible = findHeatingFuel(false);
+                boolean needed = false;
+                if (possible > 0) {
+                    for (int index = 0; index < inputSlotCount(); index++) {
+                        if (inputs[index].isEmpty() || inputStatuses[index] == INPUT_STATUS_NO_SPACE) continue;
+                        Optional<RecipeHolder<MeltingRecipe>> candidate = level.getRecipeManager().getRecipeFor(
+                            TFRecipes.MELTING.get(), new SingleRecipeInput(inputs[index]), level);
+                        if (candidate.isPresent() && candidate.get().value().temperature() <= possible) {
+                            needed = true;
+                            break;
+                        }
+                    }
+                    if (!needed && isSmelteryController()) needed = runStructureAlloying(level, true, possible);
+                }
+                if (needed) findHeatingFuel(true);
+            }
             // 多方块按四刻周期加热，独立设备暂时保留各自原有处理周期。
-            if (!isStructureController() || level.getGameTime() % 4 == 1) tickMelting(level);
+            if (level.getGameTime() % 4 == (isStructureController() ? 1 : 2)) tickMelting(level);
             // 冶炼炉允许原地合金；铸造炉按原版设计保留分离产物，不自动合金。
-            if (isSmelteryController() && level.getGameTime() % 4 == 2) tickStructureAlloying(level);
-        } else if (isDrain()) {
-            tickDrain(level);
+            if (isSmelteryController() && burnTime > 0 && level.getGameTime() % 4 == 2) runStructureAlloying(level, false, fuelTemperature);
         } else if (isFaucet()) {
             tickFaucet(level);
-        } else if (isTransferBlock()) {
-            if (transferCooldown <= 0) {
-                tickTransfer(level);
-                transferCooldown = 10;
-            } else {
-                transferCooldown--;
-            }
         }
         consumeBurningFuel();
     }
@@ -448,9 +482,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return;
         }
         // 控制器的 duration 是燃烧量，不是游戏刻数；液体已在点火时一次扣除。
-        if (isStructureController()) {
-            if (level != null && level.getGameTime() % 4 == 3) {
-                burnTime = Math.max(0, burnTime - structureFuelRate);
+        if (isMeltingBlock()) {
+            if (level != null && level.getGameTime() % 4 == (isStructureController() ? 3 : 2)) {
+                burnTime = Math.max(0, burnTime - (isStructureController() ? structureFuelRate : 1));
                 if (burnTime == 0) fuelTemperature = 0;
             }
             return;
@@ -527,36 +561,41 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 continue;
             }
             MeltingRecipe recipe = found.get().value();
+            FluidStack meltingResult = recipe.output(isFoundryController());
             inputRecipeTimes[index] = Math.max(0, recipe.time());
             inputRequiredTemperatures[index] = Math.max(0, recipe.temperature());
             if (displaySlot < 0) {
                 displaySlot = index;
             }
             // 已经熔化但空间不足的物品不重复点火，腾出空间后直接交付产物。
-            boolean heated = isStructureController() && inputProgress[index] >= recipe.time();
+            boolean heated = inputProgress[index] >= recipe.time();
             if (!heated && !hasHeat(level, recipe.temperature())) {
-                setInputProgress(index, isStructureController() ? Math.max(0, inputProgress[index] - 5) : 0);
+                // 仍有低温燃料时保持原热量，完全无燃料才冷却，与上游逐槽语义一致。
+                if (burnTime <= 0) setInputProgress(index, Math.max(0, inputProgress[index] - 5));
                 inputStatuses[index] = INPUT_STATUS_NO_HEAT;
                 continue;
             }
             // 结构熔炼允许先完成加热再等待储液空间，不能因满罐停止升温。
-            if ((!isStructureController() || heated)
-                && fill(recipe.result(), FluidAction.SIMULATE) != recipe.result().getAmount()) {
+            if (heated && fill(meltingResult, FluidAction.SIMULATE) != meltingResult.getAmount()) {
                 inputStatuses[index] = INPUT_STATUS_NO_SPACE;
                 continue;
             }
             inputStatuses[index] = INPUT_STATUS_PROCESSING;
             if (!heated) {
-                int rate = isStructureController() ? Math.max(1, fuelHeatingRate) : 1;
+                int rate = Math.max(1, fuelHeatingRate);
                 setInputProgress(index, (int) Math.min(recipe.time(), (long) inputProgress[index] + rate));
             }
             // 上游在下一次加热周期提交已完成的物品，避免本周期提前完成。
-            if (heated || !isStructureController() && inputProgress[index] >= recipe.time()) {
+            if (heated) {
                 inputs[index].shrink(1);
                 if (inputs[index].isEmpty()) {
                     inputs[index] = ItemStack.EMPTY;
                 }
-                fill(recipe.result(), FluidAction.EXECUTE);
+                fill(meltingResult, FluidAction.EXECUTE);
+                // 只有铸造炉提取副产物，注入顺序和不足容量时的损失遵循上游。
+                if (isFoundryController()) {
+                    for (FluidStack byproduct : recipe.byproductOutputs()) fill(byproduct, FluidAction.EXECUTE);
+                }
                 setInputProgress(index, 0);
             }
         }
@@ -586,9 +625,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     }
 
     /** 原地合金先在副本上完整扣料和验容，确认成功后再原子替换真实储量。 */
-    private void tickStructureAlloying(Level level) {
+    private boolean runStructureAlloying(Level level, boolean simulate, int temperature) {
         List<FluidStack> available = structureFluids.snapshot();
-        if (available.size() < 2) return;
+        if (available.size() < 2) return false;
         for (RecipeHolder<AlloyingRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ALLOYING.get())) {
             AlloyingRecipe recipe = holder.value();
             int[] selected = new int[recipe.ingredients().size()];
@@ -602,13 +641,15 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 }
             }
             if (result.fill(recipe.result(), capacity(), FluidAction.SIMULATE) != recipe.result().getAmount()) continue;
-            if (!hasHeat(level, recipe.temperature())) continue;
+            if (temperature < recipe.temperature()) continue;
+            if (simulate) return true;
             result.fill(recipe.result(), capacity(), FluidAction.EXECUTE);
             structureFluids.restore(result.snapshot());
             markFluidChanged();
             TinkerFoundry.LOGGER.debug("[alloy] controller={} recipe={} layers={} amount={}", worldPosition, holder.id(), structureFluids.size(), structureFluids.amount());
-            return;
+            return true;
         }
+        return false;
     }
 
     /** 回溯分配合金原料，标签重叠时仍保证同一流体层不会被重复扣除。 */
@@ -886,6 +927,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 先使用自定义燃料配方，再回退到 NeoForge 原版燃料值。 */
     private boolean hasHeat(Level level, int requiredTemperature) {
+        // 熔炼设备由第零相位统一点火，逐槽检查不得抽取燃料。
+        if (isMeltingBlock()) return burnTime > 0 && fuelTemperature >= requiredTemperature;
         if (consumeOwnFuel(level, requiredTemperature)) {
             return true;
         }
@@ -902,7 +945,128 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return false;
     }
 
-    /** 消耗当前设备、结构燃料罐或相邻加热器的一份燃料并返回是否满足温度。 */
+    /** 炉腔掉落物进入真实库存；可熔炼生物仅在受到伤害后产生配方流体。 */
+    private void tickEntities() {
+        net.minecraft.world.phys.AABB bounds = interiorBounds();
+        if (bounds == null || level == null) return;
+        // 物品实体吸入不依赖燃料；燃料只在首个符合条件的生物实体出现时检查一次。
+        Boolean canMelt = null;
+        boolean melted = false;
+        var inventory = new org.hp.tinker_foundry.common.FoundryItemHandler(this);
+        var blacklist = net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ENTITY_TYPE,
+            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "melting_blacklist"));
+        for (net.minecraft.world.entity.Entity entity : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, bounds)) {
+            if (!entity.isAlive()) continue;
+            if (entity instanceof net.minecraft.world.entity.item.ItemEntity item) {
+                ItemStack remaining = item.getItem().copy();
+                for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) remaining = inventory.insertItem(slot, remaining, false);
+                if (remaining.isEmpty()) item.discard();
+                else item.setItem(remaining);
+                continue;
+            }
+            // 创造玩家、抗火效果、实体黑名单及对应伤害免疫均禁止产液。
+            if (!(entity instanceof net.minecraft.world.entity.LivingEntity living)
+                || entity.getType().is(blacklist) || living.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE)
+                || living instanceof net.minecraft.world.entity.player.Player player && player.getAbilities().invulnerable) continue;
+            if (canMelt == null) canMelt = burnTime > 0 || findHeatingFuel(false) > 0;
+            if (!canMelt) continue;
+            var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE,
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID,
+                    entity.fireImmune() ? "smeltery_magic" : "smeltery_heat"));
+            var damageSource = level.damageSources().source(key);
+            if (living.isInvulnerableTo(damageSource)) continue;
+            FluidStack result = new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 10);
+            int damage = 2;
+            for (var holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ENTITY_MELTING.get())) {
+                if (holder.value().matchesEntity(entity.getType())) {
+                    result = holder.value().result().copy();
+                    damage = holder.value().damage();
+                    break;
+                }
+            }
+            // 只有实际伤害成功才输出流体，免疫或无敌实体不会消耗产液机会。
+            if (living.hurt(damageSource, damage)) {
+                fill(result, FluidAction.EXECUTE);
+                melted = true;
+                TinkerFoundry.LOGGER.debug("[entity-melting] controller={} entity={} damage={} result={}",
+                    worldPosition, entity.getType(), damage, result);
+            }
+        }
+        // 模拟找到燃料后真正发生伤害才点火，单次实体扫描最多消耗一份燃料。
+        if (melted && burnTime <= 0) findHeatingFuel(true);
+    }
+
+    /** 模拟或取得燃料，结构使用登记储罐，熔化器只访问正下方设备的标准能力。 */
+    private int findHeatingFuel(boolean consume) {
+        if (level == null || !structureValid) return 0;
+        java.util.List<IFluidHandler> handlers = new java.util.ArrayList<>();
+        if (isStructureController()) handlers.addAll(structureFuelSources());
+        else {
+            IFluidHandler below = level.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+                worldPosition.below(), Direction.UP);
+            if (below != null) handlers.add(below);
+        }
+        // 流体优先于固体，模拟时绝不修改燃料储罐。
+        for (IFluidHandler handler : handlers) {
+            for (int tank = 0; tank < handler.getTanks(); tank++) {
+                FluidStack stored = handler.getFluidInTank(tank);
+                for (RecipeHolder<FuelRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get())) {
+                    FuelRecipe recipe = holder.value();
+                    if (!recipe.matchesFluid(stored) || recipe.temperature() <= 0) continue;
+                    FluidStack cost = stored.copyWithAmount(Math.max(1, recipe.consumption()));
+                    FluidStack available = isStructureController() ? drainStructureFuel(cost, FluidAction.SIMULATE)
+                        : handler.drain(cost, FluidAction.SIMULATE);
+                    if (available.getAmount() != cost.getAmount()) continue;
+                    if (consume) {
+                        FluidStack drained = isStructureController() ? drainStructureFuel(cost, FluidAction.EXECUTE)
+                            : handler.drain(cost, FluidAction.EXECUTE);
+                        if (drained.getAmount() != cost.getAmount()) {
+                            TinkerFoundry.LOGGER.warn("[fuel] handler violated simulation at {} expected={} actual={}",
+                                worldPosition, cost.getAmount(), drained.getAmount());
+                            return 0;
+                        }
+                        burnTime = fuelBurnDuration = Math.max(1, recipe.duration());
+                        fuelTemperature = recipe.temperature();
+                        fuelHeatingRate = recipe.rate();
+                        if (handler instanceof FoundryBlockEntity source) structureFuelTankPos = source.worldPosition;
+                        setChanged();
+                        TinkerFoundry.LOGGER.debug("[fuel] pos={} recipe={} duration={} temperature={} rate={} consumedMb={}",
+                            worldPosition, holder.id(), burnTime, fuelTemperature, fuelHeatingRate, cost.getAmount());
+                    }
+                    return recipe.temperature();
+                }
+            }
+        }
+        // 多方块不接受固体燃料；熔化器从下方物品能力抽取并返还燃料容器。
+        if (isStructureController()) return 0;
+        net.neoforged.neoforge.items.IItemHandler items = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, worldPosition.below(), Direction.UP);
+        if (items == null) return 0;
+        for (int slot = 0; slot < items.getSlots(); slot++) {
+            ItemStack candidate = items.extractItem(slot, 1, true);
+            int duration = candidate.getBurnTime(null) / 4;
+            if (duration <= 0) continue;
+            if (consume) {
+                ItemStack taken = items.extractItem(slot, 1, false);
+                if (taken.isEmpty() || !ItemStack.isSameItemSameComponents(candidate, taken)) return 0;
+                burnTime = fuelBurnDuration = duration;
+                fuelTemperature = 800;
+                fuelHeatingRate = 8;
+                ItemStack remains = taken.getCraftingRemainingItem();
+                for (int destination = 0; destination < items.getSlots() && !remains.isEmpty(); destination++) {
+                    remains = items.insertItem(destination, remains, false);
+                }
+                if (!remains.isEmpty()) net.minecraft.world.Containers.dropItemStack(level,
+                    worldPosition.getX() + 0.5, worldPosition.getY(), worldPosition.getZ() + 0.5, remains);
+                setChanged();
+                TinkerFoundry.LOGGER.debug("[fuel] solid pos={} duration={} temperature=800 rate=8", worldPosition, duration);
+            }
+            return 800;
+        }
+        return 0;
+    }
+
+    /** 独立合金设备的旧有热源处理，不参与熔炼设备的分相点火。 */
     private boolean consumeOwnFuel(Level level, int requiredTemperature) {
         // 控制器按配方一次抽取燃料并保留燃烧时间，避免把整桶燃料藏在产物槽之外。
         if (isStructureController()) {
@@ -1028,7 +1192,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return 0;
         }
         // 熔炼器、浇注台、浇注盆和浇注储液罐保留一个物品输入槽供直接交互或自动化使用。
-        if (isMeltingBlock() || isCastingBlock() || isCastingTankBlock()) {
+        if (isMeltingBlock()) return 3;
+        if (isCastingBlock() || isCastingTankBlock()) {
             return 1;
         }
         return 0;
@@ -1047,7 +1212,29 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 计算随真实槽数增长的菜单数据长度，额外槽按进度、总时长、温度、状态排列。 */
     public static int menuDataCount(int slots) {
-        return MENU_DATA_COUNT + Math.max(0, slots - BASE_INPUT_SLOTS) * 4;
+        return MENU_DATA_COUNT;
+    }
+
+    /** 超出基础槽数的数据不使用原版短整数编号通道。 */
+    public int inputHeatValue(int slot, int field) {
+        if (slot < 0 || slot >= inputs.length) return 0;
+        return switch (field) {
+            case 0 -> inputProgress[slot];
+            case 1 -> inputRecipeTimes[slot];
+            case 2 -> inputRequiredTemperatures[slot];
+            default -> inputStatuses[slot];
+        };
+    }
+
+    /** 仅传输非空输入的槽号及四项热量状态，避免大型空炉发送巨量零值。 */
+    public int[] heatSnapshot() {
+        java.util.stream.IntStream.Builder values = java.util.stream.IntStream.builder();
+        for (int slot = 0; slot < inputSlotCount(); slot++) {
+            if (inputs[slot].isEmpty()) continue;
+            values.add(slot);
+            for (int field = 0; field < 4; field++) values.add(inputHeatValue(slot, field));
+        }
+        return values.build().toArray();
     }
 
     /** 扩容保留输入和热量；缩容先返还桶槽，再把超出部分掉落在控制器旁。 */
@@ -1318,7 +1505,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 原版多方块熔炼每槽最多一个物品，漏斗也遵守这一限制。 */
     @Override
     public int getMaxStackSize() {
-        return isStructureController() ? 1 : 64;
+        return isMeltingBlock() ? 1 : 64;
     }
 
     /** 判断设备物品槽是否全部为空。 */
@@ -1381,7 +1568,15 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         copy.setCount(Math.min(copy.getCount(), getMaxStackSize(copy)));
         int input = inputIndex(slot);
         if (input >= 0) {
+            // 更换或取出物品必须清除旧配方热量，不能把上一件物品的进度移给新物品。
+            if (!ItemStack.isSameItemSameComponents(inputs[input], copy) || inputs[input].getCount() != copy.getCount()) {
+                setInputProgress(input, 0);
+                inputStatuses[input] = INPUT_STATUS_EMPTY;
+                inputRecipeTimes[input] = 0;
+                inputRequiredTemperatures[input] = 0;
+            }
             inputs[input] = copy;
+            worldSyncDirty = true;
         } else if (slot == FUEL_SLOT) {
             fuel = copy;
         } else if (slot == OUTPUT_SLOT) {
@@ -1404,7 +1599,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (input >= 0) {
             return input < inputSlotCount() && (isStructureController() || stack.getBurnTime(null) <= 0);
         }
-        return !isStructureController() && slot == FUEL_SLOT && stack.getBurnTime(null) > 0;
+        return isHeater() && slot == FUEL_SLOT && stack.getBurnTime(null) > 0;
     }
 
     /** 菜单打开期间只允许玩家在设备有效距离内操作。 */
@@ -1453,9 +1648,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!fuelFluid.isEmpty()) tag.put("FuelFluid", fuelFluid.save(registries));
         tag.putInt("Progress", progress);
         tag.putInt("ProcessTime", processTime);
-        for (int index = 0; index < inputProgress.length; index++) {
-            tag.putInt("InputProgress" + index, inputProgress[index]);
-        }
+        tag.putIntArray("InputProgress", inputProgress);
         tag.putInt("BurnTime", burnTime);
         tag.putInt("FuelTemperature", fuelTemperature);
         tag.putInt("FuelHeatingRate", fuelHeatingRate);
@@ -1466,6 +1659,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         tag.putInt("StructureCapacity", structureCapacity);
         tag.putBoolean("StructureValid", structureValid);
         tag.putInt("StructureInteriorBlocks", structureInteriorBlocks);
+        // 客户端世界渲染和重载后的附件归属使用相同结构边界。
+        if (structureMin != null) tag.putLong("StructureMin", structureMin.asLong());
+        if (structureMax != null) tag.putLong("StructureMax", structureMax.asLong());
+        if (drainControllerPos != null) tag.putLong("Controller", drainControllerPos.asLong());
         tag.putInt("TransferCooldown", transferCooldown);
         ListTag alloyInputTags = new ListTag();
         for (int index = 0; index < alloyInputs.length; index++) {
@@ -1534,8 +1731,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         progress = tag.getInt("Progress");
         processTime = tag.getInt("ProcessTime");
+        int[] storedProgress = tag.getIntArray("InputProgress");
         for (int index = 0; index < inputProgress.length; index++) {
-            inputProgress[index] = Math.max(0, tag.getInt("InputProgress" + index));
+            inputProgress[index] = index < storedProgress.length ? Math.max(0, storedProgress[index]) : 0;
         }
         burnTime = tag.getInt("BurnTime");
         fuelTemperature = tag.getInt("FuelTemperature");
@@ -1547,6 +1745,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         structureCapacity = tag.getInt("StructureCapacity");
         structureValid = tag.getBoolean("StructureValid");
         structureInteriorBlocks = tag.getInt("StructureInteriorBlocks");
+        structureMin = tag.contains("StructureMin") ? BlockPos.of(tag.getLong("StructureMin")) : null;
+        structureMax = tag.contains("StructureMax") ? BlockPos.of(tag.getLong("StructureMax")) : null;
+        drainControllerPos = tag.contains("Controller") ? BlockPos.of(tag.getLong("Controller")) : null;
         structureDirty = true;
         transferCooldown = tag.getInt("TransferCooldown");
         // 世界更新包和菜单更新都应保留同一份物品，日志用于复测是否还会被清空。
@@ -1574,7 +1775,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         updateLanternLight();
         setChanged();
         if (level != null && !level.isClientSide) {
-            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+            worldSyncDirty = true;
             // GUI 有序流体列表与世界渲染更新同时发送，空闲时的注入和选择也必须同步。
             FoundryNetworking.sync(this);
         }
@@ -1618,6 +1819,20 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return;
         }
         structureFluids.restore(payload.structureFluids());
+        // 热量快照不覆盖物品，物品仍由原版容器协议同步。
+        java.util.Arrays.fill(inputProgress, 0);
+        java.util.Arrays.fill(inputRecipeTimes, 0);
+        java.util.Arrays.fill(inputRequiredTemperatures, 0);
+        java.util.Arrays.fill(inputStatuses, INPUT_STATUS_EMPTY);
+        int[] heat = payload.heat();
+        for (int offset = 0; offset < heat.length; offset += 5) {
+            int slot = heat[offset];
+            if (slot < 0 || slot >= inputs.length) continue;
+            inputProgress[slot] = heat[offset + 1];
+            inputRecipeTimes[slot] = heat[offset + 2];
+            inputRequiredTemperatures[slot] = heat[offset + 3];
+            inputStatuses[slot] = heat[offset + 4];
+        }
         if (isHeater()) {
             fuelFluid = payload.fuelFluid().copy();
         } else {
@@ -1720,7 +1935,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 判断储液罐是否接受熔融金属或当前燃料配方支持的流体。 */
     private boolean acceptsTankFluid(FluidStack resource) {
         // 燃料罐允许保存不同燃料；能否燃烧由服务器燃料配方决定。
-        return isFuelTankBlock() ? !resource.isEmpty() : TFFluids.isFoundryFluid(resource.getFluid());
+        return !resource.isEmpty();
     }
 
     /** 返回当前宿主是否是浇注设备。 */
@@ -2028,7 +2243,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         List<FoundryBlockEntity> sources = new java.util.ArrayList<>();
         if (level == null) return sources;
         for (BlockPos pos : structureFuelTanks) {
-            if (level.getBlockEntity(pos) instanceof FoundryBlockEntity source && source.isFuelTankBlock()) {
+            if (level.isLoaded(pos) && level.getBlockEntity(pos) instanceof FoundryBlockEntity source && source.isTankBlock()) {
                 if (pos.equals(structureFuelTankPos)) sources.add(0, source);
                 else sources.add(source);
             }
@@ -2160,10 +2375,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.isFluidValid(tank, resource);
         if (resource.isEmpty()) return false;
-        if (isStructureController()) return tank >= 0 && tank < getTanks() && TFFluids.isFoundryFluid(resource.getFluid());
+        if (isStructureController()) return tank >= 0 && tank < getTanks() && !resource.isEmpty();
         if (isHeater()) return tank == 0 && (fuelFluid.isEmpty() || FluidStack.isSameFluid(fuelFluid, resource));
         if (isFuelTankBlock()) return tank == 0 && acceptsTankFluid(resource) && (fluid.isEmpty() || FluidStack.isSameFluid(fluid, resource));
-        if (!org.hp.tinker_foundry.registry.TFFluids.isFoundryFluid(resource.getFluid())) return false;
+        if (resource.isEmpty()) return false;
         if (isAlloyer()) return tank >= 0 && tank < MAX_ALLOY_INPUTS && (alloyInputs[tank].isEmpty() || FluidStack.isSameFluid(alloyInputs[tank], resource));
         return tank == 0 && (fluid.isEmpty() || FluidStack.isSameFluid(fluid, resource));
     }
@@ -2198,16 +2413,37 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 只接受仍有效且边界仍包含本排液口的控制器，避免拆炉后使用陈旧绑定。 */
     private FoundryBlockEntity drainController() {
-        if (!isDrain() || level == null || drainControllerPos == null) return null;
+        if (!(isDrain() || getBlockState().is(TFBlocks.DUCT.get())) ) return null;
+        return attachedController();
+    }
+
+    /** 每次访问重新核实附件仍在有效墙面上，缓存能力不能绕过拆炉检查。 */
+    public FoundryBlockEntity attachedController() {
+        if (level == null || drainControllerPos == null || !level.isLoaded(drainControllerPos)) return null;
         if (!(level.getBlockEntity(drainControllerPos) instanceof FoundryBlockEntity controller)
             || !controller.isStructureController()) return null;
         controller.refreshStructureIfDirty();
         if (!controller.structureValid || controller.structureMin == null || controller.structureMax == null) return null;
-        BlockPos min = controller.structureMin;
-        BlockPos max = controller.structureMax;
-        return worldPosition.getX() >= min.getX() && worldPosition.getX() <= max.getX()
-            && worldPosition.getY() >= min.getY() && worldPosition.getY() <= max.getY()
-            && worldPosition.getZ() >= min.getZ() && worldPosition.getZ() <= max.getZ() ? controller : null;
+        return controller.isStructurePart(worldPosition) ? controller : null;
+    }
+
+    /** 底板中心与墙面属于炉体，冶炼炉忽略底板外沿及墙角。 */
+    public boolean isStructurePart(BlockPos pos) {
+        if (structureMin == null || structureMax == null) return false;
+        int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+        if (x < structureMin.getX() || x > structureMax.getX() || y < structureMin.getY()
+            || y > structureMax.getY() || z < structureMin.getZ() || z > structureMax.getZ()) return false;
+        boolean edgeX = x == structureMin.getX() || x == structureMax.getX();
+        boolean edgeZ = z == structureMin.getZ() || z == structureMax.getZ();
+        if (y == structureMin.getY()) return isFoundryController() || !edgeX && !edgeZ;
+        return (edgeX || edgeZ) && (isFoundryController() || !(edgeX && edgeZ));
+    }
+
+    /** 世界显示和实体交互共享炉腔范围，顶部使用方块上边界。 */
+    public net.minecraft.world.phys.AABB interiorBounds() {
+        if (!structureValid || structureMin == null || structureMax == null) return null;
+        return new net.minecraft.world.phys.AABB(structureMin.getX() + 1, structureMin.getY() + 1, structureMin.getZ() + 1,
+            structureMax.getX(), structureMax.getY() + 1, structureMax.getZ());
     }
 
     /** 模拟或执行流体注入。 */

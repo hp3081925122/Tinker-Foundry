@@ -1,9 +1,0 @@
-{
-  "type": "tinker_foundry:alloying",
-  "ingredients": [
-    {"ingredient": {"fluid": "tinker_foundry:copper"}, "amount": 90},
-    {"ingredient": {"fluid": "tinker_foundry:zinc"}, "amount": 90}
-  ],
-  "result": {"id": "tinker_foundry:brass", "amount": 180},
-  "temperature": 605
-}

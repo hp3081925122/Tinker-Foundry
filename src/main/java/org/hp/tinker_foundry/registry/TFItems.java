@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.WrittenBookItem;
 import net.neoforged.neoforge.registries.DeferredItem;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.common.FluidValues;
@@ -96,40 +97,12 @@ public final class TFItems {
     /** 一次性粒红砂模。 */
     public static final DeferredItem<Item> NUGGET_RED_SAND_CAST = simple("nugget_red_sand_cast");
 
-    /** 熔融铁桶。 */
-    public static final DeferredItem<BucketItem> IRON_BUCKET = bucket("iron", TFFluids.IRON);
-    /** 熔融金桶。 */
-    public static final DeferredItem<BucketItem> GOLD_BUCKET = bucket("gold", TFFluids.GOLD);
-    /** 熔融铜桶。 */
-    public static final DeferredItem<BucketItem> COPPER_BUCKET = bucket("copper", TFFluids.COPPER);
-    /** 熔融锡桶。 */
-    public static final DeferredItem<BucketItem> TIN_BUCKET = bucket("tin", TFFluids.TIN);
-    /** 熔融铅桶。 */
-    public static final DeferredItem<BucketItem> LEAD_BUCKET = bucket("lead", TFFluids.LEAD);
-    /** 熔融银桶。 */
-    public static final DeferredItem<BucketItem> SILVER_BUCKET = bucket("silver", TFFluids.SILVER);
-    /** 熔融镍桶。 */
-    public static final DeferredItem<BucketItem> NICKEL_BUCKET = bucket("nickel", TFFluids.NICKEL);
-    /** 熔融锌桶。 */
-    public static final DeferredItem<BucketItem> ZINC_BUCKET = bucket("zinc", TFFluids.ZINC);
-    /** 熔融铝桶。 */
-    public static final DeferredItem<BucketItem> ALUMINUM_BUCKET = bucket("aluminum", TFFluids.ALUMINUM);
-    /** 熔融钢桶。 */
-    public static final DeferredItem<BucketItem> STEEL_BUCKET = bucket("steel", TFFluids.STEEL);
-    /** 熔融青铜桶。 */
-    public static final DeferredItem<BucketItem> BRONZE_BUCKET = bucket("bronze", TFFluids.BRONZE);
-    /** 熔融黄铜桶。 */
-    public static final DeferredItem<BucketItem> BRASS_BUCKET = bucket("brass", TFFluids.BRASS);
-    /** 熔融电金桶。 */
-    public static final DeferredItem<BucketItem> ELECTRUM_BUCKET = bucket("electrum", TFFluids.ELECTRUM);
-    /** 熔融殷钢桶。 */
-    public static final DeferredItem<BucketItem> INVAR_BUCKET = bucket("invar", TFFluids.INVAR);
-    /** 熔融康铜桶。 */
-    public static final DeferredItem<BucketItem> CONSTANTAN_BUCKET = bucket("constantan", TFFluids.CONSTANTAN);
     /** 便携储液罐。 */
     public static final DeferredItem<PortableTankItem> PORTABLE_TANK = TinkerFoundry.ITEMS.register("portable_tank", () -> new PortableTankItem(8000, new Item.Properties()));
     /** 铜制便携罐。 */
     public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.register("copper_canister", () -> new PortableTankItem(FluidValues.INGOT, new Item.Properties()));
+    /** 仅包含本项目冶炼内容的教程书。 */
+    public static final DeferredItem<WrittenBookItem> GUIDE_BOOK = TinkerFoundry.ITEMS.register("foundry_guide", () -> new WrittenBookItem(new Item.Properties().stacksTo(1)));
 
     /** 注册方块物品。 */
     private static DeferredItem<Item> block(String name, net.neoforged.neoforge.registries.DeferredBlock<? extends net.minecraft.world.level.block.Block> block) {
@@ -169,25 +142,20 @@ public final class TFItems {
         return Map.copyOf(items);
     }
 
+    /** 实体产液和副产物使用相同的标准流体桶能力。 */
+    public static final Map<String, DeferredItem<BucketItem>> EXTRA_BUCKETS = registerExtraBuckets();
+
+    /** 延迟构造附加流体桶映射，防止注册时循环取值。 */
+    private static Map<String, DeferredItem<BucketItem>> registerExtraBuckets() {
+        Map<String, DeferredItem<BucketItem>> buckets = new java.util.LinkedHashMap<>();
+        TFFluids.EXTRA_SOURCES.forEach((name, fluid) -> buckets.put(name, bucket(name, fluid)));
+        return buckets;
+    }
+
     /** 为流体基类提供对应桶的延迟查找。 */
     public static Item bucketFor(String name) {
         return switch (name) {
-            case "iron" -> IRON_BUCKET.get();
-            case "gold" -> GOLD_BUCKET.get();
-            case "copper" -> COPPER_BUCKET.get();
-            case "tin" -> TIN_BUCKET.get();
-            case "lead" -> LEAD_BUCKET.get();
-            case "silver" -> SILVER_BUCKET.get();
-            case "nickel" -> NICKEL_BUCKET.get();
-            case "zinc" -> ZINC_BUCKET.get();
-            case "aluminum" -> ALUMINUM_BUCKET.get();
-            case "steel" -> STEEL_BUCKET.get();
-            case "bronze" -> BRONZE_BUCKET.get();
-            case "brass" -> BRASS_BUCKET.get();
-            case "electrum" -> ELECTRUM_BUCKET.get();
-            case "invar" -> INVAR_BUCKET.get();
-            case "constantan" -> CONSTANTAN_BUCKET.get();
-            default -> throw new IllegalArgumentException("Unknown foundry fluid: " + name);
+            default -> EXTRA_BUCKETS.get(name).get();
         };
     }
 

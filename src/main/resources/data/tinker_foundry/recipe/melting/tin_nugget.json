@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:nuggets/tin"},
-  "result": {"id": "tinker_foundry:tin", "amount": 10},
-  "temperature": 225,
-  "time": 13
-}

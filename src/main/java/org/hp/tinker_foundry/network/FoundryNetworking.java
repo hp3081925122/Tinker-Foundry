@@ -12,7 +12,7 @@ import org.hp.tinker_foundry.menu.FoundryMenu;
 /** 注册并发送冶炼设备的独立客户端状态网络层。 */
 public final class FoundryNetworking {
     /** 当前模组网络协议版本。 */
-    private static final String PROTOCOL_VERSION = "4";
+    private static final String PROTOCOL_VERSION = "5";
 
     /** 在 NeoForge 模组总线上注册客户端状态载荷。 */
     public static void register(RegisterPayloadHandlersEvent event) {
@@ -49,9 +49,11 @@ public final class FoundryNetworking {
         if (!(entity.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) {
             return;
         }
-        FoundryStatePayload payload = FoundryStatePayload.from(entity);
+        FoundryStatePayload payload = null;
         for (ServerPlayer player : level.players()) {
             if (player.containerMenu instanceof FoundryMenu menu && menu.blockEntity() == entity) {
+                // 无人查看时不构建热量数组；多名查看者复用同一份只读快照。
+                if (payload == null) payload = FoundryStatePayload.from(entity);
                 PacketDistributor.sendToPlayer(player, payload);
             }
         }

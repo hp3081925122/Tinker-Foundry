@@ -16,6 +16,11 @@ import org.hp.tinker_foundry.recipe.MoldingRecipe;
 public final class TFRecipes {
     /** 熔炼配方类型。 */
     public static final DeferredHolder<RecipeType<?>, RecipeType<MeltingRecipe>> MELTING = type("melting");
+    /** 实体熔炼使用独立配方类型，支持数据包重载。 */
+    public static final DeferredHolder<RecipeType<?>, RecipeType<org.hp.tinker_foundry.recipe.EntityMeltingRecipe>> ENTITY_MELTING = type("entity_melting");
+    public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<org.hp.tinker_foundry.recipe.EntityMeltingRecipe>> ENTITY_MELTING_SERIALIZER =
+        TinkerFoundry.RECIPE_SERIALIZERS.register("entity_melting", () -> new FoundryRecipeSerializer<>(
+            org.hp.tinker_foundry.recipe.EntityMeltingRecipe.CODEC, org.hp.tinker_foundry.recipe.EntityMeltingRecipe.STREAM_CODEC));
     /** 合金配方类型。 */
     public static final DeferredHolder<RecipeType<?>, RecipeType<AlloyingRecipe>> ALLOYING = type("alloying");
     /** 浇注配方类型。 */

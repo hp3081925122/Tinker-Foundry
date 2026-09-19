@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/wither",
+  "result": {
+    "id": "tinker_foundry:liquid_soul",
+    "amount": 50
+  },
+  "damage": 2
+}

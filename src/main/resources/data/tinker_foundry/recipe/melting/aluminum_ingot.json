@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:ingots/aluminum"},
-  "result": {"id": "tinker_foundry:aluminum", "amount": 90},
-  "temperature": 425,
-  "time": 47
-}

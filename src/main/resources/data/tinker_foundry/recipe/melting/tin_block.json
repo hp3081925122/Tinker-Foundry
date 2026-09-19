@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:storage_blocks/tin"},
-  "result": {"id": "tinker_foundry:tin", "amount": 810},
-  "temperature": 225,
-  "time": 117
-}

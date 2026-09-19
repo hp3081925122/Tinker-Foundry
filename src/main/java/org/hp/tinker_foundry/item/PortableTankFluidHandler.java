@@ -1,15 +1,17 @@
 package org.hp.tinker_foundry.item;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import com.mojang.serialization.DataResult;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
+import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.registry.TFFluids;
+import org.hp.tinker_foundry.registry.TFDataComponents;
 
 /** 使用物品数据组件保存流体，不依赖旧版物品 NBT API。 */
 public final class PortableTankFluidHandler implements IFluidHandlerItem {
@@ -31,25 +33,27 @@ public final class PortableTankFluidHandler implements IFluidHandlerItem {
 
     /** 读取物品当前流体。 */
     private FluidStack fluid() {
-        var tag = container.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).getUnsafe();
-        if (!tag.contains("Fluid", 8) || !tag.contains("Amount", 3)) return FluidStack.EMPTY;
-        ResourceLocation id = ResourceLocation.tryParse(tag.getString("Fluid"));
-        if (id == null) return FluidStack.EMPTY;
-        var fluid = BuiltInRegistries.FLUID.get(id);
-        return fluid == Fluids.EMPTY ? FluidStack.EMPTY : new FluidStack(fluid, tag.getInt("Amount"));
+        CustomData data = container.getOrDefault(TFDataComponents.FLUID.get(), CustomData.EMPTY);
+        if (data.isEmpty()) {
+            return FluidStack.EMPTY;
+        }
+        DataResult<FluidStack> result = FluidStack.CODEC.parse(NbtOps.INSTANCE, data.copyTag());
+        return result.resultOrPartial(error -> TinkerFoundry.LOGGER.warn("Failed to decode portable tank fluid: {}", error))
+            .orElse(FluidStack.EMPTY).copy();
     }
 
     /** 保存物品当前流体。 */
     private void setFluid(FluidStack stack) {
         if (stack.isEmpty()) {
-            container.remove(DataComponents.CUSTOM_DATA);
+            container.remove(TFDataComponents.FLUID.get());
             return;
         }
-        CustomData.set(DataComponents.CUSTOM_DATA, container, new net.minecraft.nbt.CompoundTag());
-        CustomData.update(DataComponents.CUSTOM_DATA, container, tag -> {
-            tag.putString("Fluid", BuiltInRegistries.FLUID.getKey(stack.getFluid()).toString());
-            tag.putInt("Amount", stack.getAmount());
-        });
+        DataResult<Tag> result = FluidStack.CODEC.encodeStart(NbtOps.INSTANCE, stack.copy());
+        result.resultOrPartial(error -> TinkerFoundry.LOGGER.warn("Failed to encode portable tank fluid: {}", error))
+            .ifPresent(tag -> {
+                // FluidStack.CODEC 的成功结果必须是复合标签，避免异常数据写入物品组件。
+                if (tag instanceof CompoundTag compound) container.set(TFDataComponents.FLUID.get(), CustomData.of(compound));
+            });
     }
 
     /** 返回单槽能力。 */
@@ -73,15 +77,14 @@ public final class PortableTankFluidHandler implements IFluidHandlerItem {
     /** 便携罐接受所有非空流体。 */
     @Override
     public boolean isFluidValid(int tank, FluidStack stack) {
-        return tank == 0 && !stack.isEmpty() && (TFFluids.isFoundryFluid(stack.getFluid())
-            || allowFuel);
+        return tank == 0 && !stack.isEmpty();
     }
 
     /** 注入流体并保存到物品组件。 */
     @Override
     public int fill(FluidStack resource, FluidAction action) {
         FluidStack current = fluid();
-        if (!isFluidValid(0, resource) || !current.isEmpty() && !FluidStack.isSameFluid(current, resource)) return 0;
+        if (!isFluidValid(0, resource) || !current.isEmpty() && !FluidStack.isSameFluidSameComponents(current, resource)) return 0;
         int amount = Math.min(resource.getAmount(), capacity - current.getAmount());
         if (amount > 0 && action.execute()) setFluid(current.isEmpty() ? resource.copyWithAmount(amount) : current.copyWithAmount(current.getAmount() + amount));
         return amount;
@@ -91,7 +94,7 @@ public final class PortableTankFluidHandler implements IFluidHandlerItem {
     @Override
     public FluidStack drain(FluidStack resource, FluidAction action) {
         FluidStack current = fluid();
-        return resource.isEmpty() || current.isEmpty() || !FluidStack.isSameFluid(current, resource) ? FluidStack.EMPTY : drain(resource.getAmount(), action);
+        return resource.isEmpty() || current.isEmpty() || !FluidStack.isSameFluidSameComponents(current, resource) ? FluidStack.EMPTY : drain(resource.getAmount(), action);
     }
 
     /** 按数量抽取。 */

@@ -1,6 +1,0 @@
-{
-  "type": "tinker_foundry:casting",
-  "fluid": {"ingredient": {"fluid": "tinker_foundry:iron"}, "amount": 810},
-  "result": {"id": "minecraft:iron_block", "count": 1},
-  "time": 180
-}

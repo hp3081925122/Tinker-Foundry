@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:storage_blocks/silver"},
-  "result": {"id": "tinker_foundry:silver", "amount": 810},
-  "temperature": 790,
-  "time": 179
-}

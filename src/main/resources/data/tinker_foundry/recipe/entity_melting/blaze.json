@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/blazes",
+  "result": {
+    "id": "tinker_foundry:blazing_blood",
+    "amount": 20
+  },
+  "damage": 2
+}

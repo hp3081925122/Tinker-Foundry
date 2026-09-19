@@ -13,7 +13,7 @@ import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 向已打开界面的客户端发送流体、进度和结构状态快照。 */
 public record FoundryStatePayload(BlockPos pos, FluidStack fluid, FluidStack fuelFluid, List<FluidStack> alloyInputs, List<FluidStack> structureFluids,
-                                  int progress, int processTime, int structureCapacity, boolean structureValid)
+                                  int progress, int processTime, int structureCapacity, boolean structureValid, int[] heat)
     implements CustomPacketPayload {
     /** 独立模组的客户端状态载荷类型。 */
     public static final Type<FoundryStatePayload> TYPE = new Type<>(
@@ -46,8 +46,15 @@ public record FoundryStatePayload(BlockPos pos, FluidStack fluid, FluidStack fue
         if (layers < 0 || layers > org.hp.tinker_foundry.common.StructureFluidTank.MAX_LAYERS) throw new IllegalArgumentException("Invalid structure fluid count: " + layers);
         List<FluidStack> structureFluids = new ArrayList<>(layers);
         for (int index = 0; index < layers; index++) structureFluids.add(readFluid(buffer));
-        return new FoundryStatePayload(pos, fluid, fuelFluid, alloyInputs, structureFluids, buffer.readVarInt(), buffer.readVarInt(),
-            buffer.readVarInt(), buffer.readBoolean());
+        int progress = buffer.readVarInt(), time = buffer.readVarInt(), capacity = buffer.readVarInt();
+        boolean valid = buffer.readBoolean();
+        int size = buffer.readVarInt();
+        if (size < 0 || size > FoundryBlockEntity.MAX_STRUCTURE_INPUTS * 5 || size % 5 != 0) {
+            throw new IllegalArgumentException("Invalid heat snapshot size: " + size);
+        }
+        int[] heat = new int[size];
+        for (int index = 0; index < size; index++) heat[index] = buffer.readVarInt();
+        return new FoundryStatePayload(pos, fluid, fuelFluid, alloyInputs, structureFluids, progress, time, capacity, valid, heat);
     }
 
     /** 向网络写入一个设备状态快照。 */
@@ -63,6 +70,8 @@ public record FoundryStatePayload(BlockPos pos, FluidStack fluid, FluidStack fue
         buffer.writeVarInt(payload.processTime);
         buffer.writeVarInt(payload.structureCapacity);
         buffer.writeBoolean(payload.structureValid);
+        buffer.writeVarInt(payload.heat.length);
+        for (int value : payload.heat) buffer.writeVarInt(value);
     }
 
     /** 1.21.1 的 FluidStack 流编码器不接受空栈，因此单独写入存在标记。 */
@@ -89,7 +98,7 @@ public record FoundryStatePayload(BlockPos pos, FluidStack fluid, FluidStack fue
             ? entity.getFluidInTank(FoundryBlockEntity.ALLOY_OUTPUT_TANK) : entity.getFluidInTank(0);
         FluidStack fuelFluid = entity.isHeater() ? fluid : FluidStack.EMPTY;
         return new FoundryStatePayload(entity.getBlockPos(), fluid, fuelFluid, alloyInputs, entity.structureFluidLayers(), entity.progress(),
-            entity.processTime(), entity.structureCapacity(), entity.isStructureValid());
+            entity.processTime(), entity.structureCapacity(), entity.isStructureValid(), entity.heatSnapshot());
     }
 
     /** 返回独立网络载荷类型。 */

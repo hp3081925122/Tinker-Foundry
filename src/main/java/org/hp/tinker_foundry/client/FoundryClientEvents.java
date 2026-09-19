@@ -35,34 +35,15 @@ public final class FoundryClientEvents {
     /** 为所有熔融流体注册独立颜色和本模组命名空间的流体动画纹理。 */
     @SubscribeEvent
     public static void registerFluidExtensions(RegisterClientExtensionsEvent event) {
-        event.registerFluidType(new MoltenFluidExtensions(0xFFE1E1E1), TFFluids.IRON_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFFFD43B), TFFluids.GOLD_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFF47B45), TFFluids.COPPER_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFD5E4E8), TFFluids.TIN_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFF6B6D83), TFFluids.LEAD_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFE7EDF2), TFFluids.SILVER_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFD6CDB7), TFFluids.NICKEL_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFC6D4DA), TFFluids.ZINC_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFD8D8D8), TFFluids.ALUMINUM_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFF6F7784), TFFluids.STEEL_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFCD7842), TFFluids.BRONZE_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFF0B83F), TFFluids.BRASS_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFF5E276), TFFluids.ELECTRUM_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFB6B8AD), TFFluids.INVAR_TYPE.get());
-        event.registerFluidType(new MoltenFluidExtensions(0xFFD89456), TFFluids.CONSTANTAN_TYPE.get());
+        TFFluids.EXTRA_TYPES.forEach((name, type) -> event.registerFluidType(new MoltenFluidExtensions(TFFluids.EXTRA_COLORS.get(name)), type.get()));
     }
 
     /** 注册动态流体容器的流体色，保证创造栏和手持容器显示真实熔融颜色。 */
     @SubscribeEvent
     public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
         DynamicFluidContainerModel.Colors colors = new DynamicFluidContainerModel.Colors();
-        event.register(colors,
-            TFItems.IRON_BUCKET.get(), TFItems.GOLD_BUCKET.get(), TFItems.COPPER_BUCKET.get(),
-            TFItems.TIN_BUCKET.get(), TFItems.LEAD_BUCKET.get(), TFItems.SILVER_BUCKET.get(),
-            TFItems.NICKEL_BUCKET.get(), TFItems.ZINC_BUCKET.get(), TFItems.ALUMINUM_BUCKET.get(),
-            TFItems.STEEL_BUCKET.get(), TFItems.BRONZE_BUCKET.get(), TFItems.BRASS_BUCKET.get(),
-            TFItems.ELECTRUM_BUCKET.get(), TFItems.INVAR_BUCKET.get(), TFItems.CONSTANTAN_BUCKET.get(),
-            TFItems.PORTABLE_TANK.get(), TFItems.COPPER_CANISTER.get());
+        TFItems.EXTRA_BUCKETS.values().forEach(bucket -> event.register(colors, bucket.get()));
+        event.register(colors, TFItems.PORTABLE_TANK.get(), TFItems.COPPER_CANISTER.get());
         // 金属锭和金属粒使用同一套灰度像素材质，由客户端颜色处理器注入对应金属色。
         for (String metal : TFBlocks.INTERNAL_METALS) {
             int tint = metalColor(metal);

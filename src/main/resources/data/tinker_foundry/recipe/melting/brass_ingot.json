@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:ingots/brass"},
-  "result": {"id": "tinker_foundry:brass", "amount": 90},
-  "temperature": 605,
-  "time": 54
-}

@@ -17,12 +17,19 @@ public final class SmelteryMultiblock {
         return RectangularStructureDetector.validate(level, controller, new RectangularStructureDetector.Rules() {
             @Override
             public boolean isCasing(BlockState state) {
-                return state.is(TFBlocks.SEARED_BRICK.get()) || state.is(TFBlocks.SEARED_GLASS.get())
-                    || state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SEARED_WALL.get())
-                    || state.is(TFBlocks.SEARED_FANCY_BRICK.get()) || state.is(TFBlocks.SEARED_LADDER.get())
-                    || state.is(TFBlocks.SEARED_TANK.get()) || state.is(TFBlocks.SEARED_FUEL_TANK.get())
-                    || state.is(TFBlocks.SEARED_CASTING_TANK.get()) || state.is(TFBlocks.DRAIN.get())
-                    || state.is(TFBlocks.DUCT.get()) || state.is(TFBlocks.CHUTE.get());
+                return state.is(StructureTags.SMELTERY_WALL);
+            }
+
+            /** 底板使用独立标签，不接受玻璃或储罐替代底板中心。 */
+            @Override
+            public boolean isFloor(BlockState state) {
+                return state.is(StructureTags.SMELTERY_FLOOR);
+            }
+
+            /** 两种炉体的角框要求不同。 */
+            @Override
+            public boolean hasFrame() {
+                return false;
             }
 
             @Override
@@ -48,7 +55,7 @@ public final class SmelteryMultiblock {
 
     /** 两种炉体共同允许的炉腔内容；1.20.1 官方规则只接受空气。 */
     static boolean isSharedInterior(BlockState state) {
-        return state.isAir();
+        return state.isAir() || state.is(StructureTags.AIR);
     }
 
     /** 保留旧的高度容量单元测试，但不参与世界结构扫描。 */

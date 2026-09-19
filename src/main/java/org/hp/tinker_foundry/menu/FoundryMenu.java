@@ -157,7 +157,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
                 /** 原版多方块熔炼每槽只放一个物品，快捷移动会继续寻找其余空槽。 */
                 @Override
                 public int getMaxStackSize() {
-                    return screenKind == 3 ? 1 : super.getMaxStackSize();
+                    return screenKind == 3 || screenKind == 0 ? 1 : super.getMaxStackSize();
                 }
 
                 @Override
@@ -268,8 +268,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
 
     /** 判断一个物品是否属于菜单允许的流体容器。 */
     private static boolean isFluidContainer(ItemStack stack) {
-        return stack.getItem() instanceof BucketItem || stack.getItem() instanceof PortableTankItem
-            || stack.getItem() instanceof FoundryTankItem;
+        return net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(stack).isPresent();
     }
 
     /** 返回菜单绑定的桶容器，供客户端槽位和调试使用。 */
@@ -463,27 +462,34 @@ public final class FoundryMenu extends AbstractContainerMenu {
 
     /** 返回指定输入槽的当前熔炼进度。 */
     public int inputProgress(int slot) {
-        return validInputIndex(slot) ? Math.max(0, data.get(inputDataIndex(slot, 0))) : 0;
+        return inputHeatValue(slot, 0);
     }
 
     /** 返回指定输入槽当前配方的总处理时间。 */
     public int inputProcessTime(int slot) {
-        return validInputIndex(slot) ? Math.max(0, data.get(inputDataIndex(slot, 1))) : 0;
+        return inputHeatValue(slot, 1);
     }
 
     /** 返回指定输入槽当前配方的所需温度。 */
     public int inputRequiredTemperature(int slot) {
-        return validInputIndex(slot) ? Math.max(0, data.get(inputDataIndex(slot, 2))) : 0;
+        return inputHeatValue(slot, 2);
     }
 
     /** 返回指定输入槽当前的服务端处理状态。 */
     public int inputStatus(int slot) {
-        return validInputIndex(slot) ? data.get(inputDataIndex(slot, 3)) : FoundryBlockEntity.INPUT_STATUS_EMPTY;
+        return inputHeatValue(slot, 3);
     }
 
     /** 判断输入槽索引是否落在本次打开的真实输入范围。 */
     private boolean validInputIndex(int slot) {
         return slot >= 0 && slot < menuInputs;
+    }
+
+    /** 基础槽仍可读取原版同步，其余槽使用独立快照，编号不经过短整数截断。 */
+    private int inputHeatValue(int slot, int field) {
+        if (!validInputIndex(slot)) return 0;
+        if (slot < FoundryBlockEntity.BASE_INPUT_SLOTS) return data.get(inputDataIndex(slot, field));
+        return container instanceof FoundryBlockEntity entity ? entity.inputHeatValue(slot, field) : 0;
     }
 
     /** 基础字段与扩展字段由同一索引函数读取，不截断二十八号以后的进度。 */
@@ -577,167 +583,39 @@ public final class FoundryMenu extends AbstractContainerMenu {
         return transferHeldFluid(player, entity, getCarried(), tank, direction);
     }
 
-    /** 根据手持物品类型选择桶、便携储液罐或专用储液罐的传输实现。 */
+    /** 所有手持流体物品走标准能力，并正确处理单次消耗整个容器的情况。 */
     private boolean transferHeldFluid(Player player, FoundryBlockEntity entity, ItemStack held, int tank,
                                       TransferDirection direction) {
-        ItemStack result = transferContainerStack(entity, held, tank, direction);
-        if (result.isEmpty()) {
-            return false;
-        }
-        if (held.getItem() instanceof BucketItem) {
-            replaceCarried(player, held, result);
-        } else {
-            setCarried(held);
-        }
+        var plan = org.hp.tinker_foundry.common.ContainerTransfer.plan(entity, held, tank, direction);
+        if (plan == null) return false;
+        plan.commit();
+        replaceCarried(player, held, plan.result());
         return true;
     }
 
-    /** 燃料栏操作跨多个罐执行，先模拟整个容器，防止不足一桶时部分扣液。 */
+    /** 多储罐燃料模块的标准流体视图，第三方容器同样可以在燃料栏操作。 */
     private boolean transferStructureFuel(Player player, FoundryBlockEntity entity, boolean fillItem) {
-        ItemStack held = getCarried();
-        if (held.getItem() instanceof BucketItem bucket) {
-            if (fillItem) {
+        var handler = new net.neoforged.neoforge.fluids.capability.IFluidHandler() {
+            /** 燃料栏聚合显示一种燃料和可接收它的容量。 */
+            @Override public int getTanks() { return 1; }
+            @Override public FluidStack getFluidInTank(int tank) { return tank == 0 ? entity.fuelDisplayFluid() : FluidStack.EMPTY; }
+            @Override public int getTankCapacity(int tank) { return entity.fuelDisplayCapacity(); }
+            @Override public boolean isFluidValid(int tank, FluidStack stack) { return tank == 0 && !stack.isEmpty(); }
+            /** 服务端聚合操作本身具有模拟与执行两个阶段。 */
+            @Override public int fill(FluidStack stack, FluidAction action) { return entity.fillStructureFuel(stack, action); }
+            @Override public FluidStack drain(FluidStack stack, FluidAction action) { return entity.drainStructureFuel(stack, action); }
+            @Override public FluidStack drain(int amount, FluidAction action) {
                 FluidStack shown = entity.fuelDisplayFluid();
-                if (bucket.content != Fluids.EMPTY || shown.isEmpty() || shown.getFluid().getBucket() == Items.AIR) return false;
-                FluidStack requested = shown.copyWithAmount(1000);
-                if (entity.drainStructureFuel(requested, FluidAction.SIMULATE).getAmount() != 1000) return false;
-                entity.drainStructureFuel(requested, FluidAction.EXECUTE);
-                replaceCarried(player, held, new ItemStack(shown.getFluid().getBucket()));
-            } else {
-                if (bucket.content == Fluids.EMPTY) return false;
-                FluidStack offered = new FluidStack(bucket.content, 1000);
-                if (entity.fillStructureFuel(offered, FluidAction.SIMULATE) != 1000) return false;
-                entity.fillStructureFuel(offered, FluidAction.EXECUTE);
-                replaceCarried(player, held, new ItemStack(Items.BUCKET));
+                return shown.isEmpty() ? FluidStack.EMPTY : entity.drainStructureFuel(shown.copyWithAmount(amount), action);
             }
-            return true;
-        }
-        // 便携罐沿用已有物品处理器，同样先确认两侧可搬运数量。
-        int capacity;
-        boolean fuelAllowed;
-        if (held.getItem() instanceof FoundryTankItem item) {
-            capacity = item.capacity();
-            fuelAllowed = item.allowsFuel();
-        } else if (held.getItem() instanceof PortableTankItem item) {
-            capacity = item.capacity();
-            fuelAllowed = false;
-        } else return false;
-        PortableTankFluidHandler item = new PortableTankFluidHandler(held, capacity, fuelAllowed);
-        if (fillItem) {
-            FluidStack shown = entity.fuelDisplayFluid();
-            int accepted = item.fill(shown, FluidAction.SIMULATE);
-            if (accepted <= 0) return false;
-            FluidStack drained = entity.drainStructureFuel(shown.copyWithAmount(accepted), FluidAction.EXECUTE);
-            item.fill(drained, FluidAction.EXECUTE);
-        } else {
-            FluidStack offered = item.getFluidInTank(0);
-            int accepted = entity.fillStructureFuel(offered, FluidAction.SIMULATE);
-            if (accepted <= 0) return false;
-            entity.fillStructureFuel(item.drain(accepted, FluidAction.EXECUTE), FluidAction.EXECUTE);
-        }
-        setCarried(held);
+        };
+        ItemStack held = getCarried();
+        var result = fillItem
+            ? net.neoforged.neoforge.fluids.FluidUtil.tryFillContainer(held, handler, Integer.MAX_VALUE, null, true)
+            : net.neoforged.neoforge.fluids.FluidUtil.tryEmptyContainer(held, handler, Integer.MAX_VALUE, null, true);
+        if (!result.isSuccess()) return false;
+        replaceCarried(player, held, result.getResult());
         return true;
-    }
-
-    /** 对指定容器执行一次模拟确认后的实际流体传输，成功时返回已经更新的容器。 */
-    private ItemStack transferContainerStack(FoundryBlockEntity entity, ItemStack stack, int tank,
-                                              TransferDirection direction) {
-        TransferDirection actual = resolveDirection(stack, direction);
-        if (stack.getItem() instanceof BucketItem bucket) {
-            return transferBucketStack(entity, bucket, tank, actual);
-        }
-        if (stack.getItem() instanceof PortableTankItem portableTank) {
-            return transferPortableTankStack(entity, stack, portableTank.capacity(), false, tank, actual);
-        }
-        if (stack.getItem() instanceof FoundryTankItem foundryTank) {
-            return transferPortableTankStack(entity, stack, foundryTank.capacity(), foundryTank.allowsFuel(), tank, actual);
-        }
-        return ItemStack.EMPTY;
-    }
-
-    /** 自动模式下空容器取液，满容器倒液，手动模式严格按按钮方向执行。 */
-    private static TransferDirection resolveDirection(ItemStack stack, TransferDirection direction) {
-        if (direction != TransferDirection.AUTO) {
-            return direction;
-        }
-        if (stack.getItem() instanceof BucketItem bucket) {
-            return bucket.content == Fluids.EMPTY ? TransferDirection.FILL_ITEM : TransferDirection.EMPTY_ITEM;
-        }
-        if (stack.getItem() instanceof PortableTankItem portable) {
-            return portableFluidEmpty(stack, portable.capacity(), false) ? TransferDirection.FILL_ITEM : TransferDirection.EMPTY_ITEM;
-        }
-        if (stack.getItem() instanceof FoundryTankItem tank) {
-            return portableFluidEmpty(stack, tank.capacity(), tank.allowsFuel()) ? TransferDirection.FILL_ITEM : TransferDirection.EMPTY_ITEM;
-        }
-        return direction;
-    }
-
-    /** 检查便携容器当前是否为空。 */
-    private static boolean portableFluidEmpty(ItemStack stack, int capacity, boolean allowFuel) {
-        return new PortableTankFluidHandler(stack, capacity, allowFuel).getFluidInTank(0).isEmpty();
-    }
-
-    /** 在便携储液罐和指定设备槽之间执行一次流体传输。 */
-    private ItemStack transferPortableTankStack(FoundryBlockEntity entity, ItemStack stack, int capacity,
-                                                 boolean allowFuel, int tank, TransferDirection direction) {
-        PortableTankFluidHandler portableTank = new PortableTankFluidHandler(stack, capacity, allowFuel);
-        if (direction == TransferDirection.FILL_ITEM) {
-            FluidStack available = entity.getFluidInTank(tank);
-            int accepted = portableTank.fill(available, FluidAction.SIMULATE);
-            if (accepted <= 0) {
-                return ItemStack.EMPTY;
-            }
-            FluidStack drained = entity.drainTank(tank, accepted, FluidAction.SIMULATE);
-            if (drained.getAmount() != accepted) {
-                return ItemStack.EMPTY;
-            }
-            entity.drainTank(tank, accepted, FluidAction.EXECUTE);
-            portableTank.fill(drained, FluidAction.EXECUTE);
-        } else {
-            FluidStack contained = portableTank.getFluidInTank(0);
-            int accepted = entity.fillTank(tank, contained, FluidAction.SIMULATE);
-            if (accepted <= 0) {
-                return ItemStack.EMPTY;
-            }
-            FluidStack drained = portableTank.drain(accepted, FluidAction.SIMULATE);
-            if (drained.getAmount() != accepted) {
-                return ItemStack.EMPTY;
-            }
-            portableTank.drain(accepted, FluidAction.EXECUTE);
-            entity.fillTank(tank, drained, FluidAction.EXECUTE);
-        }
-        return stack;
-    }
-
-    /** 在桶和指定设备槽之间执行一桶流体传输。 */
-    private ItemStack transferBucketStack(FoundryBlockEntity entity, BucketItem bucket, int tank,
-                                          TransferDirection direction) {
-        if (direction == TransferDirection.FILL_ITEM) {
-            if (bucket.content != Fluids.EMPTY) {
-                return ItemStack.EMPTY;
-            }
-            FluidStack available = entity.getFluidInTank(tank);
-            if (available.getAmount() < 1000 || available.getFluid().getBucket() == null
-                || available.getFluid().getBucket() == Items.AIR) {
-                return ItemStack.EMPTY;
-            }
-            FluidStack drained = entity.drainTank(tank, 1000, FluidAction.SIMULATE);
-            if (drained.getAmount() != 1000) {
-                return ItemStack.EMPTY;
-            }
-            entity.drainTank(tank, 1000, FluidAction.EXECUTE);
-            return new ItemStack(drained.getFluid().getBucket());
-        }
-        if (bucket.content == Fluids.EMPTY || !TFFluids.isFoundryFluid(bucket.content)
-            && !entity.isHeater() && !entity.isFuelTankBlock()) {
-            return ItemStack.EMPTY;
-        }
-        FluidStack resource = new FluidStack(bucket.content, 1000);
-        if (entity.fillTank(tank, resource, FluidAction.SIMULATE) != 1000) {
-            return ItemStack.EMPTY;
-        }
-        entity.fillTank(tank, resource, FluidAction.EXECUTE);
-        return new ItemStack(Items.BUCKET);
     }
 
     /** 菜单持续同步时重试等待中的桶，覆盖新产液和玩家取走输出后的情况。 */
@@ -760,17 +638,21 @@ public final class FoundryMenu extends AbstractContainerMenu {
             return;
         }
         ItemStack input = bucketContainer.getItem(0);
-        if (input.isEmpty() || !isFluidContainer(input) || !bucketContainer.getItem(1).isEmpty()) {
+        if (input.isEmpty() || !isFluidContainer(input)) {
             return;
         }
-        ItemStack unit = input.copyWithCount(1);
-        ItemStack result = transferContainerStack(entity, unit, 0, transferDirection);
-        if (result.isEmpty()) {
-            return;
-        }
+        var plan = org.hp.tinker_foundry.common.ContainerTransfer.plan(entity, input, 0, transferDirection);
+        if (plan == null) return;
+        ItemStack result = plan.result();
+        ItemStack output = bucketContainer.getItem(1);
+        // 先确认输出空间，避免容器已倒液后才发现产物无法合并。
+        if (!result.isEmpty() && !output.isEmpty()
+            && (!ItemStack.isSameItemSameComponents(output, result)
+                || output.getCount() + result.getCount() > Math.min(output.getMaxStackSize(), bucketContainer.getMaxStackSize()))) return;
+        plan.commit();
         input.shrink(1);
         bucketContainer.setItem(0, input);
-        bucketContainer.setItem(1, result);
+        if (!result.isEmpty()) bucketContainer.setItem(1, result.copyWithCount(output.getCount() + result.getCount()));
         TinkerFoundry.LOGGER.debug("[menu] structure bucket slot processed direction={} result={}", transferDirection, result.getItem());
     }
 

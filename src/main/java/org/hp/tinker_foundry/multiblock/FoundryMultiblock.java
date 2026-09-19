@@ -23,12 +23,19 @@ public final class FoundryMultiblock {
         return RectangularStructureDetector.validate(level, controller, new RectangularStructureDetector.Rules() {
             @Override
             public boolean isCasing(BlockState state) {
-                return state.is(TFBlocks.SCORCHED_BRICK.get()) || state.is(TFBlocks.SCORCHED_GLASS.get())
-                    || state.is(TFBlocks.SCORCHED_LANTERN.get()) || state.is(TFBlocks.SCORCHED_WALL.get())
-                    || state.is(TFBlocks.SCORCHED_FANCY_BRICK.get()) || state.is(TFBlocks.SCORCHED_LADDER.get())
-                    || state.is(TFBlocks.SCORCHED_TANK.get()) || state.is(TFBlocks.SCORCHED_FUEL_TANK.get())
-                    || state.is(TFBlocks.SCORCHED_CASTING_TANK.get()) || state.is(TFBlocks.DRAIN.get())
-                    || state.is(TFBlocks.DUCT.get()) || state.is(TFBlocks.CHUTE.get());
+                return state.is(StructureTags.FOUNDRY_WALL);
+            }
+
+            /** 底板使用独立标签，不接受玻璃或储罐替代底板中心。 */
+            @Override
+            public boolean isFloor(BlockState state) {
+                return state.is(StructureTags.FOUNDRY_FLOOR);
+            }
+
+            /** 两种炉体的角框要求不同。 */
+            @Override
+            public boolean hasFrame() {
+                return true;
             }
 
             @Override

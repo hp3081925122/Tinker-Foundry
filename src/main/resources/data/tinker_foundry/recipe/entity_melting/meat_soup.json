@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/farm_animals",
+  "result": {
+    "id": "tinker_foundry:meat_soup",
+    "amount": 50
+  },
+  "damage": 2
+}

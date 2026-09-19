@@ -1,0 +1,9 @@
+{
+  "parent": "neoforge:item/default",
+  "loader": "neoforge:fluid_container",
+  "fluid": "tinker_foundry:milk",
+  "textures": {
+    "base": "minecraft:item/bucket",
+    "fluid": "neoforge:item/mask/bucket_fluid"
+  }
+}

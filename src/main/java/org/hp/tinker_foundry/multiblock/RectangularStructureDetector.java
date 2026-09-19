@@ -12,9 +12,9 @@ import org.hp.tinker_foundry.block.FoundryControllerBlock;
 /** 只负责矩形几何探测，炉种规则由各自的多方块描述器提供。 */
 public final class RectangularStructureDetector {
     /** 炉体允许的最小总高度。 */
-    public static final int MINIMUM_HEIGHT = 3;
+    public static final int MINIMUM_HEIGHT = 2;
     /** 炉体允许的最大总高度。 */
-    public static final int MAXIMUM_HEIGHT = 16;
+    public static final int MAXIMUM_HEIGHT = 64;
     /** 炉腔允许的最大宽度和深度。 */
     public static final int MAXIMUM_INNER_SIZE = 14;
 
@@ -22,6 +22,12 @@ public final class RectangularStructureDetector {
     public interface Rules {
         /** 判断外壳方块。 */
         boolean isCasing(BlockState state);
+
+        /** 底板中心只接受底板标签中的方块。 */
+        boolean isFloor(BlockState state);
+
+        /** 铸造炉需要角柱和底板外框，冶炼炉忽略这些位置。 */
+        default boolean hasFrame() { return false; }
 
         /** 判断炉腔内允许的方块。 */
         boolean isInterior(BlockState state);
@@ -71,6 +77,7 @@ public final class RectangularStructureDetector {
         BlockPos center = controller.relative(inside);
         BlockPos firstInner = center;
         if (!rules.isInterior(level.getBlockState(firstInner))) {
+            if (!rules.hasFrame()) return StructureResult.invalid(center, StructureErrorReason.INVALID_INNER_BLOCK);
             // 控制器可以位于底层外壳；此时按官方逻辑从控制器内侧的上一层开始找炉腔。
             firstInner = center.above();
             if (!rules.isInterior(level.getBlockState(firstInner))) {
@@ -115,14 +122,15 @@ public final class RectangularStructureDetector {
         // 匠魂官方冶炼炉顶部开放，炉腔层必须由侧壁和内部共同确定，不能把天空空气当成无限炉腔。
         // 记录上下扫描遇到的第一个真实错误方块，避免把炉腔中心空气误标成侧壁错误。
         LayerScan belowScan = countInteriorWallLayers(level, controller, firstInner.getY() - 1,
-            minX, maxX, minZ, maxZ, rules, -1);
+            minX, maxX, minZ, maxZ, rules, -1, MAXIMUM_HEIGHT - 2);
         LayerScan aboveScan = countInteriorWallLayers(level, controller, firstInner.getY() + 1,
-            minX, maxX, minZ, maxZ, rules, 1);
+            minX, maxX, minZ, maxZ, rules, 1, MAXIMUM_HEIGHT - 2 - belowScan.layers());
         int below = belowScan.layers();
         int above = aboveScan.layers();
         int interiorLayers = below + above + 1;
         int ceilingY = firstInner.getY() + above + 1;
-        boolean hasCeiling = isCeilingLayer(level, controller, ceilingY, minX, maxX, minZ, maxZ, rules);
+        // 两种结构均不包含封顶；上方停止扩展，不把屋顶作为容量或附件。
+        boolean hasCeiling = false;
         int structureHeight = interiorLayers + 1 + (hasCeiling ? 1 : 0);
         TinkerFoundry.LOGGER.debug("[structure-detector] controller={} facing={} firstInner={} bounds=({},{};{},{}), below={} above={} ceilingY={} hasCeiling={} height={}",
             controller, facing, firstInner, minX, maxX, minZ, maxZ, below, above, ceilingY, hasCeiling, structureHeight);
@@ -162,11 +170,11 @@ public final class RectangularStructureDetector {
 
     /** 统计指定方向上连续的炉腔侧壁层，封顶层不计入炉腔容量。 */
     private static LayerScan countInteriorWallLayers(Level level, BlockPos controller, int startY, int minX, int maxX,
-                                       int minZ, int maxZ, Rules rules, int direction) {
+                                       int minZ, int maxZ, Rules rules, int direction, int limit) {
         int amount = 0;
         int y = startY;
         LayerFailure failure = null;
-        while (amount < MAXIMUM_HEIGHT) {
+        while (amount < limit) {
             failure = findInteriorWallFailure(level, controller, y, minX, maxX, minZ, maxZ, rules);
             if (failure != null) {
                 break;
@@ -180,6 +188,9 @@ public final class RectangularStructureDetector {
     /** 返回一层侧壁或内部的第一个非法方块。 */
     private static LayerFailure findInteriorWallFailure(Level level, BlockPos controller, int y, int minX, int maxX,
                                                         int minZ, int maxZ, Rules rules) {
+        if (!level.hasChunksAt(new BlockPos(minX, y, minZ), new BlockPos(maxX, y, maxZ))) {
+            return new LayerFailure(new BlockPos(minX, y, minZ), StructureErrorReason.NOT_LOADED);
+        }
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
@@ -188,6 +199,8 @@ public final class RectangularStructureDetector {
                     continue;
                 }
                 boolean wall = x == minX || x == maxX || z == minZ || z == maxZ;
+                // 冶炼炉的四根角柱完全不属于结构，不限制其中放置的方块。
+                if (!rules.hasFrame() && (x == minX || x == maxX) && (z == minZ || z == maxZ)) continue;
                 BlockState state = level.getBlockState(cursor);
                 if (wall ? !rules.isCasing(state) : !rules.isInterior(state)) {
                     // 侧壁和炉腔使用不同的错误原因，供客户端悬浮提示与高亮同步使用。
@@ -260,9 +273,11 @@ public final class RectangularStructureDetector {
                     boolean floor = y == min.getY();
                     boolean boundary = x == min.getX() || x == max.getX() || z == min.getZ() || z == max.getZ();
                     boolean ceiling = y == max.getY();
+                    boolean corner = (x == min.getX() || x == max.getX()) && (z == min.getZ() || z == max.getZ());
+                    if (!rules.hasFrame() && (floor && boundary || corner)) continue;
                     BlockState state = level.getBlockState(cursor);
-                    boolean valid = floor ? rules.isCasing(state) : boundary
-                        ? rules.isCasing(state) : ceiling ? rules.isInterior(state) || rules.isCasing(state) : rules.isInterior(state);
+                    boolean valid = floor && !boundary ? rules.isFloor(state) : boundary
+                        ? rules.isCasing(state) : rules.isInterior(state);
                     if (!valid) {
                         StructureErrorReason reason;
                         if (floor) {

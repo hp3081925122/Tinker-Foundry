@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "tinker_foundry:seared_brick",
+    "tinker_foundry:seared_fancy_brick",
+    "tinker_foundry:seared_lantern",
+    "tinker_foundry:drain",
+    "tinker_foundry:duct",
+    "tinker_foundry:chute"
+  ]
+}

@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:nuggets/lead"},
-  "result": {"id": "tinker_foundry:lead", "amount": 10},
-  "temperature": 330,
-  "time": 14
-}

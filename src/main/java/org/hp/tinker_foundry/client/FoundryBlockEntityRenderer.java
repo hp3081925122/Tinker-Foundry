@@ -41,6 +41,10 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
     public void render(FoundryBlockEntity entity, float partialTick, PoseStack poseStack, MultiBufferSource buffer, int packedLight, int packedOverlay) {
         // 结构错误提示必须在没有打开 GUI 时也能显示，因此先于普通流体内容渲染。
         renderStructureError(entity, poseStack, buffer, packedLight);
+        if (entity.isStructureController()) {
+            renderStructureContents(entity, poseStack, buffer, packedLight);
+            return;
+        }
         BlockState state = entity.getBlockState();
         boolean tank = state.is(TFBlocks.SEARED_TANK.get()) || state.is(TFBlocks.SCORCHED_TANK.get())
             || state.is(TFBlocks.SEARED_FUEL_TANK.get()) || state.is(TFBlocks.SCORCHED_FUEL_TANK.get());
@@ -153,6 +157,80 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
         VertexConsumer consumer = consumerFor(buffer);
         drawCuboid(poseStack.last(), consumer, sprite, minX, minY, minZ, maxX, maxY, maxZ, tint, packedLight);
 
+    }
+
+    /** 按炉腔比例绘制有序多层液体，物品编号映射到实际内部方块。 */
+    private static void renderStructureContents(FoundryBlockEntity entity, PoseStack poseStack,
+                                                 MultiBufferSource buffer, int light) {
+        AABB bounds = entity.interiorBounds();
+        if (bounds == null || entity.getLevel() == null) return;
+        BlockPos origin = entity.getBlockPos();
+        int width = (int) (bounds.maxX - bounds.minX), depth = (int) (bounds.maxZ - bounds.minZ);
+        float height = (float) (bounds.maxY - bounds.minY);
+        if (width <= 0 || depth <= 0 || height <= 0) return;
+        poseStack.pushPose();
+        poseStack.translate(bounds.minX - origin.getX(), bounds.minY - origin.getY(), bounds.minZ - origin.getZ());
+        java.util.List<FluidStack> fluids = entity.structureFluidLayers();
+        int amount = fluids.stream().mapToInt(FluidStack::getAmount).sum();
+        int scale = Math.max(1, Math.max(entity.structureCapacity(), amount));
+        float[] heights = new float[fluids.size()];
+        float total = 0;
+        for (int index = 0; index < heights.length; index++) {
+            heights[index] = Math.max(0.1F, fluids.get(index).getAmount() * (height - 0.01F) / scale);
+            total += heights[index];
+        }
+        // 极小流体也有可见厚度；层数过多时压缩厚度，绝不超出炉腔。
+        float compression = total > height - 0.01F ? (height - 0.01F) / total : 1;
+        float y = 0.005F;
+        for (int index = 0; index < fluids.size(); index++) {
+            FluidStack fluid = fluids.get(index);
+            IClientFluidTypeExtensions extensions = IClientFluidTypeExtensions.of(fluid.getFluid());
+            TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(extensions.getStillTexture(fluid));
+            float next = y + heights[index] * compression;
+            int brightness = Math.max(light & 65535, fluid.getFluidType().getLightLevel(fluid) << 4) | light & 0xFFFF0000;
+            // 按方块切分纹理，只绘制外表面，不在炉腔内部生成重复面片。
+            for (int x = 0; x < width; x++) for (int z = 0; z < depth; z++) {
+                for (float bottom = y; bottom < next; ) {
+                    float top = Math.min(next, (float) Math.floor(bottom) + 1);
+                    int faces = (top == next ? 1 : 0) | (bottom == y ? 2 : 0)
+                        | (x == 0 ? 4 : 0) | (x == width - 1 ? 8 : 0)
+                        | (z == 0 ? 16 : 0) | (z == depth - 1 ? 32 : 0);
+                    if (faces != 0) drawCuboid(poseStack.last(), buffer.getBuffer(RenderType.translucent()), sprite,
+                        x == 0 ? 0.005F : x, bottom, z == 0 ? 0.005F : z,
+                        x == width - 1 ? width - 0.005F : x + 1, top,
+                        z == depth - 1 ? depth - 0.005F : z + 1, extensions.getTintColor(fluid), brightness, faces);
+                    bottom = top;
+                }
+            }
+            y = next;
+        }
+        // 与上游相同按面片数控制物品显示预算，不影响真实熔炼库存。
+        int quads = 0;
+        var renderer = Minecraft.getInstance().getItemRenderer();
+        for (int slot = 0; slot < entity.inputSlotCount() && quads <= 3500; slot++) {
+            var item = entity.getInput(slot);
+            if (item.isEmpty()) continue;
+            int itemY = slot / (width * depth), itemX = slot % width, itemZ = slot / width % depth;
+            poseStack.pushPose();
+            poseStack.translate(itemX + 0.5F, itemY + 0.5F, itemZ + 0.5F);
+            if (entity.getBlockState().hasProperty(org.hp.tinker_foundry.block.FoundryControllerBlock.FACING)) {
+                poseStack.mulPose(Axis.YP.rotationDegrees(-90F * entity.getBlockState()
+                    .getValue(org.hp.tinker_foundry.block.FoundryControllerBlock.FACING).get2DDataValue()));
+            }
+            poseStack.scale(0.9375F, 0.9375F, 0.9375F);
+            renderer.renderStatic(item, ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY,
+                poseStack, buffer, entity.getLevel(), 0);
+            poseStack.popPose();
+            var model = renderer.getModel(item, entity.getLevel(), null, 0);
+            if (model.isCustomRenderer()) quads += 100;
+            else {
+                for (Direction face : Direction.values()) quads += model.getQuads(null, face,
+                    entity.getLevel().getRandom(), net.neoforged.neoforge.client.model.data.ModelData.EMPTY, null).size();
+                quads += model.getQuads(null, null, entity.getLevel().getRandom(),
+                    net.neoforged.neoforge.client.model.data.ModelData.EMPTY, null).size();
+            }
+        }
+        poseStack.popPose();
     }
 
     /** 绘制匠魂风格的错误方块红框和结构原因文字。 */
@@ -288,6 +366,13 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
     private static void drawCuboid(PoseStack.Pose pose, VertexConsumer consumer, TextureAtlasSprite sprite,
                                    float minX, float minY, float minZ, float maxX, float maxY, float maxZ,
                                    int tint, int packedLight) {
+        drawCuboid(pose, consumer, sprite, minX, minY, minZ, maxX, maxY, maxZ, tint, packedLight, 63);
+    }
+
+    /** 大型液体分块仅绘制指定外表面，避免内面遮挡透明流体。 */
+    private static void drawCuboid(PoseStack.Pose pose, VertexConsumer consumer, TextureAtlasSprite sprite,
+                                   float minX, float minY, float minZ, float maxX, float maxY, float maxZ,
+                                   int tint, int packedLight, int faces) {
         int red = (tint >> 16) & 255;
         int green = (tint >> 8) & 255;
         int blue = tint & 255;
@@ -299,32 +384,44 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
         float v1 = sprite.getV1();
 
         // 绘制顶面和底面。
+        if ((faces & 1) != 0) {
         vertex(consumer, pose, minX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, 0, 1, 0);
         vertex(consumer, pose, minX, maxY, maxZ, u0, v1, red, green, blue, alpha, packedLight, 0, 1, 0);
         vertex(consumer, pose, maxX, maxY, maxZ, u1, v1, red, green, blue, alpha, packedLight, 0, 1, 0);
         vertex(consumer, pose, maxX, maxY, minZ, u1, v0, red, green, blue, alpha, packedLight, 0, 1, 0);
+        }
+        if ((faces & 2) != 0) {
         vertex(consumer, pose, minX, minY, minZ, u0, v0, red, green, blue, alpha, packedLight, 0, -1, 0);
         vertex(consumer, pose, maxX, minY, minZ, u1, v0, red, green, blue, alpha, packedLight, 0, -1, 0);
         vertex(consumer, pose, maxX, minY, maxZ, u1, v1, red, green, blue, alpha, packedLight, 0, -1, 0);
         vertex(consumer, pose, minX, minY, maxZ, u0, v1, red, green, blue, alpha, packedLight, 0, -1, 0);
+        }
 
         // 绘制四个侧面，使罐体从外部各个角度都能看到液体。
+        if ((faces & 4) != 0) {
         vertex(consumer, pose, minX, minY, minZ, u0, v1, red, green, blue, alpha, packedLight, -1, 0, 0);
         vertex(consumer, pose, minX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, -1, 0, 0);
         vertex(consumer, pose, minX, maxY, maxZ, u1, v0, red, green, blue, alpha, packedLight, -1, 0, 0);
         vertex(consumer, pose, minX, minY, maxZ, u1, v1, red, green, blue, alpha, packedLight, -1, 0, 0);
+        }
+        if ((faces & 8) != 0) {
         vertex(consumer, pose, maxX, minY, maxZ, u0, v1, red, green, blue, alpha, packedLight, 1, 0, 0);
         vertex(consumer, pose, maxX, maxY, maxZ, u0, v0, red, green, blue, alpha, packedLight, 1, 0, 0);
         vertex(consumer, pose, maxX, maxY, minZ, u1, v0, red, green, blue, alpha, packedLight, 1, 0, 0);
         vertex(consumer, pose, maxX, minY, minZ, u1, v1, red, green, blue, alpha, packedLight, 1, 0, 0);
+        }
+        if ((faces & 16) != 0) {
         vertex(consumer, pose, maxX, minY, minZ, u0, v1, red, green, blue, alpha, packedLight, 0, 0, -1);
         vertex(consumer, pose, maxX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, 0, 0, -1);
         vertex(consumer, pose, minX, maxY, minZ, u1, v0, red, green, blue, alpha, packedLight, 0, 0, -1);
         vertex(consumer, pose, minX, minY, minZ, u1, v1, red, green, blue, alpha, packedLight, 0, 0, -1);
+        }
+        if ((faces & 32) != 0) {
         vertex(consumer, pose, minX, minY, maxZ, u0, v1, red, green, blue, alpha, packedLight, 0, 0, 1);
         vertex(consumer, pose, minX, maxY, maxZ, u0, v0, red, green, blue, alpha, packedLight, 0, 0, 1);
         vertex(consumer, pose, maxX, maxY, maxZ, u1, v0, red, green, blue, alpha, packedLight, 0, 0, 1);
         vertex(consumer, pose, maxX, minY, maxZ, u1, v1, red, green, blue, alpha, packedLight, 0, 0, 1);
+        }
     }
 
     /** 写入带姿态、颜色、纹理和光照的单个顶点。 */
@@ -339,6 +436,6 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
     /** 结构错误位置可能超出控制器自身方块范围，关闭方块实体裁剪。 */
     @Override
     public boolean shouldRenderOffScreen(FoundryBlockEntity entity) {
-        return entity.isStructureController() && entity.structureErrorPos() != null;
+        return entity.isStructureController() && (entity.isStructureValid() || entity.structureErrorPos() != null);
     }
 }

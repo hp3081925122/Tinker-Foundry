@@ -1,0 +1,14 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/night_vision",
+  "result": {
+    "id": "tinker_foundry:potion",
+    "amount": 50,
+    "components": {
+      "minecraft:potion_contents": {
+        "potion": "minecraft:night_vision"
+      }
+    }
+  },
+  "damage": 2
+}

@@ -1,0 +1,9 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/slime",
+  "result": {
+    "id": "tinker_foundry:slime",
+    "amount": 25
+  },
+  "damage": 2
+}

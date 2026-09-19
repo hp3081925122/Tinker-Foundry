@@ -1,9 +1,0 @@
-{
-  "type": "tinker_foundry:alloying",
-  "ingredients": [
-    {"ingredient": {"fluid": "tinker_foundry:copper"}, "amount": 270},
-    {"ingredient": {"fluid": "tinker_foundry:tin"}, "amount": 90}
-  ],
-  "result": {"id": "tinker_foundry:bronze", "amount": 360},
-  "temperature": 700
-}

@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:ingots/nickel"},
-  "result": {"id": "tinker_foundry:nickel", "amount": 90},
-  "temperature": 950,
-  "time": 65
-}

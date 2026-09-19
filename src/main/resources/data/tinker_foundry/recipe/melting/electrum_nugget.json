@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:nuggets/electrum"},
-  "result": {"id": "tinker_foundry:electrum", "amount": 10},
-  "temperature": 760,
-  "time": 20
-}

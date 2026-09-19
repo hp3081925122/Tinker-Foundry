@@ -1,0 +1,16 @@
+{
+  "replace": false,
+  "values": [
+    "tinker_foundry:scorched_brick",
+    "tinker_foundry:scorched_fancy_brick",
+    "tinker_foundry:scorched_lantern",
+    "tinker_foundry:drain",
+    "tinker_foundry:duct",
+    "tinker_foundry:chute",
+    "tinker_foundry:scorched_tank",
+    "tinker_foundry:scorched_fuel_tank",
+    "tinker_foundry:scorched_casting_tank",
+    "tinker_foundry:scorched_glass",
+    "tinker_foundry:scorched_ladder"
+  ]
+}
