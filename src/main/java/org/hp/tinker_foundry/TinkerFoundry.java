@@ -22,7 +22,6 @@ import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.hp.tinker_foundry.common.FoundryWorldEvents;
 import org.hp.tinker_foundry.network.FoundryNetworking;
-import org.hp.tinker_foundry.book.FoundryGuideBookEvents;
 
 /** 独立冶炼系统的模组入口。 */
 @Mod(TinkerFoundry.MOD_ID)
@@ -71,7 +70,6 @@ public final class TinkerFoundry {
         modEventBus.addListener(FoundryNetworking::register);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         NeoForge.EVENT_BUS.register(FoundryWorldEvents.class);
-        NeoForge.EVENT_BUS.register(FoundryGuideBookEvents.class);
         BLOCKS.register(modEventBus);
         org.hp.tinker_foundry.registry.TFDataComponents.REGISTER.register(modEventBus);
         ITEMS.register(modEventBus);

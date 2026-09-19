@@ -1,1 +1,1 @@
-{"parent":"tinker_foundry:block/template/tank_knob_inventory","textures":{"side":"tinker_foundry:block/smeltery/tank/casting_tank","top":"tinker_foundry:block/smeltery/tank/casting_tank_top"}}
+{"parent":"tinker_foundry:block/seared_casting_tank"}

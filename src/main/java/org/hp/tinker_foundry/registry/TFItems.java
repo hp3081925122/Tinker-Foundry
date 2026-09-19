@@ -9,7 +9,6 @@ import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.item.PortableTankItem;
 import org.hp.tinker_foundry.item.FoundryTankItem;
 import org.hp.tinker_foundry.item.FoundryTooltipBlockItem;
-import org.hp.tinker_foundry.item.FoundryGuideBookItem;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 冶炼方块、桶和基础便携容器的物品注册表。 */
@@ -107,9 +106,6 @@ public final class TFItems {
     public static final DeferredItem<PortableTankItem> PORTABLE_TANK = TinkerFoundry.ITEMS.register("portable_tank", () -> new PortableTankItem(8000, new Item.Properties()));
     /** 铜制便携罐。 */
     public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.register("copper_canister", () -> new PortableTankItem(FluidValues.INGOT, new Item.Properties()));
-    /** 仅包含本项目冶炼内容的教程书。 */
-    public static final DeferredItem<FoundryGuideBookItem> GUIDE_BOOK = TinkerFoundry.ITEMS.register("foundry_guide", () -> new FoundryGuideBookItem(new Item.Properties().stacksTo(1)));
-
     /** 注册方块物品。 */
     private static DeferredItem<Item> block(String name, net.neoforged.neoforge.registries.DeferredBlock<? extends net.minecraft.world.level.block.Block> block) {
         return TinkerFoundry.ITEMS.register(name, () -> new FoundryTooltipBlockItem(block.get(), new Item.Properties()));

@@ -31,6 +31,8 @@ import org.hp.tinker_foundry.registry.TFBlocks;
 public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<FoundryBlockEntity> {
     /** 防止每帧重复输出流体计诊断日志。 */
     private static boolean gaugeDiagnosticLogged;
+    /** 防止重复输出储液罐液面和边界诊断日志。 */
+    private static boolean tankDiagnosticLogged;
 
     /** 创建独立渲染器，当前不需要额外模型烘焙数据。 */
     public FoundryBlockEntityRenderer(BlockEntityRendererProvider.Context context) {
@@ -155,6 +157,11 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
 
         // 熔融流体纹理是完全不透明的，使用方块渲染层写入深度，避免地下方块被错误透视。
         VertexConsumer consumer = consumerFor(buffer);
+        if (tank && !tankDiagnosticLogged) {
+            TinkerFoundry.LOGGER.debug("[client-render] tank fluid={} amount={} capacity={} bounds={}..{} height={}",
+                fluid.getFluid(), fluid.getAmount(), capacity, minY, maxY, usableHeight);
+            tankDiagnosticLogged = true;
+        }
         drawCuboid(poseStack.last(), consumer, sprite, minX, minY, minZ, maxX, maxY, maxZ, tint, packedLight);
 
     }
@@ -400,27 +407,27 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
         // 绘制四个侧面，使罐体从外部各个角度都能看到液体。
         if ((faces & 4) != 0) {
         vertex(consumer, pose, minX, minY, minZ, u0, v1, red, green, blue, alpha, packedLight, -1, 0, 0);
-        vertex(consumer, pose, minX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, -1, 0, 0);
-        vertex(consumer, pose, minX, maxY, maxZ, u1, v0, red, green, blue, alpha, packedLight, -1, 0, 0);
         vertex(consumer, pose, minX, minY, maxZ, u1, v1, red, green, blue, alpha, packedLight, -1, 0, 0);
+        vertex(consumer, pose, minX, maxY, maxZ, u1, v0, red, green, blue, alpha, packedLight, -1, 0, 0);
+        vertex(consumer, pose, minX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, -1, 0, 0);
         }
         if ((faces & 8) != 0) {
-        vertex(consumer, pose, maxX, minY, maxZ, u0, v1, red, green, blue, alpha, packedLight, 1, 0, 0);
-        vertex(consumer, pose, maxX, maxY, maxZ, u0, v0, red, green, blue, alpha, packedLight, 1, 0, 0);
-        vertex(consumer, pose, maxX, maxY, minZ, u1, v0, red, green, blue, alpha, packedLight, 1, 0, 0);
-        vertex(consumer, pose, maxX, minY, minZ, u1, v1, red, green, blue, alpha, packedLight, 1, 0, 0);
+        vertex(consumer, pose, maxX, minY, minZ, u0, v1, red, green, blue, alpha, packedLight, 1, 0, 0);
+        vertex(consumer, pose, maxX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, 1, 0, 0);
+        vertex(consumer, pose, maxX, maxY, maxZ, u1, v0, red, green, blue, alpha, packedLight, 1, 0, 0);
+        vertex(consumer, pose, maxX, minY, maxZ, u1, v1, red, green, blue, alpha, packedLight, 1, 0, 0);
         }
         if ((faces & 16) != 0) {
-        vertex(consumer, pose, maxX, minY, minZ, u0, v1, red, green, blue, alpha, packedLight, 0, 0, -1);
-        vertex(consumer, pose, maxX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, 0, 0, -1);
-        vertex(consumer, pose, minX, maxY, minZ, u1, v0, red, green, blue, alpha, packedLight, 0, 0, -1);
-        vertex(consumer, pose, minX, minY, minZ, u1, v1, red, green, blue, alpha, packedLight, 0, 0, -1);
+        vertex(consumer, pose, minX, minY, minZ, u0, v1, red, green, blue, alpha, packedLight, 0, 0, -1);
+        vertex(consumer, pose, minX, maxY, minZ, u0, v0, red, green, blue, alpha, packedLight, 0, 0, -1);
+        vertex(consumer, pose, maxX, maxY, minZ, u1, v0, red, green, blue, alpha, packedLight, 0, 0, -1);
+        vertex(consumer, pose, maxX, minY, minZ, u1, v1, red, green, blue, alpha, packedLight, 0, 0, -1);
         }
         if ((faces & 32) != 0) {
         vertex(consumer, pose, minX, minY, maxZ, u0, v1, red, green, blue, alpha, packedLight, 0, 0, 1);
-        vertex(consumer, pose, minX, maxY, maxZ, u0, v0, red, green, blue, alpha, packedLight, 0, 0, 1);
-        vertex(consumer, pose, maxX, maxY, maxZ, u1, v0, red, green, blue, alpha, packedLight, 0, 0, 1);
         vertex(consumer, pose, maxX, minY, maxZ, u1, v1, red, green, blue, alpha, packedLight, 0, 0, 1);
+        vertex(consumer, pose, maxX, maxY, maxZ, u1, v0, red, green, blue, alpha, packedLight, 0, 0, 1);
+        vertex(consumer, pose, minX, maxY, maxZ, u0, v0, red, green, blue, alpha, packedLight, 0, 0, 1);
         }
     }
 

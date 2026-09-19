@@ -63,21 +63,4 @@ public final class FoundryTankItem extends FoundryTooltipBlockItem {
         super.appendHoverText(stack, context, tooltip, flag);
     }
 
-    /** 根据储量显示原版物品耐久条样式的容量条。 */
-    @Override
-    public boolean isBarVisible(ItemStack stack) {
-        return !getFluid(stack).isEmpty();
-    }
-
-    /** 返回当前流体对应的容量条宽度。 */
-    @Override
-    public int getBarWidth(ItemStack stack) {
-        return Math.min(13, Math.max(0, getFluid(stack).getAmount() * 13 / Math.max(1, capacity)));
-    }
-
-    /** 使用稳定的熔融流体颜色显示容量条。 */
-    @Override
-    public int getBarColor(ItemStack stack) {
-        return getFluid(stack).isEmpty() ? 0xFF777777 : 0xFFE07832;
-    }
 }
