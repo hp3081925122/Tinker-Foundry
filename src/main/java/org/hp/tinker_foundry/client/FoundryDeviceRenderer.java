@@ -88,12 +88,13 @@ public final class FoundryDeviceRenderer {
         if (faucet && !entity.isFaucetPouring()) {
             return true;
         }
-        if (fluid.isEmpty() || fluid.getAmount() <= 0 || capacity <= 0) {
+        // 浇注口不是普通储罐，容量为零只代表不暴露外部槽位，不能阻止自身和下方流柱渲染。
+        if (fluid.isEmpty() || fluid.getAmount() <= 0 || (!faucet && capacity <= 0)) {
             return true;
         }
 
         // 计算设备内部可见区域，液面高度严格受服务端容量限制。
-        float ratio = Math.min(1.0F, Math.max(0.0F, fluid.getAmount() / (float) capacity));
+        float ratio = faucet ? 1.0F : Math.min(1.0F, Math.max(0.0F, fluid.getAmount() / (float) capacity));
         float minX;
         float maxX;
         float minZ;

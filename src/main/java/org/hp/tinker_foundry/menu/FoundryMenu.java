@@ -30,7 +30,7 @@ import org.hp.tinker_foundry.registry.TFMenus;
 
 /** 冶炼设备的统一菜单，物品槽和状态数据均由服务端方块实体驱动。 */
 public final class FoundryMenu extends AbstractContainerMenu {
-    /** 当前真实输入加三个功能槽的菜单长度，不包含玩家背包。 */
+    /** 当前真实输入加当前设备实际功能槽的菜单长度，不包含玩家背包。 */
     private final int deviceSlots;
     /** 菜单打开时的输入数量，服务端变化后关闭旧菜单，保证槽号稳定。 */
     private final int menuInputs;
@@ -47,6 +47,8 @@ public final class FoundryMenu extends AbstractContainerMenu {
     private final int screenKind;
     /** 合金炉下方是否存在可直接代理的固体燃料能力。 */
     private final boolean alloyerFuelSlot;
+    /** 单方块熔化炉下方是否存在可直接代理的固体燃料能力。 */
+    private final boolean melterFuelSlot;
     /** 每列包含四像素热量区和十八像素物品槽，背景与命中坐标共同使用。 */
     public static final int STRUCTURE_COLUMN_WIDTH = 22;
     /** 控制器中央的输入桶槽和输出桶槽数量。 */
@@ -71,7 +73,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
     /** 创建客户端镜像菜单。 */
     public FoundryMenu(int containerId, Inventory inventory) {
         this(containerId, inventory, new SimpleContainer(FoundryBlockEntity.CONTAINER_SIZE), new SimpleContainer(STRUCTURE_BUCKET_SLOTS),
-            new SimpleContainerData(DATA_COUNT), 0, FoundryBlockEntity.BASE_INPUT_SLOTS);
+            new SimpleContainerData(DATA_COUNT), 0, FoundryBlockEntity.MELTER_INPUT_SLOTS);
     }
 
     /** 创建绑定真实设备的服务端菜单。 */
@@ -81,8 +83,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
             new SimpleContainer(STRUCTURE_BUCKET_SLOTS),
             entity == null ? new SimpleContainerData(DATA_COUNT) : entity.menuData(),
             entity == null ? 0 : entity.screenKind(),
-            entity != null && entity.isStructureController() ? entity.inputSlotCount()
-                : entity != null && entity.isAlloyer() ? 0 : FoundryBlockEntity.BASE_INPUT_SLOTS);
+            entity == null ? FoundryBlockEntity.MELTER_INPUT_SLOTS : entity.inputSlotCount());
     }
 
     /** 从服务端打开菜单时读取方块位置，让客户端使用正确的设备槽位布局。 */
@@ -110,7 +111,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (slots < 0 || slots > FoundryBlockEntity.MAX_STRUCTURE_INPUTS) throw new IllegalArgumentException("Invalid structure input count: " + slots);
         if (kind == 3 && entity != null) entity.resizeStructureInputs(slots, false);
         return new OpenData(entity, kind,
-            kind == 3 ? slots : kind == 1 ? 0 : FoundryBlockEntity.BASE_INPUT_SLOTS);
+            kind == 3 ? slots : kind == 0 ? FoundryBlockEntity.MELTER_INPUT_SLOTS : 0);
     }
 
     /** 根据菜单打开载荷查找客户端方块实体，找不到时安全退化为空菜单。 */
@@ -139,8 +140,11 @@ public final class FoundryMenu extends AbstractContainerMenu {
         this.screenKind = screenKind;
         this.alloyerFuelSlot = screenKind == 1 && container instanceof FoundryBlockEntity entity
             && entity.alloyerFuelItemHandler() != null;
-        // 液体燃料合金炉没有物品燃料槽，设备槽只包含产物和返还槽，避免生成幽灵高亮。
-        this.deviceSlots = menuInputs + (screenKind == 1 && !alloyerFuelSlot ? 2 : 3);
+        this.melterFuelSlot = screenKind == 0 && container instanceof FoundryBlockEntity entity
+            && entity.melterFuelItemHandler() != null;
+        // 熔化炉只保留输入槽和可选固体燃料槽，不能创建普通设备的输出与返还物品槽。
+        this.deviceSlots = menuInputs + (screenKind == 1 ? (alloyerFuelSlot ? 1 : 0)
+            : screenKind == 0 ? (melterFuelSlot ? 1 : 0) : 3);
         if (screenKind == 1 && container instanceof FoundryBlockEntity entity) {
             // 客户端首帧主动建立邻接槽索引，空罐也能显示正确的槽位背景。
             entity.refreshAlloyerInputsForMenu();
@@ -190,8 +194,12 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (screenKind == 1 && container instanceof FoundryBlockEntity entity && entity.alloyerFuelItemHandler() != null) {
             // 合金炉燃料槽直接代理下方燃料罐或加热器，避免把燃料错误存入控制器自身。
             addSlot(new SlotItemHandler(entity.alloyerFuelItemHandler(), 0, 151, 32));
-        } else if (screenKind != 1) {
-            // 液体燃料合金炉由界面流体模块负责交互，不创建不应显示的物品槽。
+        } else if (screenKind == 0 && melterFuelSlot && container instanceof FoundryBlockEntity entity
+            && entity.melterFuelItemHandler() != null) {
+            // 熔化炉固体燃料槽直接代理正下方加热器，坐标与 1.20.1 匠魂一致。
+            addSlot(new SlotItemHandler(entity.melterFuelItemHandler(), 0, 151, 32));
+        } else if (screenKind == 2) {
+            // 普通设备由菜单燃料槽负责交互，液体燃料合金炉改由界面流体模块负责交互。
             addSlot(new Slot(container, FoundryBlockEntity.FUEL_SLOT, fuelX, fuelY) {
                 @Override
                 public boolean mayPlace(ItemStack stack) {
@@ -204,28 +212,31 @@ public final class FoundryMenu extends AbstractContainerMenu {
                 }
             });
         }
-        addSlot(new Slot(container, FoundryBlockEntity.OUTPUT_SLOT, 153 + contentOffset, 53) {
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return false;
-            }
+        // 合金炉的输出是流体，且输入来自邻接储罐，不能叠加普通设备的物品输出槽。
+        if (screenKind != 0 && screenKind != 1) {
+            addSlot(new Slot(container, FoundryBlockEntity.OUTPUT_SLOT, 153 + contentOffset, 53) {
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return false;
+                }
 
-            @Override
-            public boolean isActive() {
-                return screenKind != 3;
-            }
-        });
-        addSlot(new Slot(container, FoundryBlockEntity.REMAINDER_SLOT, 125 + contentOffset, 53) {
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return false;
-            }
+                @Override
+                public boolean isActive() {
+                    return screenKind != 3;
+                }
+            });
+            addSlot(new Slot(container, FoundryBlockEntity.REMAINDER_SLOT, 125 + contentOffset, 53) {
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return false;
+                }
 
-            @Override
-            public boolean isActive() {
-                return screenKind != 3;
-            }
-        });
+                @Override
+                public boolean isActive() {
+                    return screenKind != 3;
+                }
+            });
+        }
 
         if (screenKind == 3) {
             // 控制器桶槽沿用 HeatingStructureContainerMenu 的 125,46 和 125,104 坐标。
@@ -379,6 +390,11 @@ public final class FoundryMenu extends AbstractContainerMenu {
     /** 返回合金炉是否显示下方来源的固体燃料槽。 */
     public boolean hasAlloyerFuelSlot() {
         return screenKind == 1 && alloyerFuelSlot;
+    }
+
+    /** 返回熔化炉是否显示正下方加热器的固体燃料槽。 */
+    public boolean hasMelterFuelSlot() {
+        return screenKind == 0 && melterFuelSlot;
     }
 
     /** 返回指定合金输入槽的客户端流体镜像。 */
@@ -630,6 +646,15 @@ public final class FoundryMenu extends AbstractContainerMenu {
             }
             return transferHeldFluid(player, entity, getCarried(), tank, direction);
         }
+        if (screenKind() == 0 && id >= 2 && id <= 3) {
+            if (player.level().isClientSide) {
+                return true;
+            }
+            if (!(container instanceof FoundryBlockEntity entity) || getCarried().isEmpty()) {
+                return false;
+            }
+            return transferMelterFuel(player, entity, (id & 1) == 0);
+        }
         if (id < 0 || id >= fluidTankCount() * 2) {
             return false;
         }
@@ -666,6 +691,27 @@ public final class FoundryMenu extends AbstractContainerMenu {
         }
         ItemStack held = getCarried();
         var result = direction == TransferDirection.FILL_ITEM
+            ? net.neoforged.neoforge.fluids.FluidUtil.tryFillContainer(held, handler, Integer.MAX_VALUE, null, true)
+            : net.neoforged.neoforge.fluids.FluidUtil.tryEmptyContainer(held, handler, Integer.MAX_VALUE, null, true);
+        if (!result.isSuccess()) {
+            return false;
+        }
+        replaceCarried(player, held, result.getResult());
+        return true;
+    }
+
+    /** 单方块熔化炉燃料模块直接操作正下方燃料来源，复刻 1.20.1 匠魂的 2/3 按钮。 */
+    private boolean transferMelterFuel(Player player, FoundryBlockEntity entity, boolean fillItem) {
+        if (entity.getLevel() == null) {
+            return false;
+        }
+        var handler = entity.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            entity.getBlockPos().below(), null);
+        if (handler == null) {
+            return false;
+        }
+        ItemStack held = getCarried();
+        var result = fillItem
             ? net.neoforged.neoforge.fluids.FluidUtil.tryFillContainer(held, handler, Integer.MAX_VALUE, null, true)
             : net.neoforged.neoforge.fluids.FluidUtil.tryEmptyContainer(held, handler, Integer.MAX_VALUE, null, true);
         if (!result.isSuccess()) {
@@ -785,8 +831,9 @@ public final class FoundryMenu extends AbstractContainerMenu {
                     processBucketInput(entity);
                 }
             }
-            if (!moved && screenKind() != 3 && (screenKind() != 1 || hasAlloyerFuelSlot())
-                && container.canPlaceItem(FoundryBlockEntity.FUEL_SLOT, stack)) {
+            boolean hasItemFuelSlot = screenKind() == 1 ? hasAlloyerFuelSlot()
+                : screenKind() == 0 ? hasMelterFuelSlot() : screenKind() == 2;
+            if (!moved && hasItemFuelSlot) {
                 // moveItemStackTo 使用菜单槽索引，不能直接使用方块实体的隐藏槽编号。
                 int fuelMenuSlot = menuInputs;
                 moved = moveItemStackTo(stack, fuelMenuSlot, fuelMenuSlot + 1, false);

@@ -66,6 +66,8 @@ import org.hp.tinker_foundry.registry.TFRecipes;
 public final class FoundryBlockEntity extends BlockEntity implements IFluidHandler, Container {
     /** 基础设备容器预留的输入编号段；不是多方块输入上限。 */
     public static final int BASE_INPUT_SLOTS = 28;
+    /** 单方块熔化炉沿用 1.20.1 匠魂的三个纵向熔炼输入槽。 */
+    public static final int MELTER_INPUT_SLOTS = 3;
     /** 菜单基础状态字段数量，保留旧字段顺序以兼容现有客户端逻辑。 */
     public static final int MENU_BASE_DATA_COUNT = 18;
     /** 菜单同步的燃料温度字段编号。 */
@@ -1676,8 +1678,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (isAlloyer() || isHeater()) {
             return 0;
         }
-        // 熔炼器、浇注台和浇注储液罐保留物品输入槽；浇注盆原版没有模具槽，只通过流体完成盆铸造。
-        if (isMeltingBlock()) return 1;
+        // 单方块熔化炉保留 1.20.1 匠魂的三个并行物品输入槽。
+        if (isMeltingBlock()) return MELTER_INPUT_SLOTS;
         if (isCastingTable() || isCastingTankBlock()) {
             return 1;
         }
@@ -1995,7 +1997,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                     case 15 -> isAlloyer() ? alloyInputs[3].getAmount() : 0;
                     case 16 -> isAlloyer() ? fluidRegistryId(alloyInputs[3]) : -1;
                     case 17 -> structureErrorReason.ordinal();
-                    case MENU_FUEL_TEMPERATURE_INDEX -> fuelDisplayTemperature();
+                    case MENU_FUEL_TEMPERATURE_INDEX -> fuelTemperature > 0 ? fuelTemperature : fuelDisplayTemperature();
                     case 11 -> screenKind();
                     case 12 -> inputSlotCount();
                     case MENU_FUEL_AMOUNT_INDEX -> fuelDisplayFluid().getAmount();
@@ -3543,6 +3545,14 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             }
             return null;
         }
+        if (isMeltingBlock() && level != null) {
+            BlockPos below = worldPosition.below();
+            if (level.getBlockState(below).is(StructureTags.FUEL_TANKS)
+                && level.getBlockEntity(below) instanceof FoundryBlockEntity source) {
+                return source;
+            }
+            return null;
+        }
         if (level != null) {
             for (Direction direction : Direction.values()) {
                 if (level.getBlockEntity(worldPosition.relative(direction)) instanceof FoundryBlockEntity source && source.isHeater()) {
@@ -3564,6 +3574,22 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         // 与匠魂 SolidFuelModule 一致，不限制加热器能力的方向面。
         return level.getCapability(Capabilities.ItemHandler.BLOCK, worldPosition.below(), null);
+    }
+
+    /** 返回单方块熔化炉下方加热器的物品燃料能力，供界面代理固体燃料槽。 */
+    public net.neoforged.neoforge.items.IItemHandler melterFuelItemHandler() {
+        if (!isMeltingBlock() || isStructureController() || level == null) {
+            return null;
+        }
+        BlockPos below = worldPosition.below();
+        if (!level.getBlockState(below).is(StructureTags.FUEL_TANKS)) {
+            return null;
+        }
+        if (!(level.getBlockEntity(below) instanceof FoundryBlockEntity source) || !source.isHeater()) {
+            return null;
+        }
+        // 与 1.20.1 MelterContainerMenu 一致，不限制加热器物品能力的方向面。
+        return level.getCapability(Capabilities.ItemHandler.BLOCK, below, null);
     }
 
     /** 返回结构、加热器或相邻加热器当前应展示的燃料流体。 */
