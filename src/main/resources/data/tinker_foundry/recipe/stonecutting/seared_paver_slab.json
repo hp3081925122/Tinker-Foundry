@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:stonecutting",
+  "count": 2,
+  "ingredient": {"item": "tinker_foundry:seared_paver"},
+  "result": {"id": "tinker_foundry:seared_paver_slab"}
+}

@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north,triggered=false":{"model":"tinker_foundry:block/fluid_cannon"},
+    "facing=north,triggered=true":{"model":"tinker_foundry:block/fluid_cannon"},
+    "facing=east,triggered=false":{"model":"tinker_foundry:block/fluid_cannon","y":90},
+    "facing=east,triggered=true":{"model":"tinker_foundry:block/fluid_cannon","y":90},
+    "facing=south,triggered=false":{"model":"tinker_foundry:block/fluid_cannon","y":180},
+    "facing=south,triggered=true":{"model":"tinker_foundry:block/fluid_cannon","y":180},
+    "facing=west,triggered=false":{"model":"tinker_foundry:block/fluid_cannon","y":270},
+    "facing=west,triggered=true":{"model":"tinker_foundry:block/fluid_cannon","y":270},
+    "facing=up,triggered=false":{"model":"tinker_foundry:block/fluid_cannon_up"},
+    "facing=up,triggered=true":{"model":"tinker_foundry:block/fluid_cannon_up"},
+    "facing=down,triggered=false":{"model":"tinker_foundry:block/fluid_cannon_down"},
+    "facing=down,triggered=true":{"model":"tinker_foundry:block/fluid_cannon_down"}
+  }
+}

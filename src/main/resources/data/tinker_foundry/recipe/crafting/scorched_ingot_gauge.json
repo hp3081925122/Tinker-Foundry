@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["Q#Q", "#Q#", "Q#Q"],
+  "key": {
+    "#": {"item": "tinker_foundry:scorched_brick"},
+    "Q": {"item": "minecraft:quartz"}
+  },
+  "result": {"id": "tinker_foundry:scorched_ingot_gauge", "count": 1}
+}

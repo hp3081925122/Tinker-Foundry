@@ -1,0 +1,8 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:molten_clay"}, "amount": 250},
+  "mold": {"item": "minecraft:stone_slab"},
+  "result": {"id": "tinker_foundry:seared_stone_slab", "count": 1},
+  "time": 80,
+  "cast_consumed": true
+}

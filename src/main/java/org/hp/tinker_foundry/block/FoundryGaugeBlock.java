@@ -15,7 +15,6 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
-import org.hp.tinker_foundry.registry.TFBlocks;
 
 /** 1.20.1 对应的贴壁流体计，只占据贴附面上的薄片碰撞箱。 */
 public final class FoundryGaugeBlock extends FoundryEntityBlock {
@@ -56,7 +55,7 @@ public final class FoundryGaugeBlock extends FoundryEntityBlock {
         Direction facing = state.getValue(FoundryDirectionalBlock.FACING);
         BlockEntity adjacent = level.getBlockEntity(pos.relative(facing.getOpposite()));
         return adjacent instanceof FoundryBlockEntity source
-            && !source.getBlockState().is(TFBlocks.FLUID_GAUGE.get());
+            && !source.isGaugeBlock();
     }
 
     /** 按玩家观察方向选择能贴在相邻设备上的朝向。 */

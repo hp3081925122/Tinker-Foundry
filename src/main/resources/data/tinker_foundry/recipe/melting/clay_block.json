@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"item": "minecraft:clay"},
+  "result": {"id": "tinker_foundry:molten_clay", "amount": 1000},
+  "temperature": 450,
+  "time": 48
+}

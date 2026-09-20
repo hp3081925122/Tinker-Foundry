@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"tinker_foundry:block/seared_drain","y":180},"facing=south":{"model":"tinker_foundry:block/seared_drain"},"facing=west":{"model":"tinker_foundry:block/seared_drain","y":90},"facing=east":{"model":"tinker_foundry:block/seared_drain","y":270}}}

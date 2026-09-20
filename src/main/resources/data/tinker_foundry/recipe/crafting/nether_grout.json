@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "minecraft:magma_cream"},
+    {"item": "minecraft:soul_sand"},
+    {"item": "minecraft:gravel"}
+  ],
+  "result": {"id": "tinker_foundry:nether_grout", "count": 2}
+}

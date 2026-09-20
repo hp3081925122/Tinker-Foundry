@@ -1,0 +1,1 @@
+{"parent":"minecraft:block/template_glass_pane_post","loader":"tinker_foundry:connected","connection":{"predicate":"pane","textures":{"pane":"cornerless_full"}},"render_type":"minecraft:cutout","textures":{"pane":"tinker_foundry:block/foundry/glass","edge":"tinker_foundry:block/foundry/glass_top"}}

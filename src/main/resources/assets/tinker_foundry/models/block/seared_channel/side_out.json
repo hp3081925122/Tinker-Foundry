@@ -1,0 +1,7 @@
+{
+  "parent": "tinker_foundry:block/template/channel/side",
+  "textures": {
+    "texture": "tinker_foundry:block/smeltery/seared/stone",
+    "top": "tinker_foundry:block/smeltery/channel_out"
+  }
+}

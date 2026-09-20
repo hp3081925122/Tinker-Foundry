@@ -1,0 +1,6 @@
+{
+  "pages": [
+    {"title": "book.tinker_foundry.melter.title", "text": "book.tinker_foundry.melter.text"},
+    {"title": "book.tinker_foundry.heater.title", "text": "book.tinker_foundry.heater.text"}
+  ]
+}

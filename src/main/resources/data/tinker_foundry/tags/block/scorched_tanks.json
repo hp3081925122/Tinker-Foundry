@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "tinker_foundry:scorched_fuel_tank",
+    "tinker_foundry:scorched_fuel_gauge",
+    "tinker_foundry:scorched_ingot_tank",
+    "tinker_foundry:scorched_ingot_gauge"
+  ]
+}

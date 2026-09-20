@@ -22,6 +22,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.hp.tinker_foundry.common.FoundryWorldEvents;
 import org.hp.tinker_foundry.network.FoundryNetworking;
+import org.hp.tinker_foundry.book.FoundryGuideBookEvents;
 
 /** 独立冶炼系统的模组入口。 */
 @Mod(TinkerFoundry.MOD_ID)
@@ -70,6 +71,8 @@ public final class TinkerFoundry {
         modEventBus.addListener(FoundryNetworking::register);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         NeoForge.EVENT_BUS.register(FoundryWorldEvents.class);
+        // 指南书首次登录赠送只注册服务端事件，不改变普通物品交互流程。
+        NeoForge.EVENT_BUS.register(FoundryGuideBookEvents.class);
         BLOCKS.register(modEventBus);
         org.hp.tinker_foundry.registry.TFDataComponents.REGISTER.register(modEventBus);
         ITEMS.register(modEventBus);
@@ -86,9 +89,17 @@ public final class TinkerFoundry {
     /** 注册设备和便携容器的流体能力。 */
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
+            // 疏导槽按当前连接状态只暴露顶部输入或水平输入面，输出面由服务端逐面推送。
+            if (entity.getBlockState().is(TFBlocks.SEARED_CHANNEL.get())
+                || entity.getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get())) {
+                return org.hp.tinker_foundry.common.FoundryChannelFluidHandler.forSide(entity, side);
+            }
             // 导入槽仅处理物品；排液口与导管始终通过有效控制器访问流体。
-            if (entity.getBlockState().is(TFBlocks.CHUTE.get()) || entity.isHeater()) return null;
-            if (entity.getBlockState().is(TFBlocks.DRAIN.get()) || entity.getBlockState().is(TFBlocks.DUCT.get())) {
+            if (entity.getBlockState().is(TFBlocks.CHUTE.get()) || entity.getBlockState().is(TFBlocks.SEARED_CHUTE.get())
+                || entity.getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())) return null;
+            if (entity.getBlockState().is(TFBlocks.DRAIN.get()) || entity.getBlockState().is(TFBlocks.SEARED_DRAIN.get())
+                || entity.getBlockState().is(TFBlocks.SCORCHED_DRAIN.get()) || entity.getBlockState().is(TFBlocks.DUCT.get())
+                || entity.getBlockState().is(TFBlocks.SEARED_DUCT.get()) || entity.getBlockState().is(TFBlocks.SCORCHED_DUCT.get())) {
                 return new org.hp.tinker_foundry.common.FoundryPortFluidHandler(entity);
             }
             return entity;
@@ -96,13 +107,18 @@ public final class TinkerFoundry {
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
             // 无物品功能的储罐、排液口和导管不暴露通用的隐藏容器。
             if (entity.isMeltingBlock() || entity.isHeater() || entity.isFuelTankBlock() || entity.isCastingBlock() || entity.isCastingTankBlock()
-                || entity.getBlockState().is(TFBlocks.CHUTE.get())) return new org.hp.tinker_foundry.common.FoundryItemHandler(entity);
+                || entity.isProxyTankBlock() || entity.isFluidCannonBlock() || entity.getBlockState().is(TFBlocks.CHUTE.get())
+                || entity.getBlockState().is(TFBlocks.SEARED_CHUTE.get()) || entity.getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())) {
+                return new org.hp.tinker_foundry.common.FoundryItemHandler(entity);
+            }
             return null;
         });
         event.registerItem(Capabilities.FluidHandler.ITEM, (stack, side) -> new PortableTankFluidHandler(stack, ((org.hp.tinker_foundry.item.PortableTankItem) stack.getItem()).capacity()), TFItems.PORTABLE_TANK.get(), TFItems.COPPER_CANISTER.get());
         event.registerItem(Capabilities.FluidHandler.ITEM, (stack, side) -> {
             FoundryTankItem tank = (FoundryTankItem) stack.getItem();
             return new PortableTankFluidHandler(stack, tank.capacity(), tank.allowsFuel());
-        }, TFItems.SEARED_TANK.get(), TFItems.SCORCHED_TANK.get(), TFItems.SEARED_FUEL_TANK.get(), TFItems.SCORCHED_FUEL_TANK.get(), TFItems.SEARED_CASTING_TANK.get(), TFItems.SCORCHED_CASTING_TANK.get(), TFItems.SEARED_LANTERN.get(), TFItems.SCORCHED_LANTERN.get());
+        }, TFItems.SEARED_TANK.get(), TFItems.SCORCHED_TANK.get(), TFItems.SEARED_INGOT_TANK.get(), TFItems.SCORCHED_INGOT_TANK.get(),
+            TFItems.SEARED_FUEL_TANK.get(), TFItems.SCORCHED_FUEL_TANK.get(), TFItems.SEARED_CASTING_TANK.get(), TFItems.SCORCHED_CASTING_TANK.get(),
+            TFItems.SEARED_LANTERN.get(), TFItems.SCORCHED_LANTERN.get(), TFItems.SEARED_FLUID_CANNON.get(), TFItems.SCORCHED_FLUID_CANNON.get());
     }
 }

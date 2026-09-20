@@ -14,6 +14,8 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -29,8 +31,11 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.common.FluidValues;
+import org.hp.tinker_foundry.common.FoundryTags;
 import org.hp.tinker_foundry.common.StructureFluidTank;
+import org.hp.tinker_foundry.block.FoundryChannelBlock;
 import org.hp.tinker_foundry.block.FoundryDirectionalBlock;
+import org.hp.tinker_foundry.block.FoundryHorizontalBlock;
 import org.hp.tinker_foundry.block.FoundryLanternBlock;
 import org.hp.tinker_foundry.multiblock.FoundryMultiblock;
 import org.hp.tinker_foundry.multiblock.SmelteryMultiblock;
@@ -45,6 +50,8 @@ import org.hp.tinker_foundry.recipe.FluidRecipeInput;
 import org.hp.tinker_foundry.recipe.FuelRecipe;
 import org.hp.tinker_foundry.recipe.MeltingRecipe;
 import org.hp.tinker_foundry.recipe.MoldingRecipe;
+import org.hp.tinker_foundry.recipe.OreMeltingRecipe;
+import org.hp.tinker_foundry.recipe.DamageableMeltingRecipe;
 import org.hp.tinker_foundry.registry.TFBlockEntities;
 import org.hp.tinker_foundry.registry.TFBlocks;
 import org.hp.tinker_foundry.registry.TFFluids;
@@ -134,6 +141,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private FluidStack fuelFluid = FluidStack.EMPTY;
     /** 合金炉的四个独立输入槽。 */
     private FluidStack[] alloyInputs = emptyFluidInputs();
+    /** 代理储罐内部承载的单个流体容器。 */
+    private ItemStack proxyItem = ItemStack.EMPTY;
+    /** 流体炮内部承载的弹药或展示物品。 */
+    private ItemStack cannonItem = ItemStack.EMPTY;
     /** 当前处理进度。 */
     private int progress;
     /** 当前处理配方的总时间。 */
@@ -181,8 +192,32 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private boolean structureDirty = true;
     /** 导流设备距离下一次传输的服务端 tick 数。 */
     private int transferCooldown;
+    /** 本刻刚注入疏导槽、暂时不可被输出侧再次抽取的流体量。 */
+    private int channelLocked;
+    /** 疏导槽五个可输出方向的短暂流动状态，索引零为底部，其余为四个水平面。 */
+    private final byte[] channelFlowing = new byte[5];
+    /** 最近一次比较器强度，只有强度变化时才通知相邻红石设备。 */
+    private int lastComparatorStrength = -1;
+    /** 浇注口当前的 Mantle 风格状态，空闲、正在浇注或等待红石输入。 */
+    private FaucetState faucetState = FaucetState.OFF;
+    /** 玩家要求停止浇注后，允许当前缓冲液体排空再停止。 */
+    private boolean faucetStopPouring;
+    /** 浇注口最近一次红石状态，用于边沿触发。 */
+    private boolean faucetRedstone;
+    /** 浇注口客户端显示用流体，覆盖缓冲液短暂为空的同步间隔。 */
+    private FluidStack faucetRenderFluid = FluidStack.EMPTY;
     /** 限制自定义状态载荷发送频率，进度仍会按短间隔同步。 */
     private int networkSyncCooldown;
+
+    /** 浇注口的三种服务端状态。 */
+    private enum FaucetState {
+        /** 未启动浇注。 */
+        OFF,
+        /** 已经从输入端取得液体，正在按金属粒速率输出。 */
+        POURING,
+        /** 红石保持供电，但当前暂时没有可输出的液体。 */
+        POWERED
+    }
 
     /** 通过注册器构造设备。 */
     public FoundryBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -217,6 +252,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         // 结构只在脏标记出现时检查；右键控制器也会调用同一入口，避免打开界面前读取旧状态。
         entity.refreshStructureIfDirty();
         entity.tickProcess(level);
+        // Mantle 会在容器内容变化时更新比较器；统一实体每 tick 做缓存比较，覆盖物品、流体和进度变化。
+        entity.updateComparatorSignal();
         entity.updateActiveBlockState(level);
         if (entity.worldSyncDirty && level.getGameTime() % 4 == 3) {
             entity.worldSyncDirty = false;
@@ -442,9 +479,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 if (possible > 0) {
                     for (int index = 0; index < inputSlotCount(); index++) {
                         if (inputs[index].isEmpty() || inputStatuses[index] == INPUT_STATUS_NO_SPACE) continue;
-                        Optional<RecipeHolder<MeltingRecipe>> candidate = level.getRecipeManager().getRecipeFor(
-                            TFRecipes.MELTING.get(), new SingleRecipeInput(inputs[index]), level);
-                        if (candidate.isPresent() && candidate.get().value().temperature() <= possible) {
+                        Optional<MeltingMatch> candidate = findMeltingRecipe(level, inputs[index]);
+                        if (candidate.isPresent() && candidate.get().temperature() <= possible) {
                             needed = true;
                             break;
                         }
@@ -459,6 +495,12 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             if (isSmelteryController() && burnTime > 0 && level.getGameTime() % 4 == 2) runStructureAlloying(level, false, fuelTemperature);
         } else if (isFaucet()) {
             tickFaucet(level);
+        } else if (isDrain()) {
+            // 独立排液口没有控制器绑定时，按朝向从相邻设备补充自身缓存。
+            tickDrain(level);
+        } else if (isTransferBlock()) {
+            // 导流附件必须在服务端 tick 中主动搬运，不能只依赖能力查询。
+            tickTransfer(level);
         }
         consumeBurningFuel();
     }
@@ -531,6 +573,33 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return fuelFluidConsumption > 0 && fuelBurnDuration > 0;
     }
 
+    /** 统一把三类熔炼配方解析为运行时结果，避免燃料预判和实际熔炼各漏查一种类型。 */
+    private Optional<MeltingMatch> findMeltingRecipe(Level level, ItemStack stack) {
+        SingleRecipeInput input = new SingleRecipeInput(stack);
+        Optional<RecipeHolder<MeltingRecipe>> normal = level.getRecipeManager().getRecipeFor(TFRecipes.MELTING.get(), input, level);
+        if (normal.isPresent()) {
+            MeltingRecipe recipe = normal.get().value();
+            return Optional.of(new MeltingMatch(recipe.output(isFoundryController()), recipe.temperature(), recipe.time(), recipe.byproductOutputs()));
+        }
+        for (RecipeHolder<OreMeltingRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ORE_MELTING.get())) {
+            OreMeltingRecipe recipe = holder.value();
+            if (recipe.matches(input, level)) {
+                return Optional.of(new MeltingMatch(recipe.output(isFoundryController()), recipe.temperature(), recipe.time(), recipe.byproductOutputs()));
+            }
+        }
+        for (RecipeHolder<DamageableMeltingRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.DAMAGEABLE_MELTING.get())) {
+            DamageableMeltingRecipe recipe = holder.value();
+            if (recipe.matches(input, level)) {
+                return Optional.of(new MeltingMatch(recipe.output(stack), recipe.temperature(), recipe.time(), recipe.byproductOutputs(stack)));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** 运行时熔炼结果，包含界面进度和铸造炉副产物。 */
+    private record MeltingMatch(FluidStack result, int temperature, int time, List<FluidStack> byproducts) {
+    }
+
     /** 处理物品到流体的熔炼；每个已启用输入槽都拥有独立进度。 */
     private void tickMelting(Level level) {
         int activeSlots = inputSlotCount();
@@ -550,9 +619,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 inputStatuses[index] = INPUT_STATUS_EMPTY;
                 continue;
             }
-            Optional<RecipeHolder<MeltingRecipe>> found = level.getRecipeManager().getRecipeFor(
-                TFRecipes.MELTING.get(), new SingleRecipeInput(inputs[index]), level
-            );
+            Optional<MeltingMatch> found = findMeltingRecipe(level, inputs[index]);
             if (found.isEmpty()) {
                 setInputProgress(index, 0);
                 inputRecipeTimes[index] = 0;
@@ -560,8 +627,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 inputStatuses[index] = INPUT_STATUS_UNMELTABLE;
                 continue;
             }
-            MeltingRecipe recipe = found.get().value();
-            FluidStack meltingResult = recipe.output(isFoundryController());
+            MeltingMatch recipe = found.get();
+            FluidStack meltingResult = recipe.result();
             inputRecipeTimes[index] = Math.max(0, recipe.time());
             inputRequiredTemperatures[index] = Math.max(0, recipe.temperature());
             if (displaySlot < 0) {
@@ -594,7 +661,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 fill(meltingResult, FluidAction.EXECUTE);
                 // 只有铸造炉提取副产物，注入顺序和不足容量时的损失遵循上游。
                 if (isFoundryController()) {
-                    for (FluidStack byproduct : recipe.byproductOutputs()) fill(byproduct, FluidAction.EXECUTE);
+                    for (FluidStack byproduct : recipe.byproducts()) fill(byproduct, FluidAction.EXECUTE);
                 }
                 setInputProgress(index, 0);
             }
@@ -603,10 +670,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             progress = 0;
             processTime = 0;
         } else {
-            Optional<RecipeHolder<MeltingRecipe>> display = level.getRecipeManager().getRecipeFor(
-                TFRecipes.MELTING.get(), new SingleRecipeInput(inputs[displaySlot]), level
-            );
-            processTime = display.map(holder -> holder.value().time()).orElse(0);
+            Optional<MeltingMatch> display = findMeltingRecipe(level, inputs[displaySlot]);
+            processTime = display.map(MeltingMatch::time).orElse(0);
             progress = Math.min(processTime, inputProgress[displaySlot]);
         }
     }
@@ -761,6 +826,20 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 处理浇注台和浇注盆的物品输出。 */
     private void tickCasting(Level level) {
+        if (inputs[0].isEmpty() || !output.isEmpty()) {
+            // 没有输入或旧产物未取走时，不启动新的容器转移。
+            return;
+        }
+        ItemStack containerResult = processCastingContainer(inputs[0].copyWithCount(1));
+        if (!containerResult.isEmpty()) {
+            inputs[0].shrink(1);
+            if (inputs[0].isEmpty()) inputs[0] = ItemStack.EMPTY;
+            output = containerResult;
+            progress = 0;
+            setChanged();
+            markFluidChanged();
+            return;
+        }
         if (fluid.isEmpty()) {
             return;
         }
@@ -994,7 +1073,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                     entity.fireImmune() ? "smeltery_magic" : "smeltery_heat"));
             var damageSource = level.damageSources().source(key);
             if (living.isInvulnerableTo(damageSource)) continue;
-            FluidStack result = new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 10);
+            // 默认实体熔炼量与上游按玻璃板五分之一的规则一致，避免无配方实体少产一半流体。
+            FluidStack result = new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), FluidValues.GLASS_PANE / 5);
             int damage = 2;
             for (var holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ENTITY_MELTING.get())) {
                 if (holder.value().matchesEntity(entity.getType())) {
@@ -1269,7 +1349,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return 0;
         }
         // 熔炼器、浇注台、浇注盆和浇注储液罐保留一个物品输入槽供直接交互或自动化使用。
-        if (isMeltingBlock()) return 3;
+        if (isMeltingBlock()) return 1;
         if (isCastingBlock() || isCastingTankBlock()) {
             return 1;
         }
@@ -1591,7 +1671,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         for (ItemStack stack : inputs) {
             if (!stack.isEmpty()) return false;
         }
-        return fuel.isEmpty() && output.isEmpty() && remainder.isEmpty();
+        return fuel.isEmpty() && output.isEmpty() && remainder.isEmpty() && proxyItem.isEmpty() && cannonItem.isEmpty();
     }
 
     /** 容器协议要求返回实际堆栈，使快速移动和漏斗扣量能写回设备。 */
@@ -1694,6 +1774,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         fuel = ItemStack.EMPTY;
         output = ItemStack.EMPTY;
         remainder = ItemStack.EMPTY;
+        proxyItem = ItemStack.EMPTY;
+        cannonItem = ItemStack.EMPTY;
         setChanged();
     }
 
@@ -1715,6 +1797,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!output.isEmpty()) tag.put("Output", output.save(registries));
         if (!remainder.isEmpty()) tag.put("Remainder", remainder.save(registries));
         if (!fuel.isEmpty()) tag.put("Fuel", fuel.save(registries));
+        if (!proxyItem.isEmpty()) tag.put("ProxyItem", proxyItem.save(registries));
+        if (!cannonItem.isEmpty()) tag.put("CannonItem", cannonItem.save(registries));
         if (!fluid.isEmpty()) tag.put("Fluid", fluid.save(registries));
         // 多流体单独保存有序列表，不读取或迁移旧控制器的单槽流体。
         if (isStructureController()) {
@@ -1741,6 +1825,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (structureMax != null) tag.putLong("StructureMax", structureMax.asLong());
         if (drainControllerPos != null) tag.putLong("Controller", drainControllerPos.asLong());
         tag.putInt("TransferCooldown", transferCooldown);
+        // 流动状态属于客户端渲染所需的短暂同步数据，不影响实际流体存量。
+        tag.putByteArray("ChannelFlowing", channelFlowing);
+        // 浇注口状态和显示流体需要随方块实体同步，客户端才能保持连续的浇注动画。
+        tag.putByte("FaucetState", (byte) faucetState.ordinal());
+        tag.putBoolean("FaucetStop", faucetStopPouring);
+        tag.putBoolean("FaucetRedstone", faucetRedstone);
+        if (!faucetRenderFluid.isEmpty()) tag.put("FaucetRenderFluid", faucetRenderFluid.save(registries));
         ListTag alloyInputTags = new ListTag();
         for (int index = 0; index < alloyInputs.length; index++) {
             if (!alloyInputs[index].isEmpty()) {
@@ -1784,6 +1875,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         output = tag.contains("Output", 10) ? ItemStack.parse(registries, tag.getCompound("Output")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
         remainder = tag.contains("Remainder", 10) ? ItemStack.parse(registries, tag.getCompound("Remainder")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
         fuel = tag.contains("Fuel", 10) ? ItemStack.parse(registries, tag.getCompound("Fuel")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
+        proxyItem = tag.contains("ProxyItem", Tag.TAG_COMPOUND)
+            ? ItemStack.parse(registries, tag.getCompound("ProxyItem")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
+        cannonItem = tag.contains("CannonItem", Tag.TAG_COMPOUND)
+            ? ItemStack.parse(registries, tag.getCompound("CannonItem")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
         fluid = FluidStack.parseOptional(registries, tag.getCompound("Fluid"));
         if (isStructureController()) {
             List<FluidStack> layers = new java.util.ArrayList<>();
@@ -1827,6 +1922,20 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         drainControllerPos = tag.contains("Controller") ? BlockPos.of(tag.getLong("Controller")) : null;
         structureDirty = true;
         transferCooldown = tag.getInt("TransferCooldown");
+        // 兼容没有该字段的旧存档，并限制异常数据不能写入负数流动计时。
+        byte[] storedChannelFlowing = tag.getByteArray("ChannelFlowing");
+        java.util.Arrays.fill(channelFlowing, (byte) 0);
+        for (int index = 0; index < Math.min(channelFlowing.length, storedChannelFlowing.length); index++) {
+            channelFlowing[index] = (byte) Math.max(0, Math.min(2, storedChannelFlowing[index]));
+        }
+        // 旧存档没有浇注口状态时按空闲处理，避免错误恢复成正在浇注。
+        int storedFaucetState = Math.max(0, Math.min(FaucetState.values().length - 1, tag.getByte("FaucetState")));
+        faucetState = FaucetState.values()[storedFaucetState];
+        faucetStopPouring = tag.getBoolean("FaucetStop");
+        faucetRedstone = tag.getBoolean("FaucetRedstone");
+        faucetRenderFluid = tag.contains("FaucetRenderFluid", Tag.TAG_COMPOUND)
+            ? FluidStack.parseOptional(registries, tag.getCompound("FaucetRenderFluid")) : fluid.copy();
+        lastComparatorStrength = -1;
         // 世界更新包和菜单更新都应保留同一份物品，日志用于复测是否还会被清空。
         int loadedInputCount = java.util.Arrays.stream(inputs).mapToInt(ItemStack::getCount).sum();
         if (level != null && level.isClientSide && previousInputCount != loadedInputCount) {
@@ -1967,12 +2076,23 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 判断当前设备是否为大容量金属储液罐。 */
     public boolean isIngotTankBlock() {
-        return getBlockState().is(TFBlocks.SEARED_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_TANK.get());
+        return getBlockState().is(TFBlocks.SEARED_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_TANK.get())
+            || getBlockState().is(TFBlocks.SEARED_INGOT_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_INGOT_TANK.get());
     }
 
     /** 判断当前设备是否为浇注专用储液罐。 */
     public boolean isCastingTankBlock() {
         return getBlockState().is(TFBlocks.SEARED_CASTING_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_CASTING_TANK.get());
+    }
+
+    /** 判断当前设备是否是把流体容器作为内部储罐的代理储罐。 */
+    public boolean isProxyTankBlock() {
+        return getBlockState().is(TFBlocks.SCORCHED_PROXY_TANK.get());
+    }
+
+    /** 判断当前设备是否是红石触发的流体炮。 */
+    public boolean isFluidCannonBlock() {
+        return getBlockState().is(TFBlocks.SEARED_FLUID_CANNON.get()) || getBlockState().is(TFBlocks.SCORCHED_FLUID_CANNON.get());
     }
 
     /** 判断当前设备是否为可保存 50 mB 流体的冶炼灯。 */
@@ -1982,7 +2102,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 判断当前设备是否为会在破坏时保存流体的专用储液罐。 */
     public boolean isTankBlock() {
-        return isIngotTankBlock() || isFuelTankBlock() || isCastingTankBlock() || isLanternBlock();
+        return isIngotTankBlock() || isFuelTankBlock() || isCastingTankBlock() || isLanternBlock() || isFluidCannonBlock();
     }
 
     /** 返回专用储液罐当前的可携带流体。 */
@@ -2015,19 +2135,228 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return !resource.isEmpty();
     }
 
+    /** 返回代理储罐或流体炮的内部物品副本。 */
+    public ItemStack getSpecialItem() {
+        if (isProxyTankBlock()) return proxyItem.copy();
+        if (isFluidCannonBlock()) return cannonItem.copy();
+        return ItemStack.EMPTY;
+    }
+
+    /** 判断内部物品槽是否接受物品；代理储罐只接受可提供流体能力的物品。 */
+    public boolean isSpecialItemValid(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        if (isProxyTankBlock()) {
+            // 与 Mantle 的 ProxyItemTank 保持一致：黑名单同时检查物品本体和配方剩余容器。
+            if (stack.is(FoundryTags.PROXY_TANK_BLACKLIST)) return false;
+            ItemStack remainder = stack.getCraftingRemainingItem();
+            if (!remainder.isEmpty() && remainder.is(FoundryTags.PROXY_TANK_BLACKLIST)) return false;
+            return net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(stack).isPresent();
+        }
+        return isFluidCannonBlock();
+    }
+
+    /** 模拟或执行内部物品槽插入，代理储罐严格限制为一个堆叠。 */
+    public ItemStack insertSpecialItem(ItemStack stack, boolean simulate) {
+        if (!isSpecialItemValid(stack)) return stack;
+        ItemStack stored = getSpecialItem();
+        int limit = isProxyTankBlock() ? 1 : 64;
+        if (!stored.isEmpty() && !ItemStack.isSameItemSameComponents(stored, stack)) return stack;
+        int amount = Math.min(stack.getCount(), limit - stored.getCount());
+        if (amount <= 0) return stack;
+        if (!simulate) {
+            setSpecialItem(stored.isEmpty() ? stack.copyWithCount(amount) : stored.copyWithCount(stored.getCount() + amount));
+        }
+        return stack.copyWithCount(stack.getCount() - amount);
+    }
+
+    /** 模拟或执行内部物品槽抽取。 */
+    public ItemStack extractSpecialItem(int amount, boolean simulate) {
+        ItemStack stored = getSpecialItem();
+        if (stored.isEmpty() || amount <= 0) return ItemStack.EMPTY;
+        ItemStack result = stored.copyWithCount(Math.min(amount, stored.getCount()));
+        if (!simulate) setSpecialItem(stored.copyWithCount(stored.getCount() - result.getCount()));
+        return result;
+    }
+
+    /** 直接更新内部物品槽并标记方块实体同步。 */
+    public void setSpecialItem(ItemStack stack) {
+        ItemStack copy = stack.copy();
+        if (isProxyTankBlock()) {
+            proxyItem = copy.isEmpty() ? ItemStack.EMPTY : copy.copyWithCount(1);
+        } else if (isFluidCannonBlock()) {
+            cannonItem = copy;
+        }
+        setChanged();
+        worldSyncDirty = true;
+    }
+
+    /** 玩家空手或持物交换代理储罐、流体炮的内部物品。 */
+    public boolean swapSpecialItem(Player player, net.minecraft.world.InteractionHand hand) {
+        if ((!isProxyTankBlock() && !isFluidCannonBlock()) || level == null || level.isClientSide) return false;
+        ItemStack held = player.getItemInHand(hand);
+        ItemStack stored = getSpecialItem();
+        if (held.isEmpty()) {
+            if (stored.isEmpty()) return false;
+            player.setItemInHand(hand, stored);
+            setSpecialItem(ItemStack.EMPTY);
+            return true;
+        }
+        if (stored.isEmpty()) {
+            ItemStack remainder = insertSpecialItem(held, false);
+            player.setItemInHand(hand, remainder);
+            return !ItemStack.matches(held, remainder);
+        }
+        player.setItemInHand(hand, stored);
+        setSpecialItem(ItemStack.EMPTY);
+        ItemStack remainder = insertSpecialItem(held, false);
+        if (!remainder.isEmpty() && !player.addItem(remainder)) player.drop(remainder, false);
+        return true;
+    }
+
+    /** 返回代理储罐内部物品当前提供的流体能力。 */
+    private IFluidHandler proxyFluidHandler() {
+        if (!isProxyTankBlock() || proxyItem.isEmpty()) return null;
+        return new ProxyItemFluidHandler();
+    }
+
+    /**
+     * 代理储罐的物品能力适配器，等价实现 Mantle ProxyItemTank 的变更回写语义。
+     * 物品能力直接操作方块实体保存的 ItemStack；执行写入后必须同时标记区块和客户端同步。
+     */
+    private final class ProxyItemFluidHandler implements IFluidHandler {
+        /** 读取当前代理物品提供的能力，不缓存旧 ItemStack，避免换罐后继续写入旧对象。 */
+        private IFluidHandler delegate() {
+            return proxyItem.isEmpty()
+                ? null
+                : net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(proxyItem).orElse(null);
+        }
+
+        /** 代理物品能力的槽数。 */
+        @Override
+        public int getTanks() {
+            IFluidHandler handler = delegate();
+            return handler == null ? 0 : handler.getTanks();
+        }
+
+        /** 返回代理物品中的流体副本。 */
+        @Override
+        public FluidStack getFluidInTank(int tank) {
+            IFluidHandler handler = delegate();
+            return handler == null ? FluidStack.EMPTY : handler.getFluidInTank(tank);
+        }
+
+        /** 返回代理物品的槽容量。 */
+        @Override
+        public int getTankCapacity(int tank) {
+            IFluidHandler handler = delegate();
+            return handler == null ? 0 : handler.getTankCapacity(tank);
+        }
+
+        /** 委托代理物品判断流体是否有效。 */
+        @Override
+        public boolean isFluidValid(int tank, FluidStack resource) {
+            IFluidHandler handler = delegate();
+            return handler != null && handler.isFluidValid(tank, resource);
+        }
+
+        /** 注入代理物品并在实际变化后回写方块实体同步标记。 */
+        @Override
+        public int fill(FluidStack resource, FluidAction action) {
+            IFluidHandler handler = delegate();
+            if (handler == null) return 0;
+            int amount = handler.fill(resource, action);
+            if (amount > 0 && action.execute()) markProxyItemChanged();
+            return amount;
+        }
+
+        /** 按流体类型抽取代理物品内容并回写同步标记。 */
+        @Override
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            IFluidHandler handler = delegate();
+            if (handler == null) return FluidStack.EMPTY;
+            FluidStack drained = handler.drain(resource, action);
+            if (!drained.isEmpty() && action.execute()) markProxyItemChanged();
+            return drained;
+        }
+
+        /** 按数量抽取代理物品内容并回写同步标记。 */
+        @Override
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            IFluidHandler handler = delegate();
+            if (handler == null) return FluidStack.EMPTY;
+            FluidStack drained = handler.drain(maxDrain, action);
+            if (!drained.isEmpty() && action.execute()) markProxyItemChanged();
+            return drained;
+        }
+    }
+
+    /** 标记代理物品内容改变，保存和世界渲染使用同一份方块实体状态。 */
+    private void markProxyItemChanged() {
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            worldSyncDirty = true;
+            TinkerFoundry.LOGGER.debug("[proxy-tank] item fluid changed pos={} item={}", worldPosition, proxyItem.getItem());
+        }
+    }
+
+    /** 返回指定方块的流体炮朝向并执行一次发射。 */
+    public void shootCannon(BlockState state, ServerLevel serverLevel, RandomSource random) {
+        if (!isFluidCannonBlock()) return;
+        FluidStack stored = fluid.copy();
+        if (stored.isEmpty()) {
+            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.SOUND_DISPENSER_FAIL, worldPosition, 0);
+            return;
+        }
+        Direction direction = state.getValue(FoundryDirectionalBlock.FACING);
+        BlockPos targetPos = worldPosition.relative(direction);
+        int amount = Math.min(stored.getAmount(), FluidValues.BUCKET);
+        IFluidHandler target = serverLevel.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, targetPos, direction.getOpposite());
+        if (target != null) {
+            int accepted = target.fill(stored.copyWithAmount(amount), IFluidHandler.FluidAction.SIMULATE);
+            if (accepted > 0) {
+                FluidStack drained = drainTank(0, accepted, IFluidHandler.FluidAction.EXECUTE);
+                if (drained.getAmount() == accepted) {
+                    target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+                    serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE, worldPosition, direction.get3DDataValue());
+                    return;
+                }
+            }
+        }
+        // 没有接收能力时允许向空气喷出一源流体，避免红石触发只消耗而无结果。
+        if (serverLevel.getBlockState(targetPos).isAir()) {
+            BlockState fluidState = stored.getFluid().defaultFluidState().createLegacyBlock();
+            if (!fluidState.isAir() && serverLevel.setBlock(targetPos, fluidState, Block.UPDATE_ALL)) {
+                drainTank(0, amount, IFluidHandler.FluidAction.EXECUTE);
+                serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE, worldPosition, direction.get3DDataValue());
+                return;
+            }
+        }
+        serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.SOUND_DISPENSER_FAIL, worldPosition, 0);
+    }
+
     /** 返回当前宿主是否是浇注设备。 */
     public boolean isCastingBlock() {
-        return getBlockState().is(TFBlocks.CASTING_TABLE.get()) || getBlockState().is(TFBlocks.CASTING_BASIN.get());
+        return getBlockState().is(TFBlocks.CASTING_TABLE.get()) || getBlockState().is(TFBlocks.CASTING_BASIN.get())
+            || getBlockState().is(TFBlocks.SEARED_TABLE.get()) || getBlockState().is(TFBlocks.SCORCHED_TABLE.get())
+            || getBlockState().is(TFBlocks.SEARED_BASIN.get()) || getBlockState().is(TFBlocks.SCORCHED_BASIN.get());
     }
 
     /** 返回当前宿主是否是排液口。 */
     private boolean isDrain() {
-        return getBlockState().is(TFBlocks.DRAIN.get());
+        return getBlockState().is(TFBlocks.DRAIN.get()) || getBlockState().is(TFBlocks.SEARED_DRAIN.get())
+            || getBlockState().is(TFBlocks.SCORCHED_DRAIN.get());
     }
 
     /** 返回当前宿主是否是浇注口。 */
     private boolean isFaucet() {
-        return getBlockState().is(TFBlocks.FAUCET.get());
+        return getBlockState().is(TFBlocks.FAUCET.get()) || getBlockState().is(TFBlocks.SEARED_FAUCET.get())
+            || getBlockState().is(TFBlocks.SCORCHED_FAUCET.get());
+    }
+
+    /** 返回当前宿主是否是浇注口，供方块邻居事件和交互层调用。 */
+    public boolean isFaucetBlock() {
+        return isFaucet();
     }
 
     /** 返回当前宿主是否应执行熔炼。 */
@@ -2035,14 +2364,25 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return isSmelteryController() || isFoundryController() || getBlockState().is(TFBlocks.MELTER.get());
     }
 
-    /** 管道横向从西向东传输，导流槽竖直从上向下传输。 */
+    /** 方向附件沿方块状态的端口方向传输流体，滑槽仍通过控制器代理处理物品。 */
     private boolean isTransferBlock() {
-        return getBlockState().is(TFBlocks.DUCT.get()) || getBlockState().is(TFBlocks.CHUTE.get());
+        return getBlockState().is(TFBlocks.DUCT.get()) || getBlockState().is(TFBlocks.CHUTE.get())
+            || getBlockState().is(TFBlocks.SEARED_DUCT.get()) || getBlockState().is(TFBlocks.SCORCHED_DUCT.get())
+            || getBlockState().is(TFBlocks.SEARED_CHUTE.get()) || getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())
+            || getBlockState().is(TFBlocks.SEARED_CHANNEL.get()) || getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get());
+    }
+
+    /** 判断当前附件是否为全向导流槽。 */
+    private boolean isChannelBlock() {
+        return getBlockState().is(TFBlocks.SEARED_CHANNEL.get()) || getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get());
     }
 
     /** 判断当前设备是否属于排液、浇注或导流类流体设备。 */
     private boolean isFluidTransferBlock() {
-        return isDrain() || isFaucet() || isTransferBlock() || getBlockState().is(TFBlocks.FLUID_GAUGE.get());
+        return isDrain() || isFaucet() || isTransferBlock() || getBlockState().is(TFBlocks.FLUID_GAUGE.get())
+            || getBlockState().is(TFBlocks.COPPER_GAUGE.get()) || getBlockState().is(TFBlocks.OBSIDIAN_GAUGE.get())
+            || getBlockState().is(TFBlocks.SEARED_INGOT_GAUGE.get()) || getBlockState().is(TFBlocks.SCORCHED_INGOT_GAUGE.get())
+            || getBlockState().is(TFBlocks.SEARED_FUEL_GAUGE.get()) || getBlockState().is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
     }
 
     /** 判断当前方块是否应打开独立菜单，严格对应 1.20.1 的可开界面设备。 */
@@ -2056,34 +2396,172 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (fluid.getAmount() >= capacity()) {
             return;
         }
-        Direction sourceDirection = isDirectionalBlock() ? getBlockState().getValue(FoundryDirectionalBlock.FACING) : Direction.DOWN;
+        Direction sourceDirection = isDirectionalBlock() ? blockFacing() : Direction.DOWN;
         pullFrom(level, sourceDirection);
     }
 
-    /** 浇注口从背面取液并沿朝向输出，只有目标实际接收后才扣除来源。 */
+    /** 浇注口每 tick 按金属粒速率向下方输出，缓冲耗尽后再取得下一份金属锭液量。 */
     private void tickFaucet(Level level) {
-        if (fluid.isEmpty()) {
-            Direction output = outputDirection();
-            pullFrom(level, output.getOpposite());
+        if (faucetState == FaucetState.OFF) {
+            return;
         }
-        pushToTarget(level);
+        if (!fluid.isEmpty()) {
+            // 输出目标暂时满载时保留缓冲液体，不能把液体错误丢弃。
+            if (!pourFaucet(level)) {
+                resetFaucet();
+                return;
+            }
+            if (!fluid.isEmpty()) {
+                return;
+            }
+        }
+        if (faucetStopPouring) {
+            resetFaucet();
+            return;
+        }
+        // 手动启动和红石保持供电都允许继续申请下一份输入；没有输入时再结束浇注。
+        if (!startFaucetTransfer(level) && faucetState != FaucetState.POWERED) {
+            resetFaucet();
+        }
     }
 
-    /** 手动触发浇注口，供玩家右键时立即执行一次传输。 */
+    /** 手动触发浇注口，沿用 Mantle 的启动、停止和等待红石三态语义。 */
     public boolean activateFaucet() {
-        if (!isFaucet() || level == null || level.isClientSide) {
+        if (!isFaucet()) {
             return false;
         }
-        if (fluid.isEmpty()) {
-            Direction output = outputDirection();
-            pullFrom(level, output.getOpposite());
+        if (level == null || level.isClientSide) {
+            return true;
         }
-        return pushToTarget(level);
+        if (faucetState == FaucetState.OFF) {
+            faucetStopPouring = false;
+            startFaucetTransfer(level);
+        } else if (faucetState == FaucetState.POWERED) {
+            // 手动再次点击等待中的红石浇注口时关闭它。
+            resetFaucet();
+        } else {
+            // 正在输出时只设置停止标记，让当前金属锭液量完整排空。
+            faucetStopPouring = true;
+        }
+        return true;
+    }
+
+    /** 处理浇注口红石边沿，供方块邻居更新调用。 */
+    public void handleFaucetRedstone(boolean powered) {
+        if (!isFaucet() || level == null || level.isClientSide || powered == faucetRedstone) {
+            return;
+        }
+        faucetRedstone = powered;
+        setChanged();
+        worldSyncDirty = true;
+        if (powered) {
+            // 和 Mantle 一样延迟两个 tick，再由方块 tick 调用启动逻辑。
+            level.scheduleTick(worldPosition, getBlockState().getBlock(), 2);
+        } else if (faucetState == FaucetState.POWERED) {
+            resetFaucet();
+        }
+    }
+
+    /** 从浇注口背面抽取一份金属锭容量，并先确认下方目标可以接收。 */
+    private boolean startFaucetTransfer(Level level) {
+        Direction inputDirection = blockFacing().getOpposite();
+        BlockPos inputPos = worldPosition.relative(inputDirection);
+        IFluidHandler input = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            inputPos, inputDirection.getOpposite());
+        BlockPos outputPos = worldPosition.below();
+        IFluidHandler outputHandler = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            outputPos, Direction.UP);
+        if (input == null || outputHandler == null) {
+            faucetState = faucetRedstone ? FaucetState.POWERED : FaucetState.OFF;
+            setChanged();
+            worldSyncDirty = true;
+            return false;
+        }
+        FluidStack available = input.drain(FluidValues.INGOT, FluidAction.SIMULATE);
+        if (available.isEmpty()) {
+            faucetState = faucetRedstone ? FaucetState.POWERED : FaucetState.OFF;
+            setChanged();
+            worldSyncDirty = true;
+            return false;
+        }
+        int accepted = outputHandler.fill(available, FluidAction.SIMULATE);
+        if (accepted <= 0) {
+            faucetState = faucetRedstone ? FaucetState.POWERED : FaucetState.OFF;
+            setChanged();
+            worldSyncDirty = true;
+            return false;
+        }
+        // 低于一个金属粒时允许小容器接收；否则要求至少能接收一个金属粒。
+        if (accepted > FluidValues.NUGGET
+            && outputHandler.fill(available.copyWithAmount(FluidValues.NUGGET), FluidAction.SIMULATE) <= 0) {
+            faucetState = faucetRedstone ? FaucetState.POWERED : FaucetState.OFF;
+            setChanged();
+            worldSyncDirty = true;
+            return false;
+        }
+        FluidStack drained = input.drain(accepted, FluidAction.EXECUTE);
+        if (drained.isEmpty()) {
+            faucetState = faucetRedstone ? FaucetState.POWERED : FaucetState.OFF;
+            setChanged();
+            worldSyncDirty = true;
+            return false;
+        }
+        fluid = drained.copy();
+        faucetRenderFluid = drained.copy();
+        faucetState = FaucetState.POURING;
+        markFluidChanged();
+        // 启动时立即执行一次输出，后续 tick 继续按 NUGGET 输出。
+        pourFaucet(level);
+        return true;
+    }
+
+    /** 向浇注口下方目标输出最多一个金属粒，目标暂时满载时保留内部缓冲。 */
+    private boolean pourFaucet(Level level) {
+        if (fluid.isEmpty()) {
+            return true;
+        }
+        IFluidHandler outputHandler = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            worldPosition.below(), Direction.UP);
+        if (outputHandler == null) {
+            return false;
+        }
+        int requested = Math.min(fluid.getAmount(), FluidValues.NUGGET);
+        FluidStack candidate = fluid.copyWithAmount(requested);
+        int accepted = outputHandler.fill(candidate, FluidAction.SIMULATE);
+        if (accepted <= 0) {
+            return true;
+        }
+        FluidStack moved = fluid.copyWithAmount(accepted);
+        fluid.shrink(accepted);
+        if (fluid.isEmpty()) {
+            fluid = FluidStack.EMPTY;
+        }
+        outputHandler.fill(moved, FluidAction.EXECUTE);
+        markFluidChanged();
+        return true;
+    }
+
+    /** 停止浇注并清理渲染缓存；输出目标丢失时按 Mantle 语义丢弃已经取出的缓冲液。 */
+    private void resetFaucet() {
+        boolean changed = faucetState != FaucetState.OFF || faucetStopPouring || !fluid.isEmpty() || !faucetRenderFluid.isEmpty();
+        faucetState = FaucetState.OFF;
+        faucetStopPouring = false;
+        fluid = FluidStack.EMPTY;
+        faucetRenderFluid = FluidStack.EMPTY;
+        if (changed) {
+            setChanged();
+            if (level != null && !level.isClientSide) {
+                worldSyncDirty = true;
+            }
+        }
     }
 
     /** 从指定方向之外的相邻设备取出流体，避免从正下方的浇注目标回抽。 */
     private void pullFromAdjacent(Level level, Direction excludedDirection) {
-        Direction preferred = isDirectionalBlock() ? getBlockState().getValue(FoundryDirectionalBlock.FACING) : Direction.NORTH;
+        Direction preferred = isDirectionalBlock() ? blockFacing() : Direction.NORTH;
         if (isFaucet()) {
             preferred = preferred.getOpposite();
         }
@@ -2116,15 +2594,20 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 从一个明确方向的相邻流体设备抽取最多一桶。 */
     private boolean pullFrom(Level level, Direction direction) {
-        if (!(level.getBlockEntity(worldPosition.relative(direction)) instanceof FoundryBlockEntity source) || source == this || source.isFaucet()) {
+        BlockPos sourcePos = worldPosition.relative(direction);
+        BlockEntity sourceEntity = level.getBlockEntity(sourcePos);
+        if (sourceEntity == this || sourceEntity instanceof FoundryBlockEntity source && source.isFaucet()) {
             return false;
         }
-        FluidStack available = source.transferFluid();
-        if (available.isEmpty()) {
+        IFluidHandler source = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            sourcePos, direction.getOpposite());
+        if (source == null || source.getTanks() <= 0) {
             return false;
         }
-        int requested = Math.min(available.getAmount(), FluidValues.BUCKET);
-        int moved = fill(available.copyWithAmount(requested), FluidAction.SIMULATE);
+        FluidStack available = source.drain(FluidValues.BUCKET, FluidAction.SIMULATE);
+        if (available.isEmpty()) return false;
+        int moved = fill(available, FluidAction.SIMULATE);
         if (moved <= 0) {
             return false;
         }
@@ -2133,6 +2616,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return false;
         }
         fill(drained, FluidAction.EXECUTE);
+        TinkerFoundry.LOGGER.debug("[transfer] pulled amount={} from={} to={} direction={}", moved, sourcePos, worldPosition, direction);
         return true;
     }
 
@@ -2142,14 +2626,15 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return false;
         }
         Direction direction = outputDirection();
-        BlockEntity targetEntity = level.getBlockEntity(worldPosition.relative(direction));
-        if (!(targetEntity instanceof FoundryBlockEntity)) {
+        BlockPos targetPos = worldPosition.relative(direction);
+        BlockEntity targetEntity = level.getBlockEntity(targetPos);
+        if (targetEntity == this) {
             return false;
         }
-        FoundryBlockEntity target = (FoundryBlockEntity) targetEntity;
-        if (target == this) {
-            return false;
-        }
+        IFluidHandler target = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            targetPos, direction.getOpposite());
+        if (target == null) return false;
         int requested = Math.min(fluid.getAmount(), FluidValues.BUCKET);
         int moved = target.fill(fluid.copyWithAmount(requested), FluidAction.SIMULATE);
         if (moved <= 0) {
@@ -2160,6 +2645,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return false;
         }
         target.fill(drained, FluidAction.EXECUTE);
+        TinkerFoundry.LOGGER.debug("[transfer] pushed amount={} from={} to={} direction={}", moved, worldPosition, targetPos, direction);
         return true;
     }
 
@@ -2172,28 +2658,156 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 只在相邻设备之间搬运当前输出槽位，避免全世界扫描和双向抖动。 */
     private void tickTransfer(Level level) {
+        if (transferCooldown > 0) {
+            transferCooldown--;
+            return;
+        }
+        transferCooldown = 1;
+        if (isChannelBlock()) {
+            tickChannel(level);
+            return;
+        }
         Direction outputSide = outputDirection();
         Direction inputSide = outputSide.getOpposite();
-        if (level.getBlockEntity(worldPosition.relative(inputSide)) instanceof FoundryBlockEntity source) {
-            FluidStack available = source.transferFluid();
+        IFluidHandler source = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            worldPosition.relative(inputSide), inputSide.getOpposite());
+        if (source != null && source.getTanks() > 0) {
+            FluidStack available = source.getFluidInTank(0);
             if (!available.isEmpty()) {
-                int moved = fill(available, FluidAction.SIMULATE);
+                int moved = fill(available.copyWithAmount(Math.min(available.getAmount(), FluidValues.BUCKET)), FluidAction.SIMULATE);
                 if (moved > 0) {
-                    source.drain(moved, FluidAction.EXECUTE);
-                    fill(available.copyWithAmount(moved), FluidAction.EXECUTE);
+                    FluidStack drained = source.drain(moved, FluidAction.EXECUTE);
+                    if (drained.getAmount() == moved) fill(drained, FluidAction.EXECUTE);
                 }
             }
         }
-        if (level.getBlockEntity(worldPosition.relative(outputSide)) instanceof FoundryBlockEntity target) {
+        IFluidHandler target = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            worldPosition.relative(outputSide), outputSide.getOpposite());
+        if (target != null) {
             FluidStack available = getFluidInTank(0);
             if (!available.isEmpty()) {
-                int moved = target.fill(available, FluidAction.SIMULATE);
+                int moved = target.fill(available.copyWithAmount(Math.min(available.getAmount(), FluidValues.BUCKET)), FluidAction.SIMULATE);
                 if (moved > 0) {
-                    drain(moved, FluidAction.EXECUTE);
-                    target.fill(available.copyWithAmount(moved), FluidAction.EXECUTE);
+                    FluidStack drained = drain(moved, FluidAction.EXECUTE);
+                    if (drained.getAmount() == moved) target.fill(drained, FluidAction.EXECUTE);
                 }
             }
         }
+    }
+
+    /** 按匠魂的连接状态逐面输出疏导槽流体，顶部输入不再被错误地当成自动抽取。 */
+    private void tickChannel(Level level) {
+        BlockState state = getBlockState();
+        if (!fluid.isEmpty()) {
+            boolean flowedDown = state.getValue(FoundryChannelBlock.DOWN)
+                && tryChannelSide(level, Direction.DOWN, FluidValues.NUGGET);
+            int outputs = countChannelOutputs(state);
+            if (!flowedDown && outputs > 0) {
+                int usable = Math.max(0, fluid.getAmount() - channelLocked);
+                int flowRate = Math.max(1, Math.min(FluidValues.NUGGET, usable / outputs));
+                for (Direction direction : Direction.Plane.HORIZONTAL) {
+                    tryChannelSide(level, direction, flowRate);
+                }
+            }
+        }
+        // 与 Mantle ChannelBlockEntity 的短暂流动缓存等价，客户端据此切换静止和流动液体纹理。
+        tickChannelFlowing();
+        // 与 Mantle 的 ChannelTank.freeFluid 等价，锁定量只保护当前 tick 的输入。
+        channelLocked = 0;
+    }
+
+    /** 将一个导流槽面的流动状态保持两个服务端 tick，给客户端留下稳定的渲染窗口。 */
+    private void tickChannelFlowing() {
+        for (int index = 0; index < channelFlowing.length; index++) {
+            if (channelFlowing[index] > 0) {
+                channelFlowing[index]--;
+                if (channelFlowing[index] == 0) {
+                    worldSyncDirty = true;
+                }
+            }
+        }
+    }
+
+    /** 将导流槽方向映射为与 Mantle 相同的五项流动数组索引。 */
+    private static int channelFlowIndex(Direction side) {
+        if (side == Direction.DOWN) return 0;
+        if (side == null || !side.getAxis().isHorizontal()) return -1;
+        return side.get3DDataValue() - 1;
+    }
+
+    /** 设置指定方向的流动状态，并安排一次客户端方块实体更新。 */
+    private void setChannelFlowing(Direction side, boolean flowing) {
+        int index = channelFlowIndex(side);
+        if (index < 0) return;
+        boolean wasFlowing = channelFlowing[index] > 0;
+        channelFlowing[index] = (byte) (flowing ? 2 : 0);
+        if (wasFlowing != flowing) {
+            worldSyncDirty = true;
+        }
+    }
+
+    /** 返回指定导流槽面是否仍处于短暂流动状态，客户端渲染器和服务端逻辑共用。 */
+    public boolean isChannelFlowing(Direction side) {
+        int index = channelFlowIndex(side);
+        return index >= 0 && channelFlowing[index] > 0;
+    }
+
+    /** 标记导流槽输入面刚刚接收流体，等价于 Mantle ChannelSideTank 的 setFlow。 */
+    public void markChannelInputFlow(Direction side) {
+        if (side != null && side != Direction.UP) {
+            setChannelFlowing(side, true);
+        }
+    }
+
+    /** 统计四个水平面中处于输出模式的连接数量。 */
+    private static int countChannelOutputs(BlockState state) {
+        int outputs = 0;
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            if (state.getValue(FoundryChannelBlock.DIRECTION_MAP.get(direction)) == FoundryChannelBlock.ChannelConnection.OUT) {
+                outputs++;
+            }
+        }
+        return outputs;
+    }
+
+    /** 尝试沿一个明确的输出面搬运最多一个匠魂金属粒。 */
+    private boolean tryChannelSide(Level level, Direction side, int amount) {
+        BlockState state = getBlockState();
+        boolean output = side == Direction.DOWN
+            ? state.getValue(FoundryChannelBlock.DOWN)
+            : state.getValue(FoundryChannelBlock.DIRECTION_MAP.get(side)) == FoundryChannelBlock.ChannelConnection.OUT;
+        if (!output || fluid.isEmpty()) {
+            setChannelFlowing(side, false);
+            return false;
+        }
+        int usable = Math.min(amount, Math.max(0, fluid.getAmount() - channelLocked));
+        if (usable <= 0) {
+            setChannelFlowing(side, false);
+            return false;
+        }
+        IFluidHandler target = level.getCapability(
+            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            worldPosition.relative(side), side.getOpposite());
+        if (target == null) {
+            setChannelFlowing(side, false);
+            return false;
+        }
+        FluidStack candidate = fluid.copyWithAmount(usable);
+        int accepted = target.fill(candidate, FluidAction.SIMULATE);
+        if (accepted <= 0) {
+            setChannelFlowing(side, false);
+            return false;
+        }
+        FluidStack drained = drainTank(0, accepted, FluidAction.EXECUTE);
+        if (drained.getAmount() != accepted) {
+            setChannelFlowing(side, false);
+            return false;
+        }
+        target.fill(drained, FluidAction.EXECUTE);
+        setChannelFlowing(side, true);
+        return true;
     }
 
     /** 返回普通槽容量或当前结构容量。 */
@@ -2207,24 +2821,50 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (isCastingTankBlock()) {
             return FluidValues.BUCKET;
         }
+        if (isChannelBlock()) {
+            return FluidValues.NUGGET * 4;
+        }
+        if (isFluidCannonBlock()) {
+            return FluidValues.BUCKET * 2;
+        }
         if (isIngotTankBlock()) {
             return FluidValues.INGOT * 48;
         }
         if (isLanternBlock()) {
             return FoundryLanternBlock.CAPACITY;
         }
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null || handler.getTanks() == 0 ? 0 : handler.getTankCapacity(0);
+        }
         return DEFAULT_CAPACITY;
     }
 
     /** 判断当前方块是否拥有方向状态。 */
     private boolean isDirectionalBlock() {
-        return getBlockState().hasProperty(FoundryDirectionalBlock.FACING);
+        return getBlockState().hasProperty(FoundryDirectionalBlock.FACING)
+            || getBlockState().hasProperty(FoundryHorizontalBlock.FACING);
+    }
+
+    /** 返回六向设备或水平排液附件的当前朝向。 */
+    private Direction blockFacing() {
+        if (getBlockState().hasProperty(FoundryDirectionalBlock.FACING)) {
+            return getBlockState().getValue(FoundryDirectionalBlock.FACING);
+        }
+        if (getBlockState().hasProperty(FoundryHorizontalBlock.FACING)) {
+            return getBlockState().getValue(FoundryHorizontalBlock.FACING);
+        }
+        return Direction.DOWN;
     }
 
     /** 返回设备的输出方向，旧式无方向状态默认向下。 */
     private Direction outputDirection() {
+        // 浇注口的 FACING 是背面输入方向，真正的出液端固定在下方。
+        if (isFaucet()) {
+            return Direction.DOWN;
+        }
         if (isDirectionalBlock()) {
-            return getBlockState().getValue(FoundryDirectionalBlock.FACING);
+            return blockFacing();
         }
         return Direction.DOWN;
     }
@@ -2365,7 +3005,14 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (isAlloyer()) {
             return fluid.copy();
         }
-        if (getBlockState().is(TFBlocks.FLUID_GAUGE.get())) {
+        if (isFaucet()) {
+            return faucetRenderFluid.isEmpty() ? fluid.copy() : faucetRenderFluid.copy();
+        }
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null || handler.getTanks() == 0 ? FluidStack.EMPTY : handler.getFluidInTank(0).copy();
+        }
+        if (isGaugeBlock()) {
             FoundryBlockEntity source = getGaugeSource();
             return source == null ? FluidStack.EMPTY : source.getDisplayFluid();
         }
@@ -2374,7 +3021,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 返回流体计读取的相邻设备容量，不改变任何设备的实际储量。 */
     public int getDisplayCapacity() {
-        if (getBlockState().is(TFBlocks.FLUID_GAUGE.get())) {
+        if (isGaugeBlock()) {
             FoundryBlockEntity source = getGaugeSource();
             if (source == null) {
                 return 0;
@@ -2385,17 +3032,72 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return isHeater() ? getTankCapacity(0) : isAlloyer() ? getTankCapacity(ALLOY_OUTPUT_TANK) : getTankCapacity(0);
     }
 
+    /** 判断当前统一方块实体是否复刻了匠魂原版的比较器输出设备。 */
+    public boolean hasComparatorOutput() {
+        return isCastingBlock() || isMeltingBlock() || isAlloyer() || isHeater()
+            || isTankBlock() || isProxyTankBlock();
+    }
+
+    /** 返回储罐、熔炼设备和浇注设备的 Mantle 风格比较器强度。 */
+    public int comparatorStrength() {
+        if (!hasComparatorOutput()) {
+            return 0;
+        }
+        // 浇注台和浇注盆按输出、冷却、流体、输入的优先级复刻原版信号范围。
+        if (isCastingBlock()) {
+            if (!output.isEmpty()) {
+                return 15;
+            }
+            if (processTime > 0 && progress > 0) {
+                return Math.min(14, 11 + progress * 4 / processTime);
+            }
+            FluidStack castingFluid = getFluidInTank(0);
+            int castingCapacity = getTankCapacity(0);
+            if (!castingFluid.isEmpty() && castingCapacity > 0) {
+                return Math.min(10, 2 + castingFluid.getAmount() * 9 / castingCapacity);
+            }
+            return inputs.length > 0 && !inputs[0].isEmpty() ? 1 : 0;
+        }
+        // 储罐、熔炼器、合金炉、加热器和代理储罐统一按当前显示槽位计算液量比例。
+        FluidStack displayed = getDisplayFluid();
+        int displayedCapacity = getDisplayCapacity();
+        if (displayed.isEmpty() || displayedCapacity <= 0) {
+            return 0;
+        }
+        return Math.min(15, 1 + 14 * displayed.getAmount() / displayedCapacity);
+    }
+
+    /** 只在比较器强度变化时更新邻居，等价于 Mantle 的 onTankContentsChanged。 */
+    private void updateComparatorSignal() {
+        if (level == null || level.isClientSide || !hasComparatorOutput()) {
+            return;
+        }
+        int strength = comparatorStrength();
+        if (strength != lastComparatorStrength) {
+            lastComparatorStrength = strength;
+            level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+        }
+    }
+
     /** 返回流体计贴附的相邻冶炼设备，方向语义与 1.20.1 上游保持一致。 */
     public FoundryBlockEntity getGaugeSource() {
-        if (!getBlockState().is(TFBlocks.FLUID_GAUGE.get()) || level == null) {
+        if (!isGaugeBlock() || level == null) {
             return null;
         }
         Direction facing = getBlockState().getValue(FoundryDirectionalBlock.FACING);
         if (level.getBlockEntity(worldPosition.relative(facing.getOpposite())) instanceof FoundryBlockEntity source
-            && !source.getBlockState().is(TFBlocks.FLUID_GAUGE.get())) {
+            && !source.isGaugeBlock()) {
             return source;
         }
         return null;
+    }
+
+    /** 判断全部原版命名流体计变种。 */
+    public boolean isGaugeBlock() {
+        return getBlockState().is(TFBlocks.FLUID_GAUGE.get()) || getBlockState().is(TFBlocks.COPPER_GAUGE.get())
+            || getBlockState().is(TFBlocks.OBSIDIAN_GAUGE.get()) || getBlockState().is(TFBlocks.SEARED_INGOT_GAUGE.get())
+            || getBlockState().is(TFBlocks.SCORCHED_INGOT_GAUGE.get()) || getBlockState().is(TFBlocks.SEARED_FUEL_GAUGE.get())
+            || getBlockState().is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
     }
 
     /** 兼容菜单内部旧调用，统一走动态展示流体。 */
@@ -2417,6 +3119,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** Alloyer 暴露四个输入槽和一个输出槽，其余设备暴露一个槽。 */
     @Override
     public int getTanks() {
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null ? 0 : handler.getTanks();
+        }
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.getTanks();
         if (isStructureController()) return Math.max(1, structureFluids.size());
@@ -2426,6 +3132,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 返回指定槽位的副本。 */
     @Override
     public FluidStack getFluidInTank(int tank) {
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null ? FluidStack.EMPTY : handler.getFluidInTank(tank);
+        }
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.getFluidInTank(tank);
         if (isStructureController()) return structureFluids.get(tank);
@@ -2437,6 +3147,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 返回指定槽位容量。 */
     @Override
     public int getTankCapacity(int tank) {
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null ? 0 : handler.getTankCapacity(tank);
+        }
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.getTankCapacity(tank);
         if (tank < 0) return 0;
@@ -2449,6 +3163,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 只有普通槽或合金输入槽接受流体。 */
     @Override
     public boolean isFluidValid(int tank, FluidStack resource) {
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler != null && handler.isFluidValid(tank, resource);
+        }
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.isFluidValid(tank, resource);
         if (resource.isEmpty()) return false;
@@ -2462,6 +3180,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 按指定槽位注入流体，供界面交互和合金炉多槽输入使用。 */
     public int fillTank(int tank, FluidStack resource, FluidAction action) {
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null ? 0 : handler.fill(resource, action);
+        }
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.fillTank(tank, resource, action);
         if (resource.isEmpty() || tank < 0 || tank >= getTanks() || !isFluidValid(tank, resource)) {
@@ -2483,6 +3205,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             } else {
                 fluid = updated;
             }
+            if (isChannelBlock()) {
+                channelLocked += amount;
+            }
             markFluidChanged();
         }
         return Math.max(0, amount);
@@ -2490,7 +3215,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 只接受仍有效且边界仍包含本排液口的控制器，避免拆炉后使用陈旧绑定。 */
     private FoundryBlockEntity drainController() {
-        if (!(isDrain() || getBlockState().is(TFBlocks.DUCT.get())) ) return null;
+        if (!(isDrain() || getBlockState().is(TFBlocks.DUCT.get()) || getBlockState().is(TFBlocks.SEARED_DUCT.get())
+            || getBlockState().is(TFBlocks.SCORCHED_DUCT.get()))) return null;
         return attachedController();
     }
 
@@ -2526,6 +3252,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 模拟或执行流体注入。 */
     @Override
     public int fill(FluidStack resource, FluidAction action) {
+        if (isProxyTankBlock()) return fillTank(0, resource, action);
         if (isAlloyer()) {
             int matchingTank = -1;
             for (int tank = 0; tank < MAX_ALLOY_INPUTS; tank++) {
@@ -2549,6 +3276,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 按指定槽位抽取流体，供界面从合金炉输入槽或输出槽取液。 */
     public FluidStack drainTank(int tank, int maxDrain, FluidAction action) {
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null ? FluidStack.EMPTY : handler.drain(maxDrain, action);
+        }
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.drainTank(tank, maxDrain, action);
         if (tank < 0 || tank >= getTanks() || maxDrain <= 0) {
@@ -2563,7 +3294,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (stored.isEmpty()) {
             return FluidStack.EMPTY;
         }
-        int amount = Math.min(maxDrain, stored.getAmount());
+        int usable = isChannelBlock() ? Math.max(0, stored.getAmount() - channelLocked) : stored.getAmount();
+        int amount = Math.min(maxDrain, usable);
         FluidStack result = stored.copyWithAmount(amount);
         if (action.execute()) {
             FluidStack updated = stored.copyWithAmount(stored.getAmount() - amount);
@@ -2589,6 +3321,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 按流体类型抽取。 */
     @Override
     public FluidStack drain(FluidStack resource, FluidAction action) {
+        if (isProxyTankBlock()) {
+            IFluidHandler handler = proxyFluidHandler();
+            return handler == null ? FluidStack.EMPTY : handler.drain(resource, action);
+        }
         FoundryBlockEntity controller = drainController();
         if (controller != null) return controller.drain(resource, action);
         if (isStructureController()) return drainTank(structureFluids.indexOf(resource), resource.getAmount(), action);
@@ -2600,6 +3336,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 按数量抽取输出流体。 */
     @Override
     public FluidStack drain(int maxDrain, FluidAction action) {
+        if (isProxyTankBlock()) return drainTank(0, maxDrain, action);
         return drainTank(isAlloyer() ? ALLOY_OUTPUT_TANK : 0, maxDrain, action);
     }
 }

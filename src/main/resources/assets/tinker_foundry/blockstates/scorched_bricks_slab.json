@@ -1,0 +1,1 @@
+{"multipart":[{"when":{"type":"bottom"},"apply":{"model":"tinker_foundry:block/scorched_bricks_slab"}},{"when":{"type":"top"},"apply":{"model":"tinker_foundry:block/scorched_bricks_slab_top"}},{"when":{"type":"double"},"apply":{"model":"tinker_foundry:block/scorched_bricks"}}]}

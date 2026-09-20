@@ -1,0 +1,632 @@
+{
+  "intro": [
+    {
+      "name": "introduction",
+      "type": "mantle:text",
+      "source": "puny_smelting/introduction/thruul.json",
+      "content": {
+        "title": "Tinker Foundry",
+        "text": [
+          {
+            "text": "This standalone Minecraft 1.21.1 NeoForge mod provides melting, casting, fuels, molds and fluid handling. Alloy recipes are outside this migration scope for now.",
+            "paragraph": true
+          },
+          {
+            "text": "Start with a melter and heater, melt items into fluids, then cast them into items. A foundry separates primary products and byproducts; the alloyer interface remains, but this migration adds no alloy recipes.",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "melter": [
+    {
+      "name": "melter",
+      "type": "mantle:text",
+      "source": "puny_smelting/melting/melter.json",
+      "content": {
+        "title": "Melter",
+        "text": [
+          {
+            "text": "The melter has one input slot and processes one item at a time. Its 4000 mB tank holds one fluid; drain incompatible contents before processing another material.",
+            "paragraph": true
+          },
+          {
+            "text": "Place the heat source directly below the melter. A heater supplies solid fuel; a fluid tank supplies recipe-compatible liquid fuel. Fuel temperature must meet the melting recipe requirement.",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/melter.png"
+        }
+      }
+    },
+    {
+      "name": "features",
+      "type": "mantle:text",
+      "source": "puny_smelting/melting/features.json",
+      "content": {
+        "title": "Amounts and temperatures",
+        "text": [
+          {
+            "text": "A metal nugget is 10 mB, an ingot 90 mB, a block 810 mB and a bucket 1000 mB. Copper, gold and iron ingots/nuggets/blocks require 500, 700 and 800°C respectively.",
+            "paragraph": true
+          },
+          {
+            "text": "A diamond melts into 100 mB at 1450°C; an emerald into 100 mB at 934°C. Coal is not hot enough for either gem.",
+            "paragraph": true
+          },
+          {
+            "text": "Ore yields and foundry byproducts belong to individual melting recipes; there is no universal bonus for every item.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "operation",
+      "type": "mantle:text",
+      "source": "puny_smelting/melting/meltergui2.json",
+      "content": {
+        "title": "Melting operation",
+        "text": [
+          {
+            "text": "Open the machine and place recipe-compatible items in its input slots. Slots heat independently. Insufficient temperature prevents further heating; progress cools down when fuel runs out.",
+            "paragraph": true
+          },
+          {
+            "text": "Fully heated items wait if the tank lacks space and finish once fluid is drained. Item handlers can extract remaining inputs; changing an input resets its associated progress.",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "moving_fluids": [
+    {
+      "name": "moving_fluids",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/intro.json",
+      "content": {
+        "title": "Moving fluids",
+        "text": [
+          {
+            "text": "Use buckets, copper canisters or portable tanks on machines to transfer fluids. An empty bucket needs a complete 1000 mB transfer.",
+            "paragraph": true
+          },
+          {
+            "text": "Multifluid structures drain the selected bottom fluid first. Select a fluid in the controller before extracting it through a drain.",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/movingfluids.png"
+        }
+      }
+    },
+    {
+      "name": "faucets",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/faucet2.json",
+      "content": {
+        "title": "Faucet",
+        "text": [
+          {
+            "text": "A faucet draws from the side opposite its facing and outputs toward its facing. It transfers automatically; an empty-hand interaction also attempts an immediate transfer.",
+            "paragraph": true
+          },
+          {
+            "text": "Each pull or push moves at most 1000 mB and requires available destination space. Active transfer connects this mod's machines; placement follows the facing direction.",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/faucet_pour.png"
+        }
+      }
+    },
+    {
+      "name": "copper_cans",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/copper_can.json",
+      "content": {
+        "title": "Portable containers",
+        "text": [
+          {
+            "text": "A copper canister holds 90 mB, or one ingot. A portable tank holds 8000 mB. Both are unstackable and hold a single fluid.",
+            "paragraph": true
+          },
+          {
+            "text": "Use them for machine fluid interactions. Dedicated tank blocks can also carry fluid as items and restore it when placed.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "copper_cans_craft",
+      "type": "mantle:crafting",
+      "source": "puny_smelting/movingfluids/copper_can_craft.json",
+      "content": {
+        "title": "Copper canister crafting",
+        "text": [
+          {
+            "text": "This is the current workbench recipe.",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:copper_canister",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "CCC",
+            "C C",
+            "CCC"
+          ],
+          "key": {
+            "C": {
+              "tag": "c:ingots/copper"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:copper_canister",
+            "count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "gauge",
+      "type": "mantle:text",
+      "source": "puny_smelting/movingfluids/gauge.json",
+      "content": {
+        "title": "Fluid gauge",
+        "text": [
+          {
+            "text": "Attach a fluid gauge beside a foundry machine to read its fluid and capacity. For an alloyer it displays the output tank; for a multiblock it displays controller storage.",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "casting": [
+    {
+      "name": "casting",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/intro.json",
+      "content": {
+        "title": "Casting",
+        "text": [
+          {
+            "text": "Casting tables and basins accept molten fluid and the mold or item required by the recipe. After cooling, retrieve the result with an empty-hand interaction.",
+            "paragraph": true
+          },
+          {
+            "text": "Casting consumes the recipe's fluid amount. Reusable molds remain; sand mold consumption is defined by the recipe. Completion waits when output space is unavailable.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "sand_cast",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/sandcast.json",
+      "content": {
+        "title": "Sand molds",
+        "text": [
+          {
+            "text": "Ingot and nugget sand casts and red sand casts have direct workbench recipes. They are shaped items and do not require a part builder or revert to blank casts when removed.",
+            "paragraph": true
+          },
+          {
+            "text": "Insert a compatible cast, supply the required fluid and retrieve the cooled result. Disposable casts are consumed according to the recipe.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "sand_cast_craft",
+      "type": "mantle:crafting",
+      "source": "puny_smelting/casting/sandcast_craft.json",
+      "content": {
+        "title": "Ingot sand cast crafting",
+        "text": [
+          {
+            "text": "Arrange six sand blocks in the top and bottom rows to craft one ingot sand cast.",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:sand_cast_ingot",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "SSS",
+            "   ",
+            "SSS"
+          ],
+          "key": {
+            "S": {
+              "item": "minecraft:sand"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:ingot_sand_cast",
+            "count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_cast",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/goldcast.json",
+      "content": {
+        "title": "Reusable casts",
+        "text": [
+          {
+            "text": "Place an ingot matching c:ingots in a casting device and pour 90 mB molten gold. The ingot cast recipe cools for 60 ticks and consumes the sample ingot.",
+            "paragraph": true
+          },
+          {
+            "text": "Nugget casts use their corresponding nugget sample recipe. The resulting metal molds are reusable.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "automation",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/automation.json",
+      "content": {
+        "title": "Automation",
+        "text": [
+          {
+            "text": "Casting item handlers expose input, output and remainder slots; outputs reject insertion. Use hoppers or compatible item pipes to supply inputs and extract results.",
+            "paragraph": true
+          },
+          {
+            "text": "Keep reusable molds in the input and clear the output. Slot switching is a recipe behavior, not a redstone operation.",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/cast_automation.png"
+        }
+      }
+    },
+    {
+      "name": "casting_tank",
+      "type": "mantle:text",
+      "source": "puny_smelting/casting/casting_tank.json",
+      "content": {
+        "title": "Casting tank",
+        "text": [
+          {
+            "text": "A casting tank holds 1000 mB and automatically processes buckets, portable containers and dedicated tank items. Insert a container through its item handler and extract the processed item from the output.",
+            "paragraph": true
+          },
+          {
+            "text": "Filled containers try to empty into the tank; empty portable containers take fluid up to their capacity. Empty buckets require a full bucket. Processing waits until the output is cleared.",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "alloyer": [
+    {
+      "name": "alloy",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/alloyer/features.json",
+      "content": {
+        "title": "Alloyer",
+        "text": [
+          {
+            "text": "The alloyer accepts fluids rather than solid melting inputs. It has four 4000 mB input tanks and an 8000 mB output tank. Alloy recipes are not included in this migration, so it does not invent alloy results.",
+            "paragraph": true
+          },
+          {
+            "text": "The alloying recipe set is deferred. The fluid interfaces and storage remain available for a later recipe data update; no unsupported result is produced now.",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/alloyer.png"
+        }
+      }
+    }
+  ],
+  "smeltery": [
+    {
+      "name": "features",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/features.json",
+      "content": {
+        "title": "Smeltery capacity and processing",
+        "text": [
+          {
+            "text": "A smeltery supports parallel melting, multiple fluids and internal alloying. Each interior block provides one input slot holding one item.",
+            "paragraph": true
+          },
+          {
+            "text": "Calculated capacity is interior volume × 1080 mB. The current storage handler uses max(4000, calculated capacity), so very small structures may display a different capacity from their actual storage limit.",
+            "paragraph": true
+          },
+          {
+            "text": "Fuel multiplier is 1 + floor((2×inner width×interior height + 2×inner depth×interior height + inner width×inner depth)/15). Larger structures consume more fuel.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "structurereq",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/structurerequirements.json",
+      "content": {
+        "title": "Smeltery structure",
+        "text": [
+          {
+            "text": "Use a rectangular interior 1–14 blocks wide and deep and 1–63 blocks high. Total height including the floor is 2–64, with a maximum exterior of 16×16×64. The top is open; a roof is not counted.",
+            "paragraph": true
+          },
+          {
+            "text": "The central floor must use blocks in the smeltery floor tag, not glass. Four walls surround an empty interior. Corner pillars and the floor's outer frame are ignored.",
+            "paragraph": true
+          },
+          {
+            "text": "Place the controller in a wall, facing outward with its back toward the interior, not in the floor layer. Invalid structures show an error instead of opening their menu.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "controller",
+      "type": "mantle:crafting",
+      "source": "mighty_smelting/smeltery/controller.json",
+      "content": {
+        "title": "Smeltery controller crafting",
+        "text": [
+          {
+            "text": "Craft the controller with this project's workbench recipe.",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:smeltery_controller",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "BBB",
+            "BFB",
+            "BBB"
+          ],
+          "key": {
+            "B": {
+              "item": "tinker_foundry:seared_brick"
+            },
+            "F": {
+              "item": "minecraft:furnace"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:smeltery_controller",
+            "count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "seared_tanks",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/tanks.json",
+      "content": {
+        "title": "Tanks and fuel",
+        "text": [
+          {
+            "text": "Seared and scorched tanks hold 4320 mB (48 ingots); fuel tanks hold 4000 mB, casting tanks 1000 mB and lanterns 50 mB.",
+            "paragraph": true
+          },
+          {
+            "text": "Multiblocks obtain fuel from fuel sources registered within the valid structure. Process fluids and fuel serve different purposes; fill the fuel source with a supported fuel.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "seared_drain",
+      "type": "mantle:text",
+      "source": "mighty_smelting/smeltery/seared_drain.json",
+      "content": {
+        "title": "Structure ports",
+        "text": [
+          {
+            "text": "Drains expose the controller's fluid input and output, draining the selected bottom layer first. Chutes expose controller inventory for item automation and stop providing slots when detached.",
+            "paragraph": true
+          },
+          {
+            "text": "Use the project's directional fluid ports for fluid automation. The original book's copper-can filter-slot procedure does not apply.",
+            "paragraph": true
+          }
+        ]
+      }
+    }
+  ],
+  "blazing_blood": [
+    {
+      "name": "intro",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/blazing_blood/intro.json",
+      "content": {
+        "title": "High-temperature fuel",
+        "text": [
+          {
+            "text": "Coal: 800°C; one item; parameter 1600; rate 8.",
+            "paragraph": true
+          },
+          {
+            "text": "Lava: 1000°C; 50 mB per operation; parameter 100; rate 10.",
+            "paragraph": true
+          },
+          {
+            "text": "Blazing blood: 1800°C; 50 mB per operation; parameter 150; rate 18.",
+            "paragraph": true
+          },
+          {
+            "text": "Duration parameters and structure fuel multipliers determine actual operating time; each fuel portion does not last the same number of ticks.",
+            "paragraph": true
+          },
+          {
+            "text": "Hotter fuel enables higher-temperature recipes, such as diamond melting at 1450°C.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "melting",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/blazing_blood/melting.json",
+      "content": {
+        "title": "Obtaining blazing blood",
+        "text": [
+          {
+            "text": "Place a blaze inside a valid fueled structure. Its entity melting recipe produces 20 mB blazing blood for a successful 2-point damage application.",
+            "paragraph": true
+          },
+          {
+            "text": "Fluid is produced only when damage succeeds. Fire resistance, blacklisting and damage immunity prevent production. Provide starting fuel and room for the resulting fluid.",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/blaze_smeltery.png"
+        }
+      }
+    }
+  ],
+  "foundry": [
+    {
+      "name": "features",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/foundry/features.json",
+      "content": {
+        "title": "Foundry",
+        "text": [
+          {
+            "text": "The foundry uses each recipe's foundry output and then inserts its byproducts without internal alloying. Each interior block provides a single-item input slot.",
+            "paragraph": true
+          },
+          {
+            "text": "Capacity is outer width × outer depth × (interior height + 1) × 720 mB, using the full bounding volume. Fuel multiplier is 1 + floor((2×outer width×interior height + 2×(outer depth−2)×interior height + outer width×outer depth)/18).",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/scorched_casting.png"
+        }
+      }
+    },
+    {
+      "name": "byproducts",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/foundry/byproducts.json",
+      "content": {
+        "title": "Byproducts and space",
+        "text": [
+          {
+            "text": "Not every melting recipe has byproducts. Only a foundry extracts recipe byproducts; melters and smelteries do not.",
+            "paragraph": true
+          },
+          {
+            "text": "Completion first checks space for the main output. Byproducts are inserted afterward in order, and amounts that do not fit are lost. Leave room for all outputs and drain regularly.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "structurereq",
+      "type": "mantle:text",
+      "source": "fantastic_foundry/foundry/structurerequirements.json",
+      "content": {
+        "title": "Foundry structure",
+        "text": [
+          {
+            "text": "Dimensions match the smeltery: inner width and depth 1–14, interior height 1–63, total height 2–64 including the floor, with an open top. Use scorched casing and blocks in the foundry floor tag.",
+            "paragraph": true
+          },
+          {
+            "text": "The foundry requires all four corner pillars and the floor's outer frame. Glass cannot replace the central floor. The outward-facing controller may be in a wall or in the bottom frame; in the latter case the block above its inward neighbor must be interior space.",
+            "paragraph": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "controller",
+      "type": "mantle:crafting",
+      "source": "fantastic_foundry/foundry/controller.json",
+      "content": {
+        "title": "Foundry controller crafting",
+        "text": [
+          {
+            "text": "This is the current workbench recipe.",
+            "paragraph": true
+          }
+        ],
+        "recipe": "tinker_foundry:foundry_controller",
+        "recipe_data": {
+          "type": "minecraft:crafting_shaped",
+          "pattern": [
+            "BBB",
+            "BFB",
+            "BBB"
+          ],
+          "key": {
+            "B": {
+              "item": "tinker_foundry:scorched_brick"
+            },
+            "F": {
+              "item": "minecraft:blast_furnace"
+            }
+          },
+          "result": {
+            "id": "tinker_foundry:foundry_controller",
+            "count": 1
+          }
+        }
+      }
+    }
+  ],
+  "entity_melting": [
+    {
+      "name": "entitymelting",
+      "type": "mantle:text",
+      "source": "mighty_smelting/entitymelting/entitymelting.json",
+      "content": {
+        "title": "Entity melting",
+        "text": [
+          {
+            "text": "Valid smelteries and foundries check interior entities every 20 ticks. Dropped items can enter the actual inventory without fuel; living-entity melting requires fuel and successful damage.",
+            "paragraph": true
+          },
+          {
+            "text": "Invulnerable creative players, entities with Fire Resistance and blacklisted entities produce no fluid. Entity recipes define their fluid output and damage.",
+            "paragraph": true
+          }
+        ],
+        "image": {
+          "file": "tinker_foundry:book/images/entitymelting.png"
+        }
+      }
+    }
+  ],
+  "_names": {},
+  "_illustrations": {}
+}

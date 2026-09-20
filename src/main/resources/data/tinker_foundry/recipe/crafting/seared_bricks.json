@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["BB", "BB"],
+  "key": {"B": {"item": "tinker_foundry:seared_stone"}},
+  "result": {"id": "tinker_foundry:seared_bricks", "count": 4}
+}

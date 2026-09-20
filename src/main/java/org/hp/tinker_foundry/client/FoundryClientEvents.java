@@ -17,6 +17,7 @@ import org.hp.tinker_foundry.registry.TFFluids;
 import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.registry.TFBlockEntities;
 import org.hp.tinker_foundry.client.model.TankModel;
+import org.hp.tinker_foundry.client.model.ConnectedGlassModel;
 
 /** 注册熔融流体的客户端颜色和流体表面纹理。 */
 @EventBusSubscriber(modid = TinkerFoundry.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -37,6 +38,7 @@ public final class FoundryClientEvents {
     @SubscribeEvent
     public static void registerModelLoaders(ModelEvent.RegisterGeometryLoaders event) {
         event.register(ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "tank"), TankModel.LOADER);
+        event.register(ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "connected"), ConnectedGlassModel.LOADER);
     }
 
     /** 为所有熔融流体注册独立颜色和本模组命名空间的流体动画纹理。 */

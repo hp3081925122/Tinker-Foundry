@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [" B ", "BGB", " B "],
+  "key": {
+    "B": {"item": "tinker_foundry:seared_brick"},
+    "G": {"item": "minecraft:glowstone"}
+  },
+  "result": {"id": "tinker_foundry:seared_lamp", "count": 1}
+}

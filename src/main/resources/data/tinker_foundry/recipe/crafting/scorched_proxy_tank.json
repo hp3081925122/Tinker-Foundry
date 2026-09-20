@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["#Q#", "OQO", "#Q#"],
+  "key": {
+    "#": {"item": "tinker_foundry:scorched_brick"},
+    "Q": {"item": "minecraft:quartz"},
+    "O": {"item": "minecraft:obsidian"}
+  },
+  "result": {"id": "tinker_foundry:scorched_proxy_tank", "count": 1}
+}

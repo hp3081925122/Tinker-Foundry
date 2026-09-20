@@ -1,0 +1,8 @@
+{
+  "type": "tinker_foundry:damageable_melting",
+  "ingredient": {"item": "minecraft:iron_helmet"},
+  "result": {"id": "tinker_foundry:iron", "amount": 450},
+  "temperature": 800,
+  "time": 134,
+  "unit_size": 10
+}

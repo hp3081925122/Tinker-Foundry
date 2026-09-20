@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "#tinker_foundry:seared_blocks",
     "tinker_foundry:seared_brick",
     "tinker_foundry:seared_fancy_brick",
     "tinker_foundry:seared_lantern",
@@ -11,6 +12,10 @@
     "tinker_foundry:seared_fuel_tank",
     "tinker_foundry:seared_casting_tank",
     "tinker_foundry:seared_glass",
+    "tinker_foundry:seared_soul_glass",
+    "tinker_foundry:seared_tinted_glass",
+    "tinker_foundry:seared_glass_pane",
+    "tinker_foundry:seared_soul_glass_pane",
     "tinker_foundry:seared_ladder"
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "tinker_foundry:scorched_stone",
+    "tinker_foundry:polished_scorched_stone",
+    "tinker_foundry:scorched_bricks",
+    "tinker_foundry:scorched_road",
+    "tinker_foundry:chiseled_scorched_bricks"
+  ]
+}

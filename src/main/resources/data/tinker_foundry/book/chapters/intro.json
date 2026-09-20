@@ -1,0 +1,6 @@
+{
+  "pages": [
+    {"title": "book.tinker_foundry.intro.title", "text": "book.tinker_foundry.intro.text"},
+    {"title": "book.tinker_foundry.scope.title", "text": "book.tinker_foundry.scope.text"}
+  ]
+}

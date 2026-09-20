@@ -11,8 +11,8 @@ import org.hp.tinker_foundry.block.FoundryControllerBlock;
 
 /** 只负责矩形几何探测，炉种规则由各自的多方块描述器提供。 */
 public final class RectangularStructureDetector {
-    /** 炉体允许的最小总高度。 */
-    public static final int MINIMUM_HEIGHT = 2;
+    /** 炉体允许的最小总高度；控制器外壳至少还要有一层炉腔。 */
+    public static final int MINIMUM_HEIGHT = 3;
     /** 炉体允许的最大总高度。 */
     public static final int MAXIMUM_HEIGHT = 64;
     /** 炉腔允许的最大宽度和深度。 */

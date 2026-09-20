@@ -1,0 +1,1 @@
+{"parent":"minecraft:block/cube_all","loader":"tinker_foundry:connected","connection":{"textures":{"all":"cornerless_full"}},"render_type":"minecraft:translucent","textures":{"all":"tinker_foundry:block/smeltery/soul_glass"}}

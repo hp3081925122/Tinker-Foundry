@@ -69,6 +69,9 @@ public final class TFFluids {
         Map.entry("molten_glass", 0xFFE4F0F0),
         Map.entry("ender", 0xFF18776D),
         Map.entry("seared_stone", 0xFF5C504E),
+        Map.entry("scorched_stone", 0xFF2B2423),
+        // 方块变种流程需要匠魂原版的熔融黏土基础流体。
+        Map.entry("molten_clay", 0xFF9B6045),
         Map.entry("molten_emerald", 0xFF29D581),
         // 1.20.1 匠魂存在熔融钻石，独立冶炼系统为其提供对应流体注册。
         Map.entry("molten_diamond", 0xFF5DCEFF),
@@ -84,7 +87,10 @@ public final class TFFluids {
     static {
         // 统一建立源流体、流动流体和方块，桶通过延迟供应器解析。
         for (String name : EXTRA_COLORS.keySet().stream().sorted().toList()) {
-            DeferredHolder<FluidType, FluidType> type = moltenType(name, EXTRA_COLORS.get(name), 1000, 8);
+            // 熔融黏土的温度和亮度采用上游数值，其余附加流体沿用本模组原有默认值。
+            int temperature = name.equals("molten_clay") ? 750 : 1000;
+            int lightLevel = name.equals("molten_clay") ? 3 : 8;
+            DeferredHolder<FluidType, FluidType> type = moltenType(name, EXTRA_COLORS.get(name), temperature, lightLevel);
             EXTRA_TYPES.put(name, type);
             DeferredHolder<Fluid, BaseFlowingFluid.Source> source = source(name, type);
             EXTRA_SOURCES.put(name, source);

@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "#tinker_foundry:scorched_blocks",
     "tinker_foundry:scorched_brick",
     "tinker_foundry:scorched_fancy_brick",
     "tinker_foundry:scorched_lantern",
@@ -11,6 +12,10 @@
     "tinker_foundry:scorched_fuel_tank",
     "tinker_foundry:scorched_casting_tank",
     "tinker_foundry:scorched_glass",
+    "tinker_foundry:scorched_soul_glass",
+    "tinker_foundry:scorched_tinted_glass",
+    "tinker_foundry:scorched_glass_pane",
+    "tinker_foundry:scorched_soul_glass_pane",
     "tinker_foundry:scorched_ladder"
   ]
 }

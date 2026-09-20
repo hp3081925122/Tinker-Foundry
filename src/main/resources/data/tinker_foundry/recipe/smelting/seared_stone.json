@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:smelting",
+  "category": "blocks",
+  "cookingtime": 200,
+  "experience": 0.1,
+  "ingredient": {"item": "tinker_foundry:seared_cobble"},
+  "result": {"id": "tinker_foundry:seared_stone"}
+}

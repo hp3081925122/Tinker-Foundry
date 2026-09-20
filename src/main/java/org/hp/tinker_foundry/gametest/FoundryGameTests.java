@@ -23,6 +23,7 @@ import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.block.FoundryControllerBlock;
 import org.hp.tinker_foundry.block.FoundryDirectionalBlock;
+import org.hp.tinker_foundry.block.FoundryHorizontalBlock;
 import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.recipe.AlloyingRecipe;
 import org.hp.tinker_foundry.recipe.FluidRecipeInput;
@@ -159,20 +160,24 @@ public final class FoundryGameTests {
     /** 验证排液口、浇注口和浇注盆能够传输仍保留的副产物流体。 */
     @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void drainFaucetCastingChain(GameTestHelper helper) {
-        // 摆放熔炼器、排液口、浇注口和浇注盆，使用固定相邻关系避免依赖方块朝向。
-        BlockPos sourcePos = new BlockPos(0, 3, 0);
-        BlockPos drainPos = new BlockPos(0, 2, 0);
-        BlockPos faucetPos = new BlockPos(0, 1, 0);
-        BlockPos basinPos = new BlockPos(0, 0, 0);
+        // 摆放熔炼器、排液口、浇注口和浇注盆，按匠魂规则使用水平端口朝向。
+        BlockPos sourcePos = new BlockPos(0, 0, 0);
+        BlockPos drainPos = new BlockPos(1, 0, 0);
+        BlockPos faucetPos = new BlockPos(2, 0, 0);
+        // 浇注口的输出端固定在下方，盆必须放在浇注口正下方而不是朝向侧面。
+        BlockPos basinPos = new BlockPos(2, -1, 0);
         helper.setBlock(sourcePos, TFBlocks.MELTER.get());
-        helper.setBlock(drainPos, TFBlocks.DRAIN.get().defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.UP));
-        helper.setBlock(faucetPos, TFBlocks.FAUCET.get().defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.DOWN));
+        helper.setBlock(drainPos, TFBlocks.DRAIN.get().defaultBlockState().setValue(FoundryHorizontalBlock.FACING, Direction.WEST));
+        helper.setBlock(faucetPos, TFBlocks.FAUCET.get().defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
         helper.setBlock(basinPos, TFBlocks.CASTING_BASIN.get());
 
         // 向熔炼器注入一份仍保留的副产物流体作为传输源。
         FoundryBlockEntity source = helper.getBlockEntity(sourcePos);
         FoundryBlockEntity basin = helper.getBlockEntity(basinPos);
+        FoundryBlockEntity faucet = helper.getBlockEntity(faucetPos);
         source.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.BUCKET), FluidAction.EXECUTE);
+        // 浇注口不是常驻自动泵，按匠魂交互先手动启动一次，再由服务端逐 tick 输出。
+        faucet.activateFaucet();
 
         // 等待传输，确认源流体被搬运到浇注盆，不再断言已经删除的金属浇注产物。
         helper.runAfterDelay(80, () -> {

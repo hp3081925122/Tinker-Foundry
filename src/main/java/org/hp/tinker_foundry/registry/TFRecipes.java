@@ -11,11 +11,17 @@ import org.hp.tinker_foundry.recipe.FoundryRecipeSerializer;
 import org.hp.tinker_foundry.recipe.FuelRecipe;
 import org.hp.tinker_foundry.recipe.MeltingRecipe;
 import org.hp.tinker_foundry.recipe.MoldingRecipe;
+import org.hp.tinker_foundry.recipe.OreMeltingRecipe;
+import org.hp.tinker_foundry.recipe.DamageableMeltingRecipe;
 
 /** 五类公开配方 API 的类型和序列化器注册表。 */
 public final class TFRecipes {
     /** 熔炼配方类型。 */
     public static final DeferredHolder<RecipeType<?>, RecipeType<MeltingRecipe>> MELTING = type("melting");
+    /** 矿石增产熔炼配方类型。 */
+    public static final DeferredHolder<RecipeType<?>, RecipeType<OreMeltingRecipe>> ORE_MELTING = type("ore_melting");
+    /** 耐久物品熔炼配方类型。 */
+    public static final DeferredHolder<RecipeType<?>, RecipeType<DamageableMeltingRecipe>> DAMAGEABLE_MELTING = type("damageable_melting");
     /** 实体熔炼使用独立配方类型，支持数据包重载。 */
     public static final DeferredHolder<RecipeType<?>, RecipeType<org.hp.tinker_foundry.recipe.EntityMeltingRecipe>> ENTITY_MELTING = type("entity_melting");
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<org.hp.tinker_foundry.recipe.EntityMeltingRecipe>> ENTITY_MELTING_SERIALIZER =
@@ -32,6 +38,10 @@ public final class TFRecipes {
 
     /** 熔炼配方序列化器。 */
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<MeltingRecipe>> MELTING_SERIALIZER = TinkerFoundry.RECIPE_SERIALIZERS.register("melting", () -> new FoundryRecipeSerializer<>(MeltingRecipe.CODEC, MeltingRecipe.STREAM_CODEC));
+    /** 矿石增产熔炼序列化器。 */
+    public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<OreMeltingRecipe>> ORE_MELTING_SERIALIZER = TinkerFoundry.RECIPE_SERIALIZERS.register("ore_melting", () -> new FoundryRecipeSerializer<>(OreMeltingRecipe.CODEC, OreMeltingRecipe.STREAM_CODEC));
+    /** 耐久物品熔炼序列化器。 */
+    public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<DamageableMeltingRecipe>> DAMAGEABLE_MELTING_SERIALIZER = TinkerFoundry.RECIPE_SERIALIZERS.register("damageable_melting", () -> new FoundryRecipeSerializer<>(DamageableMeltingRecipe.CODEC, DamageableMeltingRecipe.STREAM_CODEC));
     /** 合金配方序列化器。 */
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<AlloyingRecipe>> ALLOYING_SERIALIZER = TinkerFoundry.RECIPE_SERIALIZERS.register("alloying", () -> new FoundryRecipeSerializer<>(AlloyingRecipe.CODEC, AlloyingRecipe.STREAM_CODEC));
     /** 浇注配方序列化器。 */

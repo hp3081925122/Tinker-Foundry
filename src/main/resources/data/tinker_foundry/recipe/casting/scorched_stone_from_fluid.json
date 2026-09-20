@@ -1,0 +1,6 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:scorched_stone"}, "amount": 1000},
+  "result": {"id": "tinker_foundry:scorched_stone", "count": 1},
+  "time": 166
+}

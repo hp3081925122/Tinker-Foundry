@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:smelting",
+  "category": "blocks",
+  "cookingtime": 200,
+  "experience": 0.1,
+  "ingredient": {"item": "tinker_foundry:seared_bricks"},
+  "result": {"id": "tinker_foundry:seared_cracked_bricks"}
+}

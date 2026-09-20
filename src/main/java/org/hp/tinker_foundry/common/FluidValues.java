@@ -10,6 +10,8 @@ public final class FluidValues {
     public static final int NUGGET = 10;
     /** 一个金属块对应的熔融流体量。 */
     public static final int BLOCK = 810;
+    /** 一块玻璃板对应的实体熔炼默认产液基准。 */
+    public static final int GLASS_PANE = 100;
 
     private FluidValues() {
     }

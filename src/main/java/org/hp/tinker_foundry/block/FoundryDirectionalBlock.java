@@ -6,7 +6,7 @@ import net.minecraft.world.level.block.DirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 
-/** 为排液口、输导孔和导流槽提供朝向状态。 */
+/** 为浇注口、流体炮、流体计和兼容附件提供六向朝向状态。 */
 public class FoundryDirectionalBlock extends FoundryEntityBlock {
     /** 设备的水平输入或输出方向。 */
     public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING = DirectionalBlock.FACING;

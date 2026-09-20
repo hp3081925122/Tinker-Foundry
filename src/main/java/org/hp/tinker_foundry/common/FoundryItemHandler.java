@@ -14,19 +14,25 @@ public final class FoundryItemHandler implements IItemHandler {
 
     /** 导入槽每次访问重新解析归属，其余设备直接访问自身。 */
     private FoundryBlockEntity target() {
-        return owner.getBlockState().is(TFBlocks.CHUTE.get()) ? owner.attachedController() : owner;
+        // 三种滑槽使用同一套附件转发逻辑，不能只让未重贴材质的基础滑槽生效。
+        boolean chute = owner.getBlockState().is(TFBlocks.CHUTE.get())
+            || owner.getBlockState().is(TFBlocks.SEARED_CHUTE.get())
+            || owner.getBlockState().is(TFBlocks.SCORCHED_CHUTE.get());
+        return chute ? owner.attachedController() : owner;
     }
 
     /** 加热器仅燃料槽，熔炼设备仅输入，浇注设备包含成品和容器返还。 */
     @Override
     public int getSlots() {
         FoundryBlockEntity entity = target();
-        return entity == null ? 0 : entity.isFuelTankBlock() || entity.isHeater() ? 1
+        return entity == null ? 0 : entity.isProxyTankBlock() || entity.isFluidCannonBlock() ? 1
+            : entity.isFuelTankBlock() || entity.isHeater() ? 1
             : entity.inputSlotCount() + (entity.isCastingBlock() || entity.isCastingTankBlock() ? 2 : 0);
     }
 
     /** 将能力编号映射为容器编号，避开保留的隐藏槽。 */
     private int mapped(FoundryBlockEntity entity, int slot) {
+        if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) return -1;
         if (entity.isFuelTankBlock() || entity.isHeater()) return FoundryBlockEntity.FUEL_SLOT;
         int count = entity.inputSlotCount();
         return slot < count ? FoundryBlockEntity.inputContainerSlot(slot)
@@ -37,7 +43,9 @@ public final class FoundryItemHandler implements IItemHandler {
     @Override
     public ItemStack getStackInSlot(int slot) {
         FoundryBlockEntity entity = target();
-        return entity == null || slot < 0 || slot >= getSlots() ? ItemStack.EMPTY : entity.getItem(mapped(entity, slot)).copy();
+        if (entity == null || slot < 0 || slot >= getSlots()) return ItemStack.EMPTY;
+        if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) return entity.getSpecialItem();
+        return entity.getItem(mapped(entity, slot)).copy();
     }
 
     /** 模拟只计算余量，执行才更新真实槽位。 */
@@ -46,6 +54,7 @@ public final class FoundryItemHandler implements IItemHandler {
         if (stack.isEmpty() || !isItemValid(slot, stack)) return stack;
         FoundryBlockEntity entity = target();
         if (entity == null) return stack;
+        if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) return entity.insertSpecialItem(stack, simulate);
         int index = mapped(entity, slot);
         ItemStack stored = entity.getItem(index);
         if (!stored.isEmpty() && !ItemStack.isSameItemSameComponents(stored, stack)) return stack;
@@ -62,6 +71,9 @@ public final class FoundryItemHandler implements IItemHandler {
         if (amount <= 0 || stored.isEmpty()) return ItemStack.EMPTY;
         int taken = Math.min(amount, stored.getCount());
         FoundryBlockEntity entity = target();
+        if (!simulate && entity != null && (entity.isProxyTankBlock() || entity.isFluidCannonBlock())) {
+            return entity.extractSpecialItem(taken, false);
+        }
         if (!simulate && entity != null) entity.setItem(mapped(entity, slot), stored.copyWithCount(stored.getCount() - taken));
         return stored.copyWithCount(taken);
     }
@@ -70,13 +82,15 @@ public final class FoundryItemHandler implements IItemHandler {
     @Override
     public int getSlotLimit(int slot) {
         FoundryBlockEntity entity = target();
-        return entity != null && entity.isMeltingBlock() ? 1 : 64;
+        return entity != null && entity.isProxyTankBlock() ? 1 : entity != null && entity.isMeltingBlock() ? 1 : 64;
     }
 
     /** 成品槽禁止插入，结构无效时附件不提供任何可用槽。 */
     @Override
     public boolean isItemValid(int slot, ItemStack stack) {
         FoundryBlockEntity entity = target();
-        return entity != null && slot >= 0 && slot < getSlots() && entity.canPlaceItem(mapped(entity, slot), stack);
+        if (entity == null || slot < 0 || slot >= getSlots()) return false;
+        if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) return entity.isSpecialItemValid(stack);
+        return entity.canPlaceItem(mapped(entity, slot), stack);
     }
 }

@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:melting",
+  "ingredient": {"item": "tinker_foundry:nether_grout"},
+  "result": {"id": "tinker_foundry:scorched_stone", "amount": 500},
+  "temperature": 500,
+  "time": 75
+}

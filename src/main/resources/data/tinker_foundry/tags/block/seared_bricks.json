@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "tinker_foundry:seared_bricks",
+    "tinker_foundry:seared_fancy_bricks",
+    "tinker_foundry:seared_triangle_bricks"
+  ]
+}

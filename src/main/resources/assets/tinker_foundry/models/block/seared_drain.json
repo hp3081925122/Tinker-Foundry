@@ -1,0 +1,1 @@
+{"render_type":"minecraft:cutout","parent":"tinker_foundry:block/template/io","textures":{"particle":"tinker_foundry:block/smeltery/io/drain_front_inactive","drain":"tinker_foundry:block/smeltery/io/drain_front_inactive","bricks":"tinker_foundry:block/smeltery/seared/bricks","back":"tinker_foundry:block/smeltery/io/back"}}

@@ -132,6 +132,18 @@ public final class FoundryLanternBlock extends LanternBlock implements EntityBlo
         return fluid.isEmpty() ? 0 : Math.max(0, Math.min(15, fluid.getFluid().getFluidType().getLightLevel(fluid)));
     }
 
+    /** 冶炼灯复用匠魂储罐的比较器语义，空灯输出零，装液量按容量比例输出。 */
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    /** 从通用方块实体读取冶炼灯当前的比较器强度。 */
+    @Override
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof FoundryBlockEntity entity ? entity.comparatorStrength() : 0;
+    }
+
     /** 返回方块自身的编解码器。 */
     @Override
     public MapCodec<LanternBlock> codec() {

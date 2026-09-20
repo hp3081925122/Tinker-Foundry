@@ -9,6 +9,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
+import org.hp.tinker_foundry.multiblock.StructureTags;
 import org.hp.tinker_foundry.registry.TFBlocks;
 
 /** 用事件标记附近控制器，避免每个控制器固定周期扫描整个结构。 */
@@ -43,6 +44,12 @@ public final class FoundryWorldEvents {
 
     /** 判断邻居通知是否可能改变冶炼炉的几何结构。 */
     private static boolean isStructureRelevant(net.minecraft.world.level.block.state.BlockState state) {
+        // 结构标签覆盖所有已迁移的石材、砖块、玻璃和储罐变种，避免新增变种遗漏更新控制器。
+        if (state.is(StructureTags.SMELTERY_WALL) || state.is(StructureTags.SMELTERY_FLOOR)
+            || state.is(StructureTags.SMELTERY_TANKS) || state.is(StructureTags.FOUNDRY_WALL)
+            || state.is(StructureTags.FOUNDRY_FLOOR) || state.is(StructureTags.FOUNDRY_TANKS)) {
+            return true;
+        }
         return state.is(TFBlocks.SEARED_BRICK.get()) || state.is(TFBlocks.SEARED_GLASS.get())
             || state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SEARED_LADDER.get())
             || state.is(TFBlocks.SEARED_WALL.get()) || state.is(TFBlocks.SEARED_FANCY_BRICK.get())

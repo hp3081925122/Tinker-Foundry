@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [" O ", "OGO", " O "],
+  "key": {
+    "O": {"item": "minecraft:obsidian"},
+    "G": {"item": "minecraft:glass_pane"}
+  },
+  "result": {"id": "tinker_foundry:obsidian_gauge", "count": 4}
+}

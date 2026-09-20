@@ -1,0 +1,8 @@
+{
+  "type": "tinker_foundry:ore_melting",
+  "ingredient": {"item": "minecraft:raw_iron_block"},
+  "result": {"id": "tinker_foundry:iron", "amount": 810},
+  "rate": "metal",
+  "temperature": 800,
+  "time": 361
+}

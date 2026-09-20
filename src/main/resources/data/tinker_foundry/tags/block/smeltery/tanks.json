@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "#tinker_foundry:seared_tanks",
     "tinker_foundry:seared_tank",
     "tinker_foundry:seared_fuel_tank",
     "tinker_foundry:seared_casting_tank"

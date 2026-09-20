@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["B B", "O O", "B B"],
+  "key": {
+    "B": {"item": "tinker_foundry:scorched_brick"},
+    "O": {"item": "minecraft:obsidian"}
+  },
+  "result": {"id": "tinker_foundry:scorched_drain", "count": 1}
+}

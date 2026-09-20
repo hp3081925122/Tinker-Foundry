@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:stonecutting",
+  "count": 2,
+  "ingredient": {"item": "tinker_foundry:scorched_road"},
+  "result": {"id": "tinker_foundry:scorched_road_slab"}
+}

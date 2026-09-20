@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["###", "###"],
+  "key": {"#": {"item": "tinker_foundry:scorched_glass"}},
+  "result": {"id": "tinker_foundry:scorched_glass_pane", "count": 16}
+}

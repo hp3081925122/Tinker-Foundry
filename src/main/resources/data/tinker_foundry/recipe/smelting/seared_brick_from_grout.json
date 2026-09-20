@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.3,
+  "ingredient": {"item": "tinker_foundry:grout"},
+  "result": {"id": "tinker_foundry:seared_brick"}
+}

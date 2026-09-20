@@ -1,0 +1,8 @@
+{
+  "type": "tinker_foundry:ore_melting",
+  "ingredient": {"item": "minecraft:raw_gold_block"},
+  "result": {"id": "tinker_foundry:gold", "amount": 810},
+  "rate": "metal",
+  "temperature": 700,
+  "time": 342
+}

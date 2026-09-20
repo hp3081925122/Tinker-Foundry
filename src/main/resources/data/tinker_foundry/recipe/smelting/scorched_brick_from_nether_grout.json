@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.3,
+  "ingredient": {"item": "tinker_foundry:nether_grout"},
+  "result": {"id": "tinker_foundry:scorched_brick"}
+}

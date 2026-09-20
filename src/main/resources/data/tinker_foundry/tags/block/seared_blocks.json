@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "tinker_foundry:seared_stone",
+    "tinker_foundry:seared_cracked_bricks",
+    "tinker_foundry:seared_cobble",
+    "tinker_foundry:seared_paver",
+    "#tinker_foundry:seared_bricks"
+  ]
+}
