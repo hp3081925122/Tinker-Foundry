@@ -17,6 +17,7 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.hp.tinker_foundry.TinkerFoundry;
@@ -187,6 +188,33 @@ public final class FoundryGameTests {
         });
     }
 
+    /** 验证浇注口下方没有接收方时不会从熔炼设备扣除流体，也不会暴露普通储罐能力。 */
+    @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 30)
+    public static void faucetWithoutOutputKeepsSourceFluid(GameTestHelper helper) {
+        // 将熔炼器直接放在浇注口背面，浇注口下方保持空气，复现无出口右键启动场景。
+        BlockPos sourcePos = new BlockPos(0, 0, 0);
+        BlockPos faucetPos = new BlockPos(1, 0, 0);
+        helper.setBlock(sourcePos, TFBlocks.SEARED_MELTER.get());
+        helper.setBlock(faucetPos, TFBlocks.SEARED_FAUCET.get().defaultBlockState()
+            .setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
+
+        // 注入一桶仍保留的副产物流体，启动浇注口后确认源槽没有减少。
+        FoundryBlockEntity source = helper.getBlockEntity(sourcePos);
+        FoundryBlockEntity faucet = helper.getBlockEntity(faucetPos);
+        FluidStack stored = new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.BUCKET);
+        source.fill(stored, FluidAction.EXECUTE);
+        faucet.activateFaucet();
+
+        // 等待一次服务端 tick，覆盖 activateFaucet 后的实际转移路径。
+        helper.runAfterDelay(5, () -> {
+            helper.assertValueEqual(source.getFluidInTank(0).getAmount(), FluidValues.BUCKET,
+                "faucet drained source without an output target");
+            helper.assertTrue(helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, faucetPos, Direction.UP) == null,
+                "faucet exposed a generic fluid handler");
+            helper.succeed();
+        });
+    }
+
     /** 验证非固定尺寸的封闭矩形冶炼炉，以及结构驱动的输入槽数量。 */
     @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 150)
     public static void variableSmelteryParallelMelting(GameTestHelper helper) {
@@ -268,24 +296,30 @@ public final class FoundryGameTests {
         });
     }
 
-    /** 验证合金炉仍支持多种独立流体输入槽。 */
+    /** 验证合金炉从五个邻接方向读取输入，而不是把输入伪装成自身的外部能力槽。 */
     @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 280)
     public static void alloyerConsumesInputs(GameTestHelper helper) {
-        // 摆放合金炉和相邻加热器，使用仍保留的副产物流体验证多输入槽。
-        BlockPos alloyerPos = new BlockPos(0, 0, 0);
-        BlockPos heaterPos = new BlockPos(1, 0, 0);
+        // 摆放合金炉、下方加热器和南北两个输入储罐，使用仍保留的副产物流体验证多输入槽。
+        BlockPos alloyerPos = new BlockPos(1, 1, 1);
+        BlockPos heaterPos = new BlockPos(1, 0, 1);
+        BlockPos firstTankPos = new BlockPos(1, 1, 0);
+        BlockPos secondTankPos = new BlockPos(1, 1, 2);
         helper.setBlock(alloyerPos, TFBlocks.SCORCHED_ALLOYER.get());
         helper.setBlock(heaterPos, TFBlocks.SEARED_HEATER.get());
+        helper.setBlock(firstTankPos, TFBlocks.SEARED_INGOT_TANK.get());
+        helper.setBlock(secondTankPos, TFBlocks.SEARED_INGOT_TANK.get());
         FoundryBlockEntity alloyer = helper.getBlockEntity(alloyerPos);
         FoundryBlockEntity heater = helper.getBlockEntity(heaterPos);
+        FoundryBlockEntity firstTank = helper.getBlockEntity(firstTankPos);
+        FoundryBlockEntity secondTank = helper.getBlockEntity(secondTankPos);
         helper.assertValueEqual(alloyer.getTanks(), FoundryBlockEntity.MAX_ALLOY_INPUTS + 1, "alloyer tank count");
-        helper.assertValueEqual(alloyer.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 540), FluidAction.EXECUTE), 540,
-            "alloyer first input amount");
-        helper.assertValueEqual(alloyer.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 180), FluidAction.EXECUTE), 180,
-            "alloyer second input amount");
+        helper.assertValueEqual(firstTank.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 540), FluidAction.EXECUTE), 540,
+            "alloyer first adjacent input amount");
+        helper.assertValueEqual(secondTank.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 180), FluidAction.EXECUTE), 180,
+            "alloyer second adjacent input amount");
         helper.assertValueEqual(heater.fill(new FluidStack(Fluids.LAVA, FluidValues.BUCKET), FluidAction.EXECUTE), FluidValues.BUCKET,
             "alloyer lava fuel amount");
-        // 合金金属配方已按授权删除，这里只确认输入没有被错误吞掉。
+        // 合金金属配方已按授权删除，这里只确认相邻输入没有被错误吞掉。
         helper.assertValueEqual(alloyer.getFluidInTank(0).getAmount(), 540, "alloyer first input was changed");
         helper.assertValueEqual(alloyer.getFluidInTank(1).getAmount(), 180, "alloyer second input was changed");
         helper.succeed();

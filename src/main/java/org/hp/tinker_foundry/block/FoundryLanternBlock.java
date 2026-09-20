@@ -88,7 +88,7 @@ public final class FoundryLanternBlock extends LanternBlock implements EntityBlo
         if (level.isClientSide) {
             return ItemInteractionResult.sidedSuccess(true);
         }
-        return FoundryEntityBlock.handleItemOn(stack, state, level, pos, player, hand, entity);
+        return FoundryEntityBlock.handleItemOn(stack, state, level, pos, player, hand, hit, entity);
     }
 
     /** 灯笼破坏时掉落保留流体组件的同类方块物品。 */

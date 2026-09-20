@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "#tinker_foundry:seared_tanks",
+    "#tinker_foundry:scorched_tanks",
+    "tinker_foundry:seared_melter",
+    "tinker_foundry:scorched_alloyer"
+  ]
+}

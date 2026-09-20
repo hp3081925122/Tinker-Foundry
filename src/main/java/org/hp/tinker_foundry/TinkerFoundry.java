@@ -113,9 +113,8 @@ public final class TinkerFoundry {
         output.accept(TFItems.SEARED_CASTING_TANK.get());
         output.accept(TFItems.SCORCHED_PROXY_TANK.get());
 
-        // 输出流体炮；匠魂原版的末影流体炮当前项目没有实现，因此不伪造该物品。
+        // 输出项目保留的铜流体炮；钴流体炮已按当前内容范围移除。
         output.accept(TFItems.SEARED_FLUID_CANNON.get());
-        output.accept(TFItems.SCORCHED_FLUID_CANNON.get());
 
         // 输出冶炼方块变种，顺序对应匠魂的 seared blocks 分组。
         output.accept(TFItems.variantBlock("seared_bricks"));
@@ -214,6 +213,8 @@ public final class TinkerFoundry {
     /** 注册设备和便携容器的流体能力。 */
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
+            // 浇注口只通过背面输入和下方输出工作，不应作为普通流体储罐暴露给外部管道。
+            if (entity.isFaucetBlock()) return null;
             // 疏导槽按当前连接状态只暴露顶部输入或水平输入面，输出面由服务端逐面推送。
             if (entity.getBlockState().is(TFBlocks.SEARED_CHANNEL.get())
                 || entity.getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get())) {
@@ -226,6 +227,10 @@ public final class TinkerFoundry {
                 || entity.getBlockState().is(TFBlocks.SCORCHED_DRAIN.get()) || entity.getBlockState().is(TFBlocks.SEARED_DUCT.get())
                 || entity.getBlockState().is(TFBlocks.SCORCHED_DUCT.get())) {
                 return new org.hp.tinker_foundry.common.FoundryPortFluidHandler(entity);
+            }
+            // 合金炉对外只暴露原版的单个输出罐，五个输入罐由自身的邻接模块读取。
+            if (entity.isAlloyer()) {
+                return entity.alloyerOutputHandler();
             }
             return entity;
         });
@@ -244,6 +249,6 @@ public final class TinkerFoundry {
             return new PortableTankFluidHandler(stack, tank.capacity(), tank.allowsFuel());
         }, TFItems.SEARED_INGOT_TANK.get(), TFItems.SCORCHED_INGOT_TANK.get(),
             TFItems.SEARED_FUEL_TANK.get(), TFItems.SCORCHED_FUEL_TANK.get(), TFItems.SEARED_CASTING_TANK.get(),
-            TFItems.SEARED_LANTERN.get(), TFItems.SCORCHED_LANTERN.get(), TFItems.SEARED_FLUID_CANNON.get(), TFItems.SCORCHED_FLUID_CANNON.get());
+            TFItems.SEARED_LANTERN.get(), TFItems.SCORCHED_LANTERN.get(), TFItems.SEARED_FLUID_CANNON.get());
     }
 }

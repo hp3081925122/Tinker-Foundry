@@ -16,6 +16,10 @@ public final class StructureTags {
     public static final TagKey<Block> FOUNDRY_WALL = block("foundry/wall");
     public static final TagKey<Block> FOUNDRY_FLOOR = block("foundry/floor");
     public static final TagKey<Block> FOUNDRY_TANKS = block("foundry/tanks");
+    /** 合金炉侧面允许读取流体能力的邻接储罐。 */
+    public static final TagKey<Block> ALLOYER_TANKS = block("alloyer_tanks");
+    /** 合金炉下方允许提供燃料的加热器或燃料罐。 */
+    public static final TagKey<Block> FUEL_TANKS = block("fuel_tanks");
     /** 允许放在炉腔中的空气等价方块。 */
     public static final TagKey<Block> AIR = block("structure_air");
 

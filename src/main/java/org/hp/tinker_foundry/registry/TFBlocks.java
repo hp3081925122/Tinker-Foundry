@@ -4,6 +4,7 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.FoundryChannelBlock;
 import org.hp.tinker_foundry.block.FoundryEntityBlock;
+import org.hp.tinker_foundry.block.FoundryAlloyerBlock;
 import org.hp.tinker_foundry.block.FoundryFluidCannonBlock;
 import org.hp.tinker_foundry.block.FoundryMachineBlock;
 import org.hp.tinker_foundry.block.FoundryControllerBlock;
@@ -102,7 +103,7 @@ public final class TFBlocks {
     /** 原版命名的加热器。 */
     public static final DeferredBlock<Block> SEARED_HEATER = machine("seared_heater");
     /** 原版命名的合金炉。 */
-    public static final DeferredBlock<Block> SCORCHED_ALLOYER = machine("scorched_alloyer");
+    public static final DeferredBlock<Block> SCORCHED_ALLOYER = alloyer("scorched_alloyer");
     /** 冶炼燃料罐，允许存放燃料配方支持的流体。 */
     public static final DeferredBlock<Block> SEARED_FUEL_TANK = entity("seared_fuel_tank");
     /** 焦黑燃料罐，允许存放燃料配方支持的流体。 */
@@ -128,9 +129,8 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SCORCHED_BASIN = entity("scorched_basin");
     /** 焦黑代理储罐，容器流体能力由方块实体内部的物品代理。 */
     public static final DeferredBlock<Block> SCORCHED_PROXY_TANK = entity("scorched_proxy_tank");
-    /** 两套材质的流体炮，红石触发后按匠魂原版参数发射流体弹。 */
+    /** 铜流体炮，红石触发后按匠魂原版参数发射流体弹。 */
     public static final DeferredBlock<Block> SEARED_FLUID_CANNON = fluidCannon("seared_fluid_cannon", 1.0F, 1.1F, 6.0F);
-    public static final DeferredBlock<Block> SCORCHED_FLUID_CANNON = fluidCannon("scorched_fluid_cannon", 2.0F, 1.5F, 7.0F);
     /** 原版命名的铜、黑曜石贴壁流体计。 */
     public static final DeferredBlock<Block> COPPER_GAUGE = gauge("copper_gauge");
     public static final DeferredBlock<Block> OBSIDIAN_GAUGE = gauge("obsidian_gauge");
@@ -229,6 +229,11 @@ public final class TFBlocks {
     /** 注册使用官方正面模型的水平朝向设备。 */
     private static DeferredBlock<Block> machine(String name) {
         return TinkerFoundry.BLOCKS.register(name, () -> new FoundryMachineBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
+    }
+
+    /** 注册带五向输入缓存和下方燃料结构状态的合金炉控制器。 */
+    private static DeferredBlock<Block> alloyer(String name) {
+        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryAlloyerBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
     }
 
     /** 注册带水平朝向的多方块控制器。 */

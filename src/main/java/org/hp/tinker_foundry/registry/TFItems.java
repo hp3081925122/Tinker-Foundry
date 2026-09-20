@@ -92,7 +92,6 @@ public final class TFItems {
     public static final DeferredItem<FoundryTankItem> SCORCHED_FUEL_GAUGE = tank("scorched_fuel_gauge", TFBlocks.SCORCHED_FUEL_GAUGE, FoundryBlockEntity.DEFAULT_CAPACITY, true);
     /** 流体炮物品，同时保留方块中的流体槽能力。 */
     public static final DeferredItem<FoundryTankItem> SEARED_FLUID_CANNON = tank("seared_fluid_cannon", TFBlocks.SEARED_FLUID_CANNON, FluidValues.BUCKET * 2, true);
-    public static final DeferredItem<FoundryTankItem> SCORCHED_FLUID_CANNON = tank("scorched_fluid_cannon", TFBlocks.SCORCHED_FLUID_CANNON, FluidValues.BUCKET * 2, true);
     /** 原版命名的代理储罐物品。 */
     public static final DeferredItem<Item> SCORCHED_PROXY_TANK = block("scorched_proxy_tank", TFBlocks.SCORCHED_PROXY_TANK);
 

@@ -86,7 +86,7 @@ public final class FoundryFluidCannonBlock extends FoundryDirectionalBlock {
         if (level.isClientSide) {
             return net.minecraft.world.ItemInteractionResult.sidedSuccess(true);
         }
-        entity.interactFluidCannon(player, hand, clickedTank);
+        entity.interactFluidCannon(player, hand, clickedTank, hit.getDirection());
         return net.minecraft.world.ItemInteractionResult.SUCCESS;
     }
 
@@ -102,7 +102,7 @@ public final class FoundryFluidCannonBlock extends FoundryDirectionalBlock {
         if (level.isClientSide) {
             return net.minecraft.world.InteractionResult.sidedSuccess(true);
         }
-        entity.interactFluidCannon(player, InteractionHand.MAIN_HAND, clickedTank);
+        entity.interactFluidCannon(player, InteractionHand.MAIN_HAND, clickedTank, hit.getDirection());
         return net.minecraft.world.InteractionResult.SUCCESS;
     }
 

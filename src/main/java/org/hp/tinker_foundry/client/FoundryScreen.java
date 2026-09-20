@@ -26,6 +26,8 @@ import org.hp.tinker_foundry.registry.TFFluids;
 
 /** 使用独立冶炼界面材质绘制熔炼、合金和加热设备。 */
 public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
+    /** 合金炉五个邻接输入罐在官方界面上的固定横坐标。 */
+    private static final int[] ALLOY_INPUT_TANK_START_X = {54, 22, 38, 70, 6};
     /** Melter 和普通熔炼控制器的界面纹理。 */
     private static final ResourceLocation MELTER_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/melter.png");
     /** Alloyer 的界面纹理。 */
@@ -103,11 +105,25 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             graphics.blit(background, leftPos, topPos, 0, 0, imageWidth, imageHeight, 256, 256);
         }
         if (menu.screenKind() == 1) {
-            for (int tank = 0; tank < FoundryBlockEntity.MAX_ALLOY_INPUTS; tank++) {
-                int x = 22 + tank * 18;
-                drawFluid(graphics, menu.alloyFluid(tank), menu.alloyAmount(tank), 4000, x, 16, 14, 52);
+            // 先画五个输入罐背景，再画流体，复刻官方 GUI 的动态槽位数量。
+            for (int tank = 0; tank < menu.alloyInputCount(); tank++) {
+                int x = ALLOY_INPUT_TANK_START_X[tank];
+                graphics.blit(background, leftPos + x - 1, topPos + 15, 100, 208, 52, 16, 54, 256, 256);
             }
-            drawFluid(graphics, menu.fluidStack(), menu.fluidAmount(), 8000, 114, 16, 34, 52);
+            for (int tank = 0; tank < menu.alloyInputCount(); tank++) {
+                int x = ALLOY_INPUT_TANK_START_X[tank];
+                drawFluid(graphics, menu.alloyFluid(tank), menu.alloyAmount(tank), menu.alloyCapacity(tank), x, 16, 14, 52);
+            }
+            drawFluid(graphics, menu.fluidStack(), menu.fluidAmount(), FoundryBlockEntity.ALLOYER_CAPACITY, 114, 16, 34, 52);
+            if (menu.hasAlloyerFuelSlot()) {
+                graphics.blit(background, leftPos + 150, topPos + 31, 100, 176, 52, 18, 36, 256, 256);
+                // 下方是加热器时显示原版火焰；加热器槽位存在时这里不能再叠画流体罐。
+                drawAlloyerFuel(graphics);
+            } else {
+                graphics.blit(background, leftPos + 152, topPos + 31, 100, 194, 52, 14, 38, 256, 256);
+                // 下方是燃料储罐时只绘制右侧液面，保持和原版 GuiFuelModule 的分支一致。
+                drawFluid(graphics, menu.fuelFluidStack(), menu.fuelAmount(), Math.max(1, menu.fuelCapacity()), 152, 31, 12, 36);
+            }
         } else if (menu.screenKind() == 3) {
             drawStructureFluids(graphics, mouseX, mouseY);
             drawFluid(graphics, menu.fuelFluidStack(), menu.fuelAmount(), Math.max(1, menu.fuelCapacity()),
@@ -131,6 +147,10 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         super.renderLabels(graphics, mouseX, mouseY);
+        if (menu.screenKind() == 1) {
+            // 原版标尺覆盖输出槽上半部，不能使用普通熔炼器的文字流体行。
+            graphics.blit(ALLOYER_BACKGROUND, 114, 16, 100, 176, 0, 34, 52, 256, 256);
+        }
         if (menu.screenKind() == 3) {
             drawStructureHeatBars(graphics);
             // 高亮使用缓冲绘制而刻度使用即时纹理，先提交高亮，防止尾部批次反过来遮住刻度。
@@ -141,7 +161,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                 graphics.blit(STRUCTURE_BACKGROUND, STRUCTURE_SIDE_WIDTH + 125, 46, 110, 224, 186, 16, 16, 256, 256);
             }
         }
-        if (menu.screenKind() != 2 && menu.screenKind() != 3) {
+        if (menu.screenKind() != 1 && menu.screenKind() != 2 && menu.screenKind() != 3) {
             String fluidText = "流体：" + menu.fluidAmount() + " / " + menu.capacity() + " mB";
             graphics.drawString(font, fluidText, 8, 59, 0xFFFFFFFF, false);
         }
@@ -176,7 +196,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             return;
         }
         if (fuelTankAt(x, y) >= 0) {
-            renderFuelTooltip(graphics, mouseX, mouseY);
+            renderFuelTooltip(graphics, mouseX, mouseY, x, y);
             return;
         }
         int tank = fluidTankAt(x, y);
@@ -259,6 +279,15 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                 id = button == 0 ? 1 : 2;
             } else if (menu.screenKind() == 3 && fluidTankAt(x, y) >= 0 && !menu.getCarried().isEmpty()) {
                 id = 3;
+            } else if (menu.screenKind() == 1 && !menu.getCarried().isEmpty()) {
+                int tank = fluidTankAt(x, y);
+                if (fuelTankAt(x, y) >= 0) {
+                    id = button == 0 ? 2 : 3;
+                } else if (tank == FoundryBlockEntity.ALLOY_OUTPUT_TANK) {
+                    id = button == 0 ? 0 : 1;
+                } else if (tank >= 0) {
+                    id = 4 + tank * 2 + (button == 1 ? 1 : 0);
+                }
             } else if (menu.screenKind() != 3 && !menu.getCarried().isEmpty()) {
                 int tank = fluidTankAt(x, y);
                 if (tank >= 0) {
@@ -310,29 +339,43 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         menu.scrollTo((int) Math.round(fraction * menu.maxScrollRow()));
     }
 
-    /** 显示燃料栏缺少储罐、空燃料或详细流体信息。 */
-    private void renderFuelTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        FluidStack stack = menu.fuelFluidStack();
+    /** 显示燃料栏缺少储罐、固体燃料或详细流体信息。 */
+    private void renderFuelTooltip(GuiGraphics graphics, int mouseX, int mouseY, int x, int y) {
+        // 有物品槽时，上半部分由原版槽位负责物品提示，下半部分才显示燃料模块提示。
+        if (menu.screenKind() == 1 && menu.hasAlloyerFuelSlot()) {
+            if (y < 50) {
+                return;
+            }
+            List<Component> tooltip = new ArrayList<>();
+            if (menu.fuelTemperature() > 0) {
+                tooltip.add(Component.translatable("gui.tinker_foundry.fuel.solid"));
+                tooltip.add(Component.translatable("gui.tinker_foundry.fuel.temperature", menu.fuelTemperature())
+                    .withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC));
+            } else {
+                tooltip.add(Component.translatable("gui.tinker_foundry.fuel.empty"));
+            }
+            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            return;
+        }
         if (!menu.hasFuelSource()) {
             graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.tinker_foundry.fuel.no_tank")), mouseX, mouseY);
             return;
         }
+        FluidStack stack = menu.fuelFluidStack();
         if (stack.isEmpty()) {
             graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.tinker_foundry.fuel.empty")), mouseX, mouseY);
             return;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(stack.getFluid());
-        graphics.renderComponentTooltip(font, List.of(
-            stack.getHoverName(),
-            menu.fuelTemperature() > 0 ? Component.translatable("gui.tinker_foundry.fuel.temperature", menu.fuelTemperature())
+        List<Component> tooltip = fluidTooltip(stack, false);
+        // 原版燃料模块把温度插入流体名称之后，保持高级提示中的 ID、单位和模组名顺序。
+        tooltip.add(1, menu.fuelTemperature() > 0
+            ? Component.translatable("gui.tinker_foundry.fuel.temperature", menu.fuelTemperature())
                 .withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)
-                : Component.translatable("gui.tinker_foundry.fuel.invalid").withStyle(net.minecraft.ChatFormatting.RED),
-            Component.literal(id == null ? "unknown" : id.toString()).withStyle(net.minecraft.ChatFormatting.DARK_GRAY),
-            formatBucketVolume(stack.getAmount()).copy().withStyle(net.minecraft.ChatFormatting.GRAY)
-        ), mouseX, mouseY);
+            : Component.translatable("gui.tinker_foundry.fuel.invalid").withStyle(net.minecraft.ChatFormatting.RED));
+        graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
     }
 
-    /** 显示主流体槽容量、安全容量和 Shift 单位切换提示，空槽也能查看容量。 */
+    /** 按匠魂 GuiTankModule 规则显示流体详情或空余容量，空区不再误报毫桶数量。 */
     private void renderFluidTooltip(GuiGraphics graphics, int mouseX, int mouseY, int tank) {
         int x = mouseX - leftPos;
         int y = mouseY - topPos;
@@ -340,15 +383,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         if (menu.screenKind() == 3) {
             List<Component> tooltip = new ArrayList<>();
             if (!stack.isEmpty()) {
-                // 流体悬停提示按流体类型选择名称和单位，不能把药水等非金属统一换算成锭。
-                PotionContents potion = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
-                Component fluidName = stack.getHoverName();
-                if (potion.potion().isPresent()) {
-                    // 使用原版药水命名键，让迅捷、跳跃等流体显示为具体药水名称。
-                    fluidName = Component.translatable(Potion.getName(potion.potion(), "item.minecraft.potion.effect."));
-                }
-                tooltip.add(fluidName);
-                tooltip.add(formatFluidVolume(stack));
+                tooltip.addAll(fluidTooltip(stack, true));
                 tooltip.add(Component.translatable("gui.tinker_foundry.tank.select").withStyle(net.minecraft.ChatFormatting.GRAY));
             } else {
                 int used = menu.structureFluids().stream().mapToInt(FluidStack::getAmount).sum();
@@ -362,29 +397,99 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                     tooltip.add(Component.translatable("gui.tinker_foundry.tank.used_label"));
                     tooltip.add(formatVolume(used).copy().withStyle(net.minecraft.ChatFormatting.GRAY));
                 }
+                // 空槽没有流体详情，只有容量提示需要补充一次 Shift 单位说明。
+                tooltip.add(Component.empty());
+                tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
             }
-            tooltip.add(Component.empty());
-            tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
             graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
             return;
         }
         int capacity = menu.screenKind() == 1 && tank == FoundryBlockEntity.ALLOY_OUTPUT_TANK
-            ? 8000 : menu.screenKind() == 1 ? 4000 : Math.max(1, menu.capacity());
+            ? FoundryBlockEntity.ALLOYER_CAPACITY : menu.screenKind() == 1 ? menu.alloyCapacity(tank) : Math.max(1, menu.capacity());
         int amount = stack.isEmpty() ? 0 : stack.getAmount();
-        String amountText = Screen.hasShiftDown() ? (amount / FluidValues.BUCKET) + " B" : amount + " mB";
-        String capacityText = Screen.hasShiftDown() ? (capacity / (double) FluidValues.BUCKET) + " B" : capacity + " mB";
-        java.util.ArrayList<Component> tooltip = new java.util.ArrayList<>();
-        if (!stack.isEmpty()) {
-            tooltip.add(stack.getHoverName());
-            ResourceLocation id = BuiltInRegistries.FLUID.getKey(stack.getFluid());
-            if (id != null) {
-                tooltip.add(Component.literal(id.toString()));
-            }
+        if (!stack.isEmpty() && fluidContentHovered(x, y, tank, stack, capacity)) {
+            graphics.renderComponentTooltip(font, fluidTooltip(stack, menu.screenKind() == 1 || menu.screenKind() == 3), mouseX, mouseY);
+            return;
         }
-        tooltip.add(Component.translatable("gui.tinker_foundry.tank.amount", amountText));
-        tooltip.add(Component.translatable("gui.tinker_foundry.tank.capacity", capacityText));
-        tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
+        List<Component> tooltip = new ArrayList<>();
+        tooltip.add(Component.translatable("gui.tinker_foundry.tank.capacity_label"));
+        tooltip.add(formatTankVolume(stack, capacity).copy().withStyle(net.minecraft.ChatFormatting.GRAY));
+        if (capacity != amount) {
+            tooltip.add(Component.translatable("gui.tinker_foundry.tank.available_label"));
+            tooltip.add(formatTankVolume(stack, Math.max(0, capacity - amount)).copy().withStyle(net.minecraft.ChatFormatting.GRAY));
+        }
+        if (menu.screenKind() == 1 || usesSpecificFluidUnits(stack)) {
+            tooltip.add(Component.empty());
+            tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
+        }
         graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+    }
+
+    /** 生成 Mantle FluidTooltipHandler 等价的流体名称、ID、单位和模组名。 */
+    private List<Component> fluidTooltip(FluidStack stack, boolean alloyerUnits) {
+        List<Component> tooltip = new ArrayList<>();
+        ResourceLocation id = BuiltInRegistries.FLUID.getKey(stack.getFluid());
+        PotionContents potion = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
+        Component fluidName = stack.getHoverName();
+        if (potion.potion().isPresent()) {
+            // 使用原版药水命名键，让药水流体的名称和匠魂一致。
+            fluidName = Component.translatable(Potion.getName(potion.potion(), "item.minecraft.potion.effect."));
+        }
+        tooltip.add(fluidName);
+        if (id != null && Minecraft.getInstance().options.advancedItemTooltips) {
+            tooltip.add(Component.literal(id.toString()).withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+        }
+        // 合金炉和多方块熔铸炉的 Mantle 配置重定向到 ingots，其余燃料流体使用自身单位配置。
+        tooltip.add(alloyerUnits ? formatVolume(stack.getAmount()) : formatFluidVolume(stack));
+        if ((alloyerUnits || usesSpecificFluidUnits(stack)) && !Screen.hasShiftDown()) {
+            tooltip.add(Component.empty());
+            tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
+        }
+        if (id != null) {
+            String modName = id.getNamespace();
+            modName = net.neoforged.fml.ModList.get().getModContainerById(id.getNamespace())
+                .map(container -> container.getModInfo().getDisplayName()).orElse(modName);
+            tooltip.add(Component.literal(modName).withStyle(net.minecraft.ChatFormatting.BLUE, net.minecraft.ChatFormatting.ITALIC));
+        }
+        return tooltip;
+    }
+
+    /** 判断当前流体槽是否悬停在实际液面内，而不是槽上方的容量空区。 */
+    private boolean fluidContentHovered(int x, int y, int tank, FluidStack stack, int capacity) {
+        int tankX;
+        int tankWidth;
+        if (menu.screenKind() == 1) {
+            if (tank >= 0 && tank < menu.alloyInputCount()) {
+                tankX = ALLOY_INPUT_TANK_START_X[tank];
+                tankWidth = 14;
+            } else if (tank == FoundryBlockEntity.ALLOY_OUTPUT_TANK) {
+                tankX = 114;
+                tankWidth = 34;
+            } else {
+                return false;
+            }
+        } else {
+            tankX = 90;
+            tankWidth = 52;
+        }
+        int height = 52;
+        int fluidHeight = Math.min(height, Math.max(1, height * stack.getAmount() / Math.max(1, capacity)));
+        return isInside(x, y, tankX, 16 + height - fluidHeight, tankWidth, fluidHeight);
+    }
+
+    /** 生成空槽容量对应的单位文本；合金炉空槽固定使用锭单位。 */
+    private Component formatTankVolume(FluidStack stack, int amount) {
+        if (menu.screenKind() == 1) {
+            return formatVolume(amount);
+        }
+        return stack.isEmpty() ? formatBucketVolume(amount) : formatFluidVolume(stack.copyWithAmount(amount));
+    }
+
+    /** 判断流体是否拥有匠魂专用的材料单位，因此需要附加 Shift 提示。 */
+    private boolean usesSpecificFluidUnits(FluidStack stack) {
+        return !stack.isEmpty()
+            && (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())
+                || stack.get(DataComponents.POTION_CONTENTS) != null);
     }
 
     /** 返回当前流体传输模式的标题、说明和切换提示。 */
@@ -411,6 +516,18 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                 graphics.blit(STRUCTURE_BACKGROUND, leftPos + STRUCTURE_FIRE_X, topPos + STRUCTURE_FIRE_Y + 14 - height,
                     100, 176, 150 - height, 14, height, 256, 256);
             }
+        }
+    }
+
+    /** 绘制合金炉右侧物品燃料槽的原版火焰，液体燃料分支不绘制此图标。 */
+    private void drawAlloyerFuel(GuiGraphics graphics) {
+        if (menu.burnTime() <= 0 || menu.fuelBurnDuration() <= 0) {
+            return;
+        }
+        int height = Math.min(14, (int) (14L * menu.burnTime() / menu.fuelBurnDuration()));
+        if (height > 0) {
+            graphics.blit(ALLOYER_BACKGROUND, leftPos + 152, topPos + 31 + 14 - height,
+                100, 176, 136 + 14 - height, 14, height, 256, 256);
         }
     }
 
@@ -461,7 +578,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 绘制来自界面纹理的处理进度指示条。 */
     private void drawProgress(GuiGraphics graphics, ResourceLocation background) {
-        if (menu.screenKind() == 3 || menu.processTime() <= 0) {
+        if (menu.screenKind() == 1 || menu.screenKind() == 3 || menu.processTime() <= 0) {
             return;
         }
         int height = Math.min(16, Math.max(0, menu.progress() * 16 / menu.processTime()));
@@ -554,7 +671,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             return index >= 0 && index < layers.size() ? layers.get(index) : FluidStack.EMPTY;
         }
         if (menu.screenKind() == 2) return FluidStack.EMPTY;
-        if (menu.screenKind() == 1 && tank >= 0 && tank < FoundryBlockEntity.MAX_ALLOY_INPUTS) {
+        if (menu.screenKind() == 1 && tank >= 0 && tank < menu.alloyInputCount()) {
             return menu.alloyFluid(tank);
         }
         if (tank == FoundryBlockEntity.ALLOY_OUTPUT_TANK) return menu.fluidStack();
@@ -568,6 +685,9 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             return 0;
         }
         if (menu.screenKind() == 2 && isInside(x, y, 80, 20, 16, 90)) {
+            return 0;
+        }
+        if (menu.screenKind() == 1 && isInside(x, y, 152, 31, 12, 36)) {
             return 0;
         }
         return -1;
@@ -586,8 +706,8 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             return -1;
         }
         if (menu.screenKind() == 1) {
-            for (int tank = 0; tank < FoundryBlockEntity.MAX_ALLOY_INPUTS; tank++) {
-                int tankX = 22 + tank * 18;
+            for (int tank = 0; tank < menu.alloyInputCount(); tank++) {
+                int tankX = ALLOY_INPUT_TANK_START_X[tank];
                 if (x >= tankX && x < tankX + 14) return tank;
             }
             if (x >= 114 && x < 148) return FoundryBlockEntity.ALLOY_OUTPUT_TANK;
@@ -597,7 +717,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         return -1;
     }
 
-    /** 金属默认显示锭、粒和余量，按 Shift 显示桶和毫桶，不截断小数造成数量丢失。 */
+    /** 金属默认显示锭、粒和毫桶，按 Shift 显示桶和毫桶，不截断小数造成数量丢失。 */
     private Component formatVolume(int amount) {
         int unit = Screen.hasShiftDown() ? FluidValues.BUCKET : FluidValues.INGOT;
         String key = Screen.hasShiftDown() ? "bucket" : "ingot";
@@ -611,12 +731,12 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         }
         if (remainder > 0 || amount == 0) {
             if (!text.getString().isEmpty()) text.append(" ");
-            text.append(Component.literal(remainder + " mB"));
+            text.append(Component.translatable("gui.tinker_foundry.unit.millibucket", remainder));
         }
         return text;
     }
 
-    /** 参照匠魂的流体标签规则显示数量：金属用锭粒，药水用瓶和液滴，其余流体使用毫桶。 */
+    /** 参照匠魂的流体标签规则显示数量：金属用锭粒，药水用瓶和液滴，其余流体使用桶。 */
     private Component formatFluidVolume(FluidStack stack) {
         if (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())) {
             return formatVolume(stack.getAmount());
@@ -644,14 +764,14 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         }
         if (remainder > 0 || amount == 0) {
             if (!text.getString().isEmpty()) text.append(" ");
-            text.append(Component.literal(remainder + " mB"));
+            text.append(Component.translatable("gui.tinker_foundry.unit.millibucket", remainder));
         }
         return text;
     }
 
-    /** 非金属且没有专用单位的流体保持真实毫桶数量，避免产生误导性的金属单位。 */
+    /** 非金属且没有专用单位的流体沿用匠魂回退规则，以桶和毫桶显示。 */
     private Component formatRawVolume(int amount) {
-        return Component.literal(amount + " mB");
+        return formatBucketVolume(amount);
     }
 
     /** 燃料按桶和毫桶显示，避免把熔岩当作金属锭或把不足一桶的余量截断。 */
@@ -663,7 +783,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         int remainder = amount % FluidValues.BUCKET;
         if (remainder > 0 || amount == 0) {
             if (!text.getString().isEmpty()) text.append(" ");
-            text.append(Component.literal(remainder + " mB"));
+            text.append(Component.translatable("gui.tinker_foundry.unit.millibucket", remainder));
         }
         return text;
     }

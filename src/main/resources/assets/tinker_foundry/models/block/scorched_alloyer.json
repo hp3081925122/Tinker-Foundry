@@ -36,17 +36,6 @@
       "from": [0, 5, 0],
       "to": [16, 5, 16],
       "faces": {"up": {"texture": "#brick"}}
-    },
-    {
-      "from": [0.12, 5.08, 0.12],
-      "to": [15.88, 15.88, 15.88],
-      "faces": {
-        "north": {"texture": "#brick", "shade": false},
-        "east": {"texture": "#brick", "shade": false},
-        "south": {"texture": "#brick", "shade": false},
-        "west": {"texture": "#brick", "shade": false},
-        "down": {"texture": "#brick", "shade": false}
-      }
     }
   ]
 }

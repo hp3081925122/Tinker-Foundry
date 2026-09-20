@@ -2,11 +2,13 @@ package org.hp.tinker_foundry.common;
 
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.registry.TFBlocks;
 
 /** 物品能力只暴露设备真实输入与输出，导入槽动态代理控制器。 */
-public final class FoundryItemHandler implements IItemHandler {
+public final class FoundryItemHandler implements IItemHandlerModifiable {
     private final FoundryBlockEntity owner;
 
     /** 保留附件而非控制器引用，拆炉后缓存能力立即失效。 */
@@ -75,6 +77,28 @@ public final class FoundryItemHandler implements IItemHandler {
         }
         if (!simulate && entity != null) entity.setItem(mapped(entity, slot), stored.copyWithCount(stored.getCount() - taken));
         return stored.copyWithCount(taken);
+    }
+
+    /** 支持菜单槽位和能力包装器的精确写入，仍沿用本能力的校验与特殊物品规则。 */
+    @Override
+    public void setStackInSlot(int slot, ItemStack stack) {
+        FoundryBlockEntity entity = target();
+        if (entity == null || slot < 0 || slot >= getSlots()) return;
+        if (!stack.isEmpty() && !isItemValid(slot, stack)) return;
+        int limit = Math.min(getSlotLimit(slot), stack.getMaxStackSize());
+        ItemStack replacement = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(Math.min(stack.getCount(), limit));
+        // 菜单首次写入时记录归属，便于区分控制器代理和普通设备槽位。
+        TinkerFoundry.LOGGER.debug("[item-handler] setStackInSlot owner={} target={} slot={} count={}",
+            owner.getBlockPos(), entity.getBlockPos(), slot, replacement.getCount());
+        if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) {
+            // 特殊设备只允许通过统一的抽取和插入入口替换物品，避免跳过设备状态同步。
+            ItemStack current = getStackInSlot(slot);
+            if (!current.isEmpty()) extractItem(slot, current.getCount(), false);
+            if (!replacement.isEmpty()) insertItem(slot, replacement, false);
+            return;
+        }
+        // 普通设备的菜单槽位映射到实体的真实物品槽，不暴露隐藏槽位给外部能力。
+        entity.setItem(mapped(entity, slot), replacement);
     }
 
     /** 熔炼槽固定一个物品，加热器与浇注输出按普通堆叠。 */

@@ -8,7 +8,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 
 /** 为小型熔炼器、加热器和合金炉提供与官方模型匹配的水平朝向。 */
-public final class FoundryMachineBlock extends FoundryEntityBlock {
+public class FoundryMachineBlock extends FoundryEntityBlock {
     /** 三种独立设备共用的水平朝向属性。 */
     public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
 

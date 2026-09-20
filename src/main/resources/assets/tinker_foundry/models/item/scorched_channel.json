@@ -1,1 +1,6 @@
-{"parent":"tinker_foundry:block/scorched_channel"}
+{
+  "parent": "tinker_foundry:block/template/channel/inventory",
+  "textures": {
+    "texture": "tinker_foundry:block/foundry/scorched/stone_side"
+  }
+}

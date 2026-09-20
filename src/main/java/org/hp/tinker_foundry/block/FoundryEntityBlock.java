@@ -2,6 +2,7 @@ package org.hp.tinker_foundry.block;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
@@ -33,6 +34,10 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidUtil;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.item.PortableTankFluidHandler;
@@ -97,10 +102,11 @@ public class FoundryEntityBlock extends BaseEntityBlock {
         }
         if (!level.isClientSide) {
             // 匠魂官方控制器在结构无效时只显示具体错误，不允许进入控制器界面。
-            if (entity.isStructureController()) {
+            if (entity.isStructureController() || entity.isAlloyer()) {
                 entity.refreshStructureIfDirty();
                 if (!entity.isStructureValid()) {
-                    Component message = entity.structureErrorMessage();
+                    Component message = entity.isAlloyer()
+                        ? Component.translatable("gui.tinker_foundry.alloyer.no_fuel") : entity.structureErrorMessage();
                     player.displayClientMessage(message, true);
                     FoundryNetworking.syncStructureError(entity);
                     TinkerFoundry.LOGGER.debug("[interaction] blocked invalid controller={} reason={} errorPos={}",
@@ -120,6 +126,10 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                     return InteractionResult.SUCCESS;
                 }
             } else if (entity.swapSpecialItem(player, InteractionHand.MAIN_HAND)) {
+                return InteractionResult.SUCCESS;
+            }
+            // 铸造台空手右键遵循匠魂语义：取出完成产物，否则取回台面上的输入物品。
+            if (entity.isCastingTable() && entity.interactCastingTable(player, InteractionHand.MAIN_HAND)) {
                 return InteractionResult.SUCCESS;
             }
             // 浇注台和浇注盆才允许空手取出铸造结果，普通冶炼设备的产物必须从菜单槽取出。
@@ -191,7 +201,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
         if (level.isClientSide) {
             return ItemInteractionResult.sidedSuccess(true);
         }
-        return handleItemOn(stack, state, level, pos, player, hand, entity);
+        return handleItemOn(stack, state, level, pos, player, hand, hit, entity);
     }
 
     /** 把空手交互结果转换为 NeoForge 1.21.1 的物品交互结果。 */
@@ -202,10 +212,11 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
     /** 只为真正拥有界面的冶炼设备打开菜单，并在打开前重新确认控制器结构。 */
     private static InteractionResult openMenu(BlockState state, BlockPos pos, FoundryBlockEntity entity, ServerPlayer player) {
-        if (entity.isStructureController()) {
+        if (entity.isStructureController() || entity.isAlloyer()) {
             entity.refreshStructureIfDirty();
             if (!entity.isStructureValid()) {
-                Component message = entity.structureErrorMessage();
+                Component message = entity.isAlloyer()
+                    ? Component.translatable("gui.tinker_foundry.alloyer.no_fuel") : entity.structureErrorMessage();
                 player.displayClientMessage(message, true);
                 FoundryNetworking.syncStructureError(entity);
                 TinkerFoundry.LOGGER.debug("[interaction] blocked invalid controller={} reason={} errorPos={}",
@@ -220,6 +231,8 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             ? Component.translatable("gui.tinker_foundry.smeltery")
             : entity.isFoundryController()
                 ? Component.translatable("gui.tinker_foundry.foundry")
+                : entity.isAlloyer()
+                    ? Component.translatable("gui.tinker_foundry.alloyer")
                 : Component.translatable(state.getBlock().getDescriptionId());
         player.openMenu(new SimpleMenuProvider(
             (containerId, inventory, ignored) -> new FoundryMenu(containerId, inventory, entity),
@@ -232,12 +245,14 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
     /** 统一处理设备和冶炼灯的容器交互，避免两个方块类出现不同的流体规则。 */
     static ItemInteractionResult handleItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
-                                              Player player, InteractionHand hand, FoundryBlockEntity entity) {
-        if (net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(stack).isPresent()) {
-            // 普通空桶也先模拟完整传输，禁止不足一桶时先扣液再返回失败。
-            var handler = level.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, null);
+                                              Player player, InteractionHand hand, BlockHitResult hit,
+                                              FoundryBlockEntity entity) {
+        if (FluidUtil.getFluidHandler(stack).isPresent()) {
+            // 传入实际点击面，疏导孔等分面能力必须据此区分输入面和输出面。
+            IFluidHandler handler = level.getCapability(
+                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, hit.getDirection());
             if (handler == null) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-            return net.neoforged.neoforge.fluids.FluidUtil.interactWithFluidHandler(player, hand, handler)
+            return interactWithFluidContainer(player, hand, handler, hit.getDirection(), state.getBlock().toString())
                 ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
         }
         // 非流体物品只能进入代理储罐或流体炮的专用内部槽。
@@ -246,6 +261,10 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                 ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
         }
         // 只有浇注台和浇注盆允许普通手持物走专用铸造输入逻辑。
+        if (entity.isCastingTable()) {
+            return entity.interactCastingTable(player, hand)
+                ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
+        }
         if ((entity.isCastingBlock() || entity.isFuelTankBlock()) && entity.insertItem(stack)) {
             return ItemInteractionResult.SUCCESS;
         }
@@ -258,8 +277,9 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                                                               FoundryBlockEntity entity, boolean fluidContainer) {
         boolean clickedFluid = isProxyTankFluidArea(hit, pos);
         if (fluidContainer) {
-            var handler = level.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, null);
-            if (handler != null && net.neoforged.neoforge.fluids.FluidUtil.interactWithFluidHandler(player, hand, handler)) {
+            IFluidHandler handler = level.getCapability(
+                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, hit.getDirection());
+            if (handler != null && interactWithFluidContainer(player, hand, handler, hit.getDirection(), stateBlock(entity))) {
                 return ItemInteractionResult.SUCCESS;
             }
             // 已有内部容器时，点击四角只表示液体槽交互失败，不应意外替换容器。
@@ -273,6 +293,100 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                 ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
         }
         return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * 以目标先提交、源容器后扣除的顺序传输流体，避免 NeoForge 默认顺序造成单边扣液。
+     * 两边的执行量不一致时尽力回滚已经提交的一侧，并保留原手持物。
+     */
+    public static boolean interactWithFluidContainer(Player player, InteractionHand hand, IFluidHandler target,
+                                                     Direction side, String targetName) {
+        ItemStack held = player.getItemInHand(hand);
+        IFluidHandlerItem item = FluidUtil.getFluidHandler(held).orElse(null);
+        if (item == null) {
+            return false;
+        }
+        FluidStack contained = item.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.SIMULATE);
+        if (!contained.isEmpty()) {
+            int simulated = target.fill(contained, IFluidHandler.FluidAction.SIMULATE);
+            logFluidInteraction(targetName, side, held, contained, target, simulated, "container_to_block_simulate");
+            if (simulated <= 0) {
+                return false;
+            }
+            FluidStack requested = contained.copyWithAmount(simulated);
+            int accepted = target.fill(requested, IFluidHandler.FluidAction.EXECUTE);
+            if (accepted != simulated) {
+                rollbackTarget(target, requested, accepted);
+                logFluidInteraction(targetName, side, held, requested, target, accepted, "container_to_block_rejected");
+                return false;
+            }
+            FluidStack drained = item.drain(requested, IFluidHandler.FluidAction.EXECUTE);
+            if (drained.getAmount() != simulated) {
+                if (!drained.isEmpty()) {
+                    item.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+                }
+                rollbackTarget(target, requested, accepted);
+                logFluidInteraction(targetName, side, held, drained, target, drained.getAmount(), "container_to_block_rollback");
+                return false;
+            }
+            player.setItemInHand(hand, item.getContainer());
+            logFluidInteraction(targetName, side, held, drained, target, accepted, "container_to_block_success");
+            return true;
+        }
+
+        FluidStack available = target.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.SIMULATE);
+        if (available.isEmpty()) {
+            logFluidInteraction(targetName, side, held, available, target, 0, "block_to_container_empty");
+            return false;
+        }
+        int simulated = item.fill(available, IFluidHandler.FluidAction.SIMULATE);
+        logFluidInteraction(targetName, side, held, available, target, simulated, "block_to_container_simulate");
+        if (simulated <= 0) {
+            return false;
+        }
+        FluidStack requested = available.copyWithAmount(simulated);
+        int accepted = item.fill(requested, IFluidHandler.FluidAction.EXECUTE);
+        if (accepted != simulated) {
+            if (accepted > 0) {
+                item.drain(accepted, IFluidHandler.FluidAction.EXECUTE);
+            }
+            logFluidInteraction(targetName, side, held, requested, target, accepted, "block_to_container_rejected");
+            return false;
+        }
+        FluidStack drained = target.drain(simulated, IFluidHandler.FluidAction.EXECUTE);
+        if (drained.getAmount() != simulated) {
+            if (!drained.isEmpty()) {
+                target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+            }
+            item.drain(accepted, IFluidHandler.FluidAction.EXECUTE);
+            logFluidInteraction(targetName, side, held, drained, target, drained.getAmount(), "block_to_container_rollback");
+            return false;
+        }
+        player.setItemInHand(hand, item.getContainer());
+        logFluidInteraction(targetName, side, held, drained, target, accepted, "block_to_container_success");
+        return true;
+    }
+
+    /** 回滚目标方块已经接收的部分，失败时只记录诊断而不继续吞掉手持物。 */
+    private static void rollbackTarget(IFluidHandler target, FluidStack requested, int accepted) {
+        if (accepted > 0) {
+            target.drain(requested.copyWithAmount(accepted), IFluidHandler.FluidAction.EXECUTE);
+        }
+    }
+
+    /** 输出一次交互事务诊断，记录模拟量和目标当前状态，便于复现时定位单边变化。 */
+    private static void logFluidInteraction(String targetName, Direction side, ItemStack held,
+                                             FluidStack transfer, IFluidHandler target, int amount, String result) {
+        int targetAmount = target.getTanks() > 0 ? target.getFluidInTank(0).getAmount() : -1;
+        int targetCapacity = target.getTanks() > 0 ? target.getTankCapacity(0) : -1;
+        TinkerFoundry.LOGGER.debug("[fluid-interaction] result={} target={} side={} item={} transfer={} transferAmount={} accepted={} targetAmount={} targetCapacity={}",
+            result, targetName, side, held.getItem(), transfer.isEmpty() ? "empty" : transfer.getFluid(),
+            transfer.getAmount(), amount, targetAmount, targetCapacity);
+    }
+
+    /** 返回方块实体当前方块名称，避免代理储罐交互日志丢失目标标识。 */
+    private static String stateBlock(FoundryBlockEntity entity) {
+        return entity.getBlockState().getBlock().toString();
     }
 
     /** 判断代理储罐点击是否落在四角液体区域，中心十字区域属于内部物品槽。 */
@@ -397,7 +511,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             || state.is(TFBlocks.SEARED_CASTING_TANK.get())
             || state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SCORCHED_LANTERN.get())
             || state.is(TFBlocks.SCORCHED_PROXY_TANK.get())
-            || state.is(TFBlocks.SEARED_FLUID_CANNON.get()) || state.is(TFBlocks.SCORCHED_FLUID_CANNON.get());
+            || state.is(TFBlocks.SEARED_FLUID_CANNON.get());
     }
 
     /** 把统一方块实体的实际比较器强度接入原版比较器查询。 */

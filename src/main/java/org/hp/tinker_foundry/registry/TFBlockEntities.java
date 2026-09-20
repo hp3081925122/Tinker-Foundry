@@ -34,7 +34,6 @@ public final class TFBlockEntities {
         TFBlocks.SCORCHED_CHANNEL.get(),
         TFBlocks.SCORCHED_PROXY_TANK.get(),
         TFBlocks.SEARED_FLUID_CANNON.get(),
-        TFBlocks.SCORCHED_FLUID_CANNON.get(),
         TFBlocks.COPPER_GAUGE.get(),
         TFBlocks.OBSIDIAN_GAUGE.get(),
         TFBlocks.SEARED_INGOT_GAUGE.get(),

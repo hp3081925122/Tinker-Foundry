@@ -41,7 +41,7 @@ public final class FoundryDeviceRenderer {
         boolean castingTank = state.is(TFBlocks.SEARED_CASTING_TANK.get());
         boolean lantern = state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SCORCHED_LANTERN.get());
         boolean proxyTank = state.is(TFBlocks.SCORCHED_PROXY_TANK.get());
-        boolean fluidCannon = state.is(TFBlocks.SEARED_FLUID_CANNON.get()) || state.is(TFBlocks.SCORCHED_FLUID_CANNON.get());
+        boolean fluidCannon = state.is(TFBlocks.SEARED_FLUID_CANNON.get());
         boolean basin = state.is(TFBlocks.SEARED_BASIN.get()) || state.is(TFBlocks.SCORCHED_BASIN.get());
         boolean table = state.is(TFBlocks.SEARED_TABLE.get()) || state.is(TFBlocks.SCORCHED_TABLE.get());
         boolean machineTank = state.is(TFBlocks.SEARED_MELTER.get()) || state.is(TFBlocks.SCORCHED_ALLOYER.get());
@@ -82,6 +82,10 @@ public final class FoundryDeviceRenderer {
         if (proxyTank) {
             // 代理储罐的流体只占四个角落，不能用完整液面遮挡内部物品。
             renderProxyTankFluid(fluid, capacity, poseStack, buffer, packedLight);
+            return true;
+        }
+        // 浇注口必须同时满足服务端出液状态，避免关闭后仍用旧的客户端缓存绘制液体。
+        if (faucet && !entity.isFaucetPouring()) {
             return true;
         }
         if (fluid.isEmpty() || fluid.getAmount() <= 0 || capacity <= 0) {
@@ -173,6 +177,15 @@ public final class FoundryDeviceRenderer {
                 // 浇注口同时绘制自身管腔和下方目标方块中的连续流体。
                 BlockState belowState = entity.getLevel() == null ? null
                     : entity.getLevel().getBlockState(entity.getBlockPos().below());
+                // 没有实际输出目标时不绘制流柱，防止焦褐浇注口向空气中显示虚假液体。
+                if (!entity.hasFaucetOutputTarget()) {
+                    if (!faucetDiagnosticLogged) {
+                        TinkerFoundry.LOGGER.debug("[client-render] faucet fluid suppressed pos={} output={} block={} reason=no_accepting_target",
+                            entity.getBlockPos(), entity.getBlockPos().below(), belowState == null ? "null" : belowState.getBlock());
+                        faucetDiagnosticLogged = true;
+                    }
+                    return true;
+                }
                 drawFaucetFluid(poseStack, FoundryFluidRenderer.solidConsumer(buffer), sprite, flowingSprite,
                     direction, belowState, tint, brightness);
             }

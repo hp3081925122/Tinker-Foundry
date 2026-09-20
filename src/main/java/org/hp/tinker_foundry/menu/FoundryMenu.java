@@ -18,6 +18,7 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
+import net.neoforged.neoforge.items.SlotItemHandler;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.item.PortableTankFluidHandler;
@@ -44,6 +45,8 @@ public final class FoundryMenu extends AbstractContainerMenu {
     private final ContainerData data;
     /** 打开菜单时确定的布局类型，屏幕初始化不能等待后续状态同步。 */
     private final int screenKind;
+    /** 合金炉下方是否存在可直接代理的固体燃料能力。 */
+    private final boolean alloyerFuelSlot;
     /** 每列包含四像素热量区和十八像素物品槽，背景与命中坐标共同使用。 */
     public static final int STRUCTURE_COLUMN_WIDTH = 22;
     /** 控制器中央的输入桶槽和输出桶槽数量。 */
@@ -78,7 +81,8 @@ public final class FoundryMenu extends AbstractContainerMenu {
             new SimpleContainer(STRUCTURE_BUCKET_SLOTS),
             entity == null ? new SimpleContainerData(DATA_COUNT) : entity.menuData(),
             entity == null ? 0 : entity.screenKind(),
-            entity != null && entity.isStructureController() ? entity.inputSlotCount() : FoundryBlockEntity.BASE_INPUT_SLOTS);
+            entity != null && entity.isStructureController() ? entity.inputSlotCount()
+                : entity != null && entity.isAlloyer() ? 0 : FoundryBlockEntity.BASE_INPUT_SLOTS);
     }
 
     /** 从服务端打开菜单时读取方块位置，让客户端使用正确的设备槽位布局。 */
@@ -105,7 +109,8 @@ public final class FoundryMenu extends AbstractContainerMenu {
         int slots = buffer.readVarInt();
         if (slots < 0 || slots > FoundryBlockEntity.MAX_STRUCTURE_INPUTS) throw new IllegalArgumentException("Invalid structure input count: " + slots);
         if (kind == 3 && entity != null) entity.resizeStructureInputs(slots, false);
-        return new OpenData(entity, kind, kind == 3 ? slots : FoundryBlockEntity.BASE_INPUT_SLOTS);
+        return new OpenData(entity, kind,
+            kind == 3 ? slots : kind == 1 ? 0 : FoundryBlockEntity.BASE_INPUT_SLOTS);
     }
 
     /** 根据菜单打开载荷查找客户端方块实体，找不到时安全退化为空菜单。 */
@@ -129,10 +134,17 @@ public final class FoundryMenu extends AbstractContainerMenu {
         this.bucketContainer = bucketContainer;
         this.data = data;
         this.menuInputs = menuInputs;
-        this.deviceSlots = menuInputs + 3;
         this.clientSide = inventory.player.level().isClientSide;
         // 槽位布局和屏幕尺寸共同读取打开载荷中的类型，不受状态包到达顺序影响。
         this.screenKind = screenKind;
+        this.alloyerFuelSlot = screenKind == 1 && container instanceof FoundryBlockEntity entity
+            && entity.alloyerFuelItemHandler() != null;
+        // 液体燃料合金炉没有物品燃料槽，设备槽只包含产物和返还槽，避免生成幽灵高亮。
+        this.deviceSlots = menuInputs + (screenKind == 1 && !alloyerFuelSlot ? 2 : 3);
+        if (screenKind == 1 && container instanceof FoundryBlockEntity entity) {
+            // 客户端首帧主动建立邻接槽索引，空罐也能显示正确的槽位背景。
+            entity.refreshAlloyerInputsForMenu();
+        }
         TinkerFoundry.LOGGER.debug("[menu-layout] initialized screenKind={} syncedKind={}", screenKind, data.get(11));
         // 熔炼器和控制器显示固体输入槽，合金炉和加热器不显示伪造的固体输入槽。
         for (int index = 0; index < menuInputs; index++) {
@@ -175,17 +187,23 @@ public final class FoundryMenu extends AbstractContainerMenu {
             fuelX = -100;
             fuelY = -100;
         }
-        addSlot(new Slot(container, FoundryBlockEntity.FUEL_SLOT, fuelX, fuelY) {
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return screenKind != 3 && container.canPlaceItem(FoundryBlockEntity.FUEL_SLOT, stack);
-            }
+        if (screenKind == 1 && container instanceof FoundryBlockEntity entity && entity.alloyerFuelItemHandler() != null) {
+            // 合金炉燃料槽直接代理下方燃料罐或加热器，避免把燃料错误存入控制器自身。
+            addSlot(new SlotItemHandler(entity.alloyerFuelItemHandler(), 0, 151, 32));
+        } else if (screenKind != 1) {
+            // 液体燃料合金炉由界面流体模块负责交互，不创建不应显示的物品槽。
+            addSlot(new Slot(container, FoundryBlockEntity.FUEL_SLOT, fuelX, fuelY) {
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return screenKind != 3 && container.canPlaceItem(FoundryBlockEntity.FUEL_SLOT, stack);
+                }
 
-            @Override
-            public boolean isActive() {
-                return screenKind != 3;
-            }
-        });
+                @Override
+                public boolean isActive() {
+                    return screenKind != 3;
+                }
+            });
+        }
         addSlot(new Slot(container, FoundryBlockEntity.OUTPUT_SLOT, 153 + contentOffset, 53) {
             @Override
             public boolean mayPlace(ItemStack stack) {
@@ -352,6 +370,17 @@ public final class FoundryMenu extends AbstractContainerMenu {
         return fluidFromData(10, 7);
     }
 
+    /** 返回服务端发现的合金炉邻接输入罐数量。 */
+    public int alloyInputCount() {
+        return screenKind == 1 ? Math.max(0, Math.min(FoundryBlockEntity.MAX_ALLOY_INPUTS,
+            data.get(FoundryBlockEntity.MENU_ALLOY_INPUT_COUNT_INDEX))) : 0;
+    }
+
+    /** 返回合金炉是否显示下方来源的固体燃料槽。 */
+    public boolean hasAlloyerFuelSlot() {
+        return screenKind == 1 && alloyerFuelSlot;
+    }
+
     /** 返回指定合金输入槽的客户端流体镜像。 */
     public FluidStack alloyFluid(int tank) {
         if (tank < 0 || tank >= FoundryBlockEntity.MAX_ALLOY_INPUTS) {
@@ -369,6 +398,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
             case 1 -> 10;
             case 2 -> 14;
             case 3 -> 16;
+            case 4 -> FoundryBlockEntity.MENU_ALLOY_INPUT_FIFTH_FLUID_INDEX;
             default -> -1;
         };
         return fluidFromData(fluidIndex, amountIndex);
@@ -384,8 +414,18 @@ public final class FoundryMenu extends AbstractContainerMenu {
             case 1 -> Math.max(0, data.get(7));
             case 2 -> Math.max(0, data.get(13));
             case 3 -> Math.max(0, data.get(15));
+            case 4 -> Math.max(0, data.get(FoundryBlockEntity.MENU_ALLOY_INPUT_FIFTH_AMOUNT_INDEX));
             default -> 0;
         };
+    }
+
+    /** 返回指定邻接储罐的真实容量，客户端能力暂不可用时回退到合金炉容量。 */
+    public int alloyCapacity(int tank) {
+        if (tank < 0 || tank >= alloyInputCount() || !(container instanceof FoundryBlockEntity entity)) {
+            return FoundryBlockEntity.ALLOYER_CAPACITY;
+        }
+        int capacity = entity.alloyerInputHandler(tank).getTankCapacity(0);
+        return capacity > 0 ? capacity : FoundryBlockEntity.ALLOYER_CAPACITY;
     }
 
     /** 返回构造菜单时已经确定的界面样式。 */
@@ -526,7 +566,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (!player.level().isClientSide) clearContainer(player, bucketContainer);
     }
 
-    /** 接收客户端按钮请求，覆盖结构控制器的模式、燃料和主流体三类交互。 */
+    /** 接收客户端按钮请求，覆盖结构控制器、合金炉和普通设备的流体交互。 */
     @Override
     public boolean clickMenuButton(Player player, int id) {
         if (player.isSpectator()) {
@@ -569,6 +609,27 @@ public final class FoundryMenu extends AbstractContainerMenu {
             }
             return moved;
         }
+        if (screenKind() == 1) {
+            // 合金炉按钮顺序严格对应原版：输出 0/1、燃料 2/3、输入罐从 4 开始。
+            if (id < 0 || id >= 4 + FoundryBlockEntity.MAX_ALLOY_INPUTS * 2) {
+                return false;
+            }
+            if (player.level().isClientSide) {
+                return true;
+            }
+            if (!(container instanceof FoundryBlockEntity entity) || getCarried().isEmpty()) {
+                return false;
+            }
+            TransferDirection direction = (id & 1) == 0 ? TransferDirection.FILL_ITEM : TransferDirection.EMPTY_ITEM;
+            if (id == 2 || id == 3) {
+                return transferAlloyerFuel(player, entity, direction);
+            }
+            int tank = id < 2 ? FoundryBlockEntity.ALLOY_OUTPUT_TANK : (id - 4) / 2;
+            if (tank < 0 || tank >= (id < 2 ? FoundryBlockEntity.MAX_ALLOY_INPUTS + 1 : entity.alloyerInputCount())) {
+                return false;
+            }
+            return transferHeldFluid(player, entity, getCarried(), tank, direction);
+        }
         if (id < 0 || id >= fluidTankCount() * 2) {
             return false;
         }
@@ -590,6 +651,27 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (plan == null) return false;
         plan.commit();
         replaceCarried(player, held, plan.result());
+        return true;
+    }
+
+    /** 合金炉燃料模块直接操作下方来源能力，复刻 Mantle 的燃料模块交互。 */
+    private boolean transferAlloyerFuel(Player player, FoundryBlockEntity entity, TransferDirection direction) {
+        if (entity.getLevel() == null) {
+            return false;
+        }
+        var handler = entity.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+            entity.getBlockPos().below(), null);
+        if (handler == null) {
+            return false;
+        }
+        ItemStack held = getCarried();
+        var result = direction == TransferDirection.FILL_ITEM
+            ? net.neoforged.neoforge.fluids.FluidUtil.tryFillContainer(held, handler, Integer.MAX_VALUE, null, true)
+            : net.neoforged.neoforge.fluids.FluidUtil.tryEmptyContainer(held, handler, Integer.MAX_VALUE, null, true);
+        if (!result.isSuccess()) {
+            return false;
+        }
+        replaceCarried(player, held, result.getResult());
         return true;
     }
 
@@ -703,8 +785,11 @@ public final class FoundryMenu extends AbstractContainerMenu {
                     processBucketInput(entity);
                 }
             }
-            if (!moved && screenKind() != 3 && container.canPlaceItem(FoundryBlockEntity.FUEL_SLOT, stack)) {
-                moved = moveItemStackTo(stack, FoundryBlockEntity.FUEL_SLOT, FoundryBlockEntity.FUEL_SLOT + 1, false);
+            if (!moved && screenKind() != 3 && (screenKind() != 1 || hasAlloyerFuelSlot())
+                && container.canPlaceItem(FoundryBlockEntity.FUEL_SLOT, stack)) {
+                // moveItemStackTo 使用菜单槽索引，不能直接使用方块实体的隐藏槽编号。
+                int fuelMenuSlot = menuInputs;
+                moved = moveItemStackTo(stack, fuelMenuSlot, fuelMenuSlot + 1, false);
             }
             if (!moved && screenKind() != 3) {
                 for (int input = 0; input < inputSlotCount(); input++) {
