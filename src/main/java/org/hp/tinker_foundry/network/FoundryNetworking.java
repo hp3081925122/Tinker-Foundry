@@ -12,7 +12,7 @@ import org.hp.tinker_foundry.menu.FoundryMenu;
 /** 注册并发送冶炼设备的独立客户端状态网络层。 */
 public final class FoundryNetworking {
     /** 当前模组网络协议版本。 */
-    private static final String PROTOCOL_VERSION = "5";
+    private static final String PROTOCOL_VERSION = "6";
 
     /** 在 NeoForge 模组总线上注册客户端状态载荷。 */
     public static void register(RegisterPayloadHandlersEvent event) {

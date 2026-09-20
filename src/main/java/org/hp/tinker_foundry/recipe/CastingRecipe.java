@@ -68,7 +68,11 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
     /** 校验流体和可选模具。 */
     @Override
     public boolean matches(FluidRecipeInput input, Level level) {
-        // 有模具的配方必须使用对应物品，没有模具的配方只允许空物品槽，避免块浇注配方抢先匹配锭浇注。
+        // 浇注盆只匹配无模具配方，浇注台只匹配有模具配方，避免两个设备互相抢配方。
+        if (input.requireMold() != mold.isPresent()) {
+            return false;
+        }
+        // 有模具的配方必须使用对应物品，没有模具的配方只允许空物品槽。
         boolean moldMatches = mold.map(value -> !input.item().isEmpty() && value.test(input.item())).orElse(input.item().isEmpty());
         return !input.fluids().isEmpty() && input.fluids().get(0).getAmount() >= fluid.amount() && fluid.test(input.fluids().get(0)) && moldMatches;
     }

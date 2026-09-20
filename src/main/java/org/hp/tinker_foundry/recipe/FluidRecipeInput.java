@@ -6,7 +6,7 @@ import net.minecraft.world.item.crafting.RecipeInput;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 /** 为熔炼、合金和浇注配方提供服务端权威的流体输入。 */
-public record FluidRecipeInput(List<FluidStack> fluids, ItemStack item) implements RecipeInput {
+public record FluidRecipeInput(List<FluidStack> fluids, ItemStack item, boolean requireMold) implements RecipeInput {
     /** 规范化输入副本，避免配方匹配过程修改菜单或方块实体数据。 */
     public FluidRecipeInput {
         fluids = fluids.stream().map(FluidStack::copy).toList();
@@ -15,7 +15,12 @@ public record FluidRecipeInput(List<FluidStack> fluids, ItemStack item) implemen
 
     /** 创建不含物品模具的流体输入。 */
     public FluidRecipeInput(List<FluidStack> fluids) {
-        this(fluids, ItemStack.EMPTY);
+        this(fluids, ItemStack.EMPTY, false);
+    }
+
+    /** 创建带物品输入但不强制使用铸模的流体输入，保留旧调用方语义。 */
+    public FluidRecipeInput(List<FluidStack> fluids, ItemStack item) {
+        this(fluids, item, false);
     }
 
     /** RecipeInput 的兼容槽位，流体不通过物品槽伪造。 */

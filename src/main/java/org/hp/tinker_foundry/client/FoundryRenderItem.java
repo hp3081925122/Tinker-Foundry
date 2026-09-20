@@ -40,13 +40,13 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
     public static final FoundryRenderItem CASTING_TABLE_OUTPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 15.5F, 8.0F), 14.1F, 270.0F, 180.0F, ItemDisplayContext.FIXED);
 
-    /** 浇注盆输入物品的原版匠魂中心和缩放。 */
+    /** 浇注盆输入物品的原版匠魂中心、缩放和无额外姿态变换。 */
     public static final FoundryRenderItem CASTING_BASIN_INPUT = new FoundryRenderItem(
-        new Vector3f(8.0F, 10.0F, 8.0F), 11.95F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
+        new Vector3f(8.0F, 10.0F, 8.0F), 11.95F, 0.0F, 0.0F, ItemDisplayContext.NONE);
 
-    /** 浇注盆输出物品的原版匠魂中心和缩放。 */
+    /** 浇注盆输出物品的原版匠魂中心、缩放和无额外姿态变换。 */
     public static final FoundryRenderItem CASTING_BASIN_OUTPUT = new FoundryRenderItem(
-        new Vector3f(8.0F, 10.0F, 8.0F), 12.0F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
+        new Vector3f(8.0F, 10.0F, 8.0F), 12.0F, 0.0F, 0.0F, ItemDisplayContext.NONE);
 
     /** 在当前方块实体姿态下绘制一个内部物品，不修改调用者的矩阵栈。 */
     public void render(ItemStack stack, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {

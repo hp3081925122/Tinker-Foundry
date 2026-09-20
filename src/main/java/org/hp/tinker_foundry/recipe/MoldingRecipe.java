@@ -60,7 +60,7 @@ public record MoldingRecipe(Ingredient mold, SizedFluidIngredient fluid, ItemSta
     /** 模具和流体必须同时匹配。 */
     @Override
     public boolean matches(FluidRecipeInput input, Level level) {
-        return mold.test(input.item()) && !input.fluids().isEmpty()
+        return input.requireMold() && mold.test(input.item()) && !input.fluids().isEmpty()
             && input.fluids().get(0).getAmount() >= fluid.amount() && fluid.test(input.fluids().get(0));
     }
 

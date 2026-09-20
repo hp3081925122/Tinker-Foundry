@@ -23,6 +23,8 @@ public final class FoundryDeviceRenderer {
     private static boolean gaugeDiagnosticLogged;
     /** 防止重复输出储液罐液面和边界诊断日志。 */
     private static boolean tankDiagnosticLogged;
+    /** 防止重复输出浇注口下方流体连续性诊断日志。 */
+    private static boolean faucetDiagnosticLogged;
 
     /**
      * 绘制单方块设备的动态内容。
@@ -149,7 +151,12 @@ public final class FoundryDeviceRenderer {
         IClientFluidTypeExtensions extensions = IClientFluidTypeExtensions.of(fluid.getFluid());
         TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
             .apply(extensions.getStillTexture(fluid));
+        TextureAtlasSprite flowingSprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
+            .apply(extensions.getFlowingTexture(fluid));
         int tint = extensions.getTintColor(fluid);
+        // 使用流体自身的发光等级覆盖方块低光照，保持 Mantle 流体在设备内部可见。
+        int brightness = Math.max(packedLight & 65535, fluid.getFluid().getFluidType().getLightLevel(fluid) << 4)
+            | packedLight & 0xFFFF0000;
         if (fluidDevice) {
             Direction direction = state.hasProperty(FoundryDirectionalBlock.FACING)
                 ? state.getValue(FoundryDirectionalBlock.FACING) : Direction.DOWN;
@@ -161,11 +168,13 @@ public final class FoundryDeviceRenderer {
                     gaugeDiagnosticLogged = true;
                 }
                 drawGaugeFluid(poseStack.last(), FoundryFluidRenderer.solidConsumer(buffer), sprite,
-                    direction, ratio, tint, packedLight);
+                    direction, ratio, tint, brightness);
             } else {
-                // 浇注口只绘制真实管腔，不伪造导管或排液口内部的液体。
-                drawFaucetFluid(poseStack, FoundryFluidRenderer.solidConsumer(buffer), sprite,
-                    direction, tint, packedLight);
+                // 浇注口同时绘制自身管腔和下方目标方块中的连续流体。
+                BlockState belowState = entity.getLevel() == null ? null
+                    : entity.getLevel().getBlockState(entity.getBlockPos().below());
+                drawFaucetFluid(poseStack, FoundryFluidRenderer.solidConsumer(buffer), sprite, flowingSprite,
+                    direction, belowState, tint, brightness);
             }
             return true;
         }
@@ -179,8 +188,10 @@ public final class FoundryDeviceRenderer {
                 fluid.getFluid(), fluid.getAmount(), capacity, minY, maxY, usableHeight);
             tankDiagnosticLogged = true;
         }
+        // 浇注盆只需要顶面和四个内侧面，浇注台只有顶面，其余设备绘制完整液体体积。
+        int fluidFaces = basin ? 61 : table ? 1 : 63;
         FoundryFluidRenderer.renderCuboid(poseStack.last(), FoundryFluidRenderer.solidConsumer(buffer), sprite,
-            minX, minY, minZ, maxX, maxY, maxZ, tint, packedLight);
+            minX, minY, minZ, maxX, maxY, maxZ, tint, brightness, fluidFaces);
         return true;
     }
 
@@ -264,9 +275,10 @@ public final class FoundryDeviceRenderer {
             tint, brightness);
     }
 
-    /** 按匠魂浇注口的两个真实管腔绘制流体，并复用方块模型的水平旋转。 */
+    /** 按匠魂浇注口的真实管腔和下方目标方块绘制连续流体，并复用方块模型的水平旋转。 */
     private static void drawFaucetFluid(PoseStack poseStack, VertexConsumer consumer, TextureAtlasSprite sprite,
-                                        Direction facing, int tint, int packedLight) {
+                                        TextureAtlasSprite flowingSprite, Direction facing, BlockState belowState,
+                                        int tint, int packedLight) {
         boolean rotated = facing.getAxis().isHorizontal() && facing != Direction.SOUTH;
         if (rotated) {
             poseStack.pushPose();
@@ -277,16 +289,50 @@ public final class FoundryDeviceRenderer {
         if (facing.getAxis().isHorizontal()) {
             // 横向浇注口由后段储液腔和前段出液腔组成。
             FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, sprite,
-                0.375F, 0.375F, 0.0F, 0.625F, 0.5625F, 0.375F, tint, packedLight);
-            FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, sprite,
-                0.375F, 0.0F, 0.375F, 0.625F, 0.5625F, 0.5F, tint, packedLight);
+                0.375F, 0.375F, 0.0F, 0.625F, 0.5625F, 0.375F, tint, packedLight, 17);
+            FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, flowingSprite,
+                0.375F, 0.375F, 0.0F, 0.625F, 0.5625F, 0.375F, tint, packedLight, 1);
+            FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, flowingSprite,
+                0.375F, 0.0F, 0.375F, 0.625F, 0.5625F, 0.5F, tint, packedLight, 61);
         } else {
             // 上下浇注口使用竖直模型的完整管腔。
+            FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, flowingSprite,
+                0.375F, 0.0F, 0.375F, 0.625F, 1.0F, 0.625F, tint, packedLight, 60);
             FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, sprite,
-                0.375F, 0.0F, 0.375F, 0.625F, 1.0F, 0.625F, tint, packedLight);
+                0.375F, 0.0F, 0.375F, 0.625F, 1.0F, 0.625F, tint, packedLight, 1);
         }
+        // Mantle 会把浇注口液体继续绘制到下方方块，避免管腔与浇注盆液面之间出现断层。
+        renderFluidIntoBelow(poseStack, consumer, flowingSprite, facing, belowState, tint, packedLight);
         if (rotated) {
             poseStack.popPose();
+        }
+    }
+
+    /** 按下方设备类型复刻 Mantle 的浇注流体高度和横截面。 */
+    static void renderFluidIntoBelow(PoseStack poseStack, VertexConsumer consumer, TextureAtlasSprite sprite,
+                                     Direction facing, BlockState belowState, int tint, int packedLight) {
+        if (belowState == null) {
+            return;
+        }
+        boolean basin = belowState.is(TFBlocks.SEARED_BASIN.get()) || belowState.is(TFBlocks.SCORCHED_BASIN.get());
+        boolean table = belowState.is(TFBlocks.SEARED_TABLE.get()) || belowState.is(TFBlocks.SCORCHED_TABLE.get());
+        boolean channel = belowState.is(TFBlocks.SEARED_CHANNEL.get()) || belowState.is(TFBlocks.SCORCHED_CHANNEL.get());
+        if (!basin && !table && !channel) {
+            return;
+        }
+        float minY = channel ? 0.5F : basin ? 0.25F : 0.9375F;
+        float maxY = 1.0F;
+        float maxZ = facing.getAxis().isVertical() ? 0.625F : 0.5F;
+        int faces = basin || table ? 60 : 62;
+        poseStack.pushPose();
+        poseStack.translate(0.0F, -1.0F, 0.0F);
+        FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, sprite,
+            0.375F, minY, 0.375F, 0.625F, maxY, maxZ, tint, packedLight, faces);
+        poseStack.popPose();
+        if (!faucetDiagnosticLogged) {
+            TinkerFoundry.LOGGER.debug("[client-render] below fluid target={} facing={} boundsY={}..{} faces={}",
+                belowState.getBlock(), facing, minY, maxY, faces);
+            faucetDiagnosticLogged = true;
         }
     }
 

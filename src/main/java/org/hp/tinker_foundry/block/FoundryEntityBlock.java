@@ -28,6 +28,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.shapes.BooleanOp;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.item.PortableTankFluidHandler;
@@ -46,10 +51,42 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
     /** 使用原版方块属性编解码器，避免引入额外配置格式。 */
     public static final MapCodec<FoundryEntityBlock> CODEC = simpleCodec(FoundryEntityBlock::new);
+    /** 浇注盆与模型一致的底部支脚、外壁和内部空腔碰撞体积。 */
+    private static final VoxelShape CASTING_BASIN_SHAPE = Shapes.join(
+        Shapes.block(),
+        Shapes.or(
+            Block.box(0, 0, 5, 16, 2, 11),
+            Block.box(5, 0, 0, 11, 2, 16),
+            Block.box(2, 4, 2, 14, 16, 14)
+        ),
+        BooleanOp.ONLY_FIRST
+    );
+    /** 浇注台与模型一致的四角支脚、台面和顶边碰撞体积。 */
+    private static final VoxelShape CASTING_TABLE_SHAPE = Shapes.join(
+        Shapes.block(),
+        Shapes.or(
+            Block.box(4, 0, 0, 12, 10, 16),
+            Block.box(0, 0, 4, 16, 10, 12),
+            Block.box(1, 15, 1, 15, 16, 15)
+        ),
+        BooleanOp.ONLY_FIRST
+    );
 
     /** 创建冶炼设备方块。 */
     public FoundryEntityBlock(BlockBehaviour.Properties properties) {
         super(properties);
+    }
+
+    /** 返回与匠魂模型相同的浇注设备选择箱和碰撞箱，其他实体设备保持完整方块。 */
+    @Override
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        if (state.is(TFBlocks.SEARED_BASIN.get()) || state.is(TFBlocks.SCORCHED_BASIN.get())) {
+            return CASTING_BASIN_SHAPE;
+        }
+        if (state.is(TFBlocks.SEARED_TABLE.get()) || state.is(TFBlocks.SCORCHED_TABLE.get())) {
+            return CASTING_TABLE_SHAPE;
+        }
+        return super.getShape(state, level, pos, context);
     }
 
     /** 空手取出设备已经完成的物品。 */

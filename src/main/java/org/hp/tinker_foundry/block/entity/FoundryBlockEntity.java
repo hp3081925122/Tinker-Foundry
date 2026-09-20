@@ -135,6 +135,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private ItemStack fuel = ItemStack.EMPTY;
     /** 普通设备的流体槽或合金设备的输出槽。 */
     private FluidStack fluid = FluidStack.EMPTY;
+    /** 铸造盆或铸造台当前配方锁定的流体容量，等价覆盖 Mantle 的动态 CastingFluidHandler 容量。 */
+    private int castingFluidCapacity;
     /** 控制器共享容量的多流体存储，普通设备仍使用独立单槽。 */
     private final StructureFluidTank structureFluids = new StructureFluidTank();
     /** 加热器专用的流体燃料槽，和冶炼产物槽完全隔离。 */
@@ -208,6 +210,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private FluidStack faucetRenderFluid = FluidStack.EMPTY;
     /** 限制自定义状态载荷发送频率，进度仍会按短间隔同步。 */
     private int networkSyncCooldown;
+    /** 记录最近一次浇注诊断状态，避免服务端每 tick 重复输出相同日志。 */
+    private String castingDiagnosticKey = "";
 
     /** 浇注口的三种服务端状态。 */
     private enum FaucetState {
@@ -245,6 +249,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         int oldFuelTemperature = entity.fuelTemperature;
         int oldStructureCapacity = entity.structureCapacity;
         boolean oldStructureValid = entity.structureValid;
+        int oldCastingFluidCapacity = entity.castingFluidCapacity;
         long oldInputProgressVersion = entity.inputProgressVersion;
         FluidStack oldFluid = entity.fluid.copy();
         FluidStack oldFuelFluid = entity.fuelFluid.copy();
@@ -263,6 +268,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         boolean stateChanged = oldProgress != entity.progress || oldProcessTime != entity.processTime || oldBurnTime != entity.burnTime
             || oldFuelTemperature != entity.fuelTemperature || oldStructureCapacity != entity.structureCapacity
             || oldStructureValid != entity.structureValid || oldInputProgressVersion != entity.inputProgressVersion
+            || oldCastingFluidCapacity != entity.castingFluidCapacity
             || !FluidStack.matches(oldFluid, entity.fluid) || !FluidStack.matches(oldFuelFluid, entity.fuelFluid)
             || !alloyInputsMatch(oldAlloyInputs, entity.alloyInputs);
         if (stateChanged) {
@@ -824,33 +830,124 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return true;
     }
 
+    /** 使用当前流体和物品输入查找铸造盆或铸造台需要锁定的配方液量。 */
+    private int findCastingFluidCapacity(Level level, FluidStack candidate) {
+        if (!isCastingBlock() || level == null || candidate.isEmpty()) {
+            return 0;
+        }
+        // 原版 Mantle 先按流体种类找出配方，再由配方返回所需液量；这里用最大数量模拟该阶段。
+        FluidStack discoveryFluid = candidate.copyWithAmount(Integer.MAX_VALUE);
+        FluidRecipeInput recipeInput = new FluidRecipeInput(List.of(discoveryFluid), inputs[0], isCastingTable());
+        Optional<RecipeHolder<CastingRecipe>> casting = level.getRecipeManager()
+            .getRecipeFor(TFRecipes.CASTING.get(), recipeInput, level);
+        if (casting.isPresent()) {
+            return casting.get().value().fluid().amount();
+        }
+        Optional<RecipeHolder<MoldingRecipe>> molding = level.getRecipeManager()
+            .getRecipeFor(TFRecipes.MOLDING.get(), recipeInput, level);
+        return molding.map(holder -> holder.value().fluid().amount()).orElse(0);
+    }
+
+    /** 首次注入时锁定配方液量，复刻 Mantle CastingFluidHandler 的动态容量。 */
+    private int lockCastingFluidCapacity(Level level, FluidStack incoming, boolean execute) {
+        if (!isCastingBlock()) {
+            return 0;
+        }
+        if (!fluid.isEmpty() && castingFluidCapacity > 0) {
+            return castingFluidCapacity;
+        }
+        FluidStack candidate = fluid.isEmpty() ? incoming : fluid;
+        int required = findCastingFluidCapacity(level, candidate);
+        if (required <= 0) {
+            return 0;
+        }
+        if (execute) {
+            castingFluidCapacity = required;
+            // 旧版本可能已经存入超过一份配方的流体，只记录而不静默删液。
+            if (!fluid.isEmpty() && fluid.getAmount() > required) {
+                TinkerFoundry.LOGGER.debug("[casting] legacy overfill pos={} block={} amount={} lockedCapacity={}",
+                    worldPosition, getBlockState().getBlock(), fluid.getAmount(), required);
+            }
+        }
+        return required;
+    }
+
+    /** 为旧存档恢复动态容量，并让客户端及时知道当前铸造槽的容量比例。 */
+    private void ensureCastingFluidCapacity(Level level) {
+        if (!isCastingBlock() || fluid.isEmpty() || castingFluidCapacity > 0) {
+            return;
+        }
+        int previous = castingFluidCapacity;
+        lockCastingFluidCapacity(level, fluid, true);
+        if (previous != castingFluidCapacity) {
+            markFluidChanged();
+        }
+    }
+
+    /** 配方液体耗尽后解除容量锁，下一次注入重新按新配方计算。 */
+    private void clearCastingFluidCapacityIfEmpty() {
+        if (isCastingBlock() && fluid.isEmpty()) {
+            castingFluidCapacity = 0;
+        }
+    }
+
     /** 处理浇注台和浇注盆的物品输出。 */
     private void tickCasting(Level level) {
-        if (inputs[0].isEmpty() || !output.isEmpty()) {
-            // 没有输入或旧产物未取走时，不启动新的容器转移。
+        if (!output.isEmpty()) {
+            // 旧产物未取走时，不启动新的容器转移或冷却，保持匠魂浇注槽的单产物语义。
             return;
         }
-        ItemStack containerResult = processCastingContainer(inputs[0].copyWithCount(1));
-        if (!containerResult.isEmpty()) {
-            inputs[0].shrink(1);
-            if (inputs[0].isEmpty()) inputs[0] = ItemStack.EMPTY;
-            output = containerResult;
-            progress = 0;
-            setChanged();
-            markFluidChanged();
-            return;
+        // 兼容动态容量字段加入前已经存在的流体，按当前配方恢复锁定容量而不删除旧存量。
+        ensureCastingFluidCapacity(level);
+        if (!inputs[0].isEmpty()) {
+            // 只有手持桶、便携罐和专用储液罐才走容器传输分支，空输入的浇注盆必须继续匹配无模具配方。
+            ItemStack containerResult = processCastingContainer(inputs[0].copyWithCount(1));
+            if (!containerResult.isEmpty()) {
+                inputs[0].shrink(1);
+                if (inputs[0].isEmpty()) inputs[0] = ItemStack.EMPTY;
+                output = containerResult;
+                progress = 0;
+                setChanged();
+                markFluidChanged();
+                castingDiagnosticKey = "";
+                return;
+            }
         }
         if (fluid.isEmpty()) {
+            castingDiagnosticKey = "";
             return;
         }
-        FluidRecipeInput recipeInput = new FluidRecipeInput(List.of(fluid), inputs[0]);
+        FluidRecipeInput recipeInput = new FluidRecipeInput(List.of(fluid), inputs[0], isCastingTable());
         Optional<RecipeHolder<CastingRecipe>> casting = level.getRecipeManager().getRecipeFor(TFRecipes.CASTING.get(), recipeInput, level);
         if (casting.isPresent()) {
+            String key = "casting:" + casting.get().id() + ":" + inputs[0].getItem() + ":" + fluid.getFluid();
+            if (!key.equals(castingDiagnosticKey)) {
+                TinkerFoundry.LOGGER.debug("[casting] matched recipe={} pos={} block={} fluid={} amount={} input={} amountRequired={} time={}",
+                    casting.get().id(), worldPosition, getBlockState().getBlock(), fluid.getFluid(), fluid.getAmount(),
+                    inputs[0].getItem(), casting.get().value().fluid().amount(), casting.get().value().time());
+                castingDiagnosticKey = key;
+            }
             finishCasting(casting.get().value(), recipeInput, level.registryAccess());
             return;
         }
         Optional<RecipeHolder<MoldingRecipe>> molding = level.getRecipeManager().getRecipeFor(TFRecipes.MOLDING.get(), recipeInput, level);
-        molding.ifPresent(holder -> finishMolding(holder.value()));
+        if (molding.isPresent()) {
+            String key = "molding:" + molding.get().id() + ":" + inputs[0].getItem() + ":" + fluid.getFluid();
+            if (!key.equals(castingDiagnosticKey)) {
+                TinkerFoundry.LOGGER.debug("[casting] matched molding recipe={} pos={} block={} fluid={} amount={} input={} amountRequired={} time={}",
+                    molding.get().id(), worldPosition, getBlockState().getBlock(), fluid.getFluid(), fluid.getAmount(),
+                    inputs[0].getItem(), molding.get().value().fluid().amount(), molding.get().value().time());
+                castingDiagnosticKey = key;
+            }
+            finishMolding(molding.get().value());
+            return;
+        }
+        // 无模具配方必须能在浇注盆中工作；此日志用于定位流体、数量或模具注册不一致，而不是静默卡住。
+        if (level.getGameTime() % 20L == 0L) {
+            TinkerFoundry.LOGGER.debug("[casting] no matching recipe pos={} block={} fluid={} amount={} input={} inputCount={}",
+                worldPosition, getBlockState().getBlock(), fluid.getFluid(), fluid.getAmount(), inputs[0].getItem(), inputs[0].getCount());
+        }
+        castingDiagnosticKey = "none:" + fluid.getFluid() + ":" + inputs[0].getItem();
     }
 
     /** 浇注储液罐自动处理桶、便携罐和专用储液罐，结果进入输出槽等待取出或自动化抽取。 */
@@ -956,8 +1053,12 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             }
             fluid.shrink(recipe.fluid().amount());
             if (fluid.isEmpty()) fluid = FluidStack.EMPTY;
+            clearCastingFluidCapacityIfEmpty();
             markFluidChanged();
             progress = 0;
+            castingDiagnosticKey = "";
+            TinkerFoundry.LOGGER.debug("[casting] completed pos={} block={} result={} fluidRemaining={}",
+                worldPosition, getBlockState().getBlock(), assembledResult.getItem(), fluid.getAmount());
         }
     }
 
@@ -969,6 +1070,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             addOutput(recipe.result());
             fluid.shrink(recipe.fluid().amount());
             if (fluid.isEmpty()) fluid = FluidStack.EMPTY;
+            clearCastingFluidCapacityIfEmpty();
             markFluidChanged();
             if (recipe.patternConsumed()) {
                 inputs[0].shrink(1);
@@ -978,6 +1080,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             }
             addRemainder(recipe.remainder());
             progress = 0;
+            castingDiagnosticKey = "";
+            TinkerFoundry.LOGGER.debug("[casting] completed molding result={} pos={} block={} fluidRemaining={}",
+                recipe.result().getItem(), worldPosition, getBlockState().getBlock(), fluid.getAmount());
         }
     }
 
@@ -1348,9 +1453,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (isAlloyer() || isHeater()) {
             return 0;
         }
-        // 熔炼器、浇注台、浇注盆和浇注储液罐保留一个物品输入槽供直接交互或自动化使用。
+        // 熔炼器、浇注台和浇注储液罐保留物品输入槽；浇注盆原版没有模具槽，只通过流体完成盆铸造。
         if (isMeltingBlock()) return 1;
-        if (isCastingBlock() || isCastingTankBlock()) {
+        if (isCastingTable() || isCastingTankBlock()) {
             return 1;
         }
         return 0;
@@ -1451,6 +1556,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         // 浇注台、浇注盆只接受模具或容器输入，不把流体容器误当作普通模具。
         if (isCastingBlock()) {
+            if (isCastingBasin()) {
+                // 浇注盆没有物品输入槽，防止无效物品遮挡无模具盆铸造配方。
+                return false;
+            }
             if (stack.getItem() instanceof net.minecraft.world.item.BucketItem
                 || stack.getItem() instanceof org.hp.tinker_foundry.item.PortableTankItem
                 || stack.getItem() instanceof org.hp.tinker_foundry.item.FoundryTankItem) {
@@ -1481,13 +1590,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         if (fuel.isEmpty()) {
             fuel = stack.split(1);
-            setChanged();
+            markItemChanged();
             return true;
         }
         if (ItemStack.isSameItemSameComponents(fuel, stack) && fuel.getCount() < fuel.getMaxStackSize()) {
             fuel.grow(1);
             stack.shrink(1);
-            setChanged();
+            markItemChanged();
             return true;
         }
         return false;
@@ -1497,13 +1606,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private boolean insertCastingItem(ItemStack stack) {
         if (inputs[0].isEmpty()) {
             inputs[0] = stack.split(1);
-            setChanged();
+            markItemChanged();
             return true;
         }
         if (ItemStack.isSameItemSameComponents(inputs[0], stack) && inputs[0].getCount() < inputs[0].getMaxStackSize()) {
             inputs[0].grow(1);
             stack.shrink(1);
-            setChanged();
+            markItemChanged();
             return true;
         }
         return false;
@@ -1513,13 +1622,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private boolean insertInput(ItemStack stack) {
         if (inputs[0].isEmpty()) {
             inputs[0] = stack.split(1);
-            setChanged();
+            markItemChanged();
             return true;
         }
         if (ItemStack.isSameItemSameComponents(inputs[0], stack) && inputs[0].getCount() < inputs[0].getMaxStackSize()) {
             inputs[0].grow(1);
             stack.shrink(1);
-            setChanged();
+            markItemChanged();
             return true;
         }
         return false;
@@ -1530,26 +1639,26 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!isStructureController() && isSolidFuelItem(stack)) {
             if (fuel.isEmpty()) {
                 fuel = stack.split(1);
-                setChanged();
+                markItemChanged();
                 return true;
             }
             if (ItemStack.isSameItemSameComponents(fuel, stack) && fuel.getCount() < fuel.getMaxStackSize()) {
                 fuel.grow(1);
                 stack.shrink(1);
-                setChanged();
+                markItemChanged();
                 return true;
             }
         }
         for (int index = 0; index < inputSlotCount(); index++) {
             if (inputs[index].isEmpty()) {
                 inputs[index] = stack.split(1);
-                setChanged();
+                markItemChanged();
                 return true;
             }
             if (!isStructureController() && ItemStack.isSameItemSameComponents(inputs[index], stack) && inputs[index].getCount() < inputs[index].getMaxStackSize()) {
                 inputs[index].grow(1);
                 stack.shrink(1);
-                setChanged();
+                markItemChanged();
                 return true;
             }
         }
@@ -1560,7 +1669,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     public ItemStack takeOutput() {
         ItemStack result = output;
         output = ItemStack.EMPTY;
-        if (!result.isEmpty()) setChanged();
+        if (!result.isEmpty()) markItemChanged();
         return result;
     }
 
@@ -1582,6 +1691,11 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 返回当前处理总时长。 */
     public int processTime() {
         return processTime;
+    }
+
+    /** 返回铸造设备当前锁定的配方液量，供客户端状态载荷恢复容量。 */
+    public int castingFluidCapacity() {
+        return castingFluidCapacity;
     }
 
     /** 提供菜单使用的服务端权威进度、燃料和容量同步数据。 */
@@ -1733,7 +1847,6 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 inputRequiredTemperatures[input] = 0;
             }
             inputs[input] = copy;
-            worldSyncDirty = true;
         } else if (slot == FUEL_SLOT) {
             fuel = copy;
         } else if (slot == OUTPUT_SLOT) {
@@ -1743,7 +1856,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         } else {
             return;
         }
-        setChanged();
+        markItemChanged();
     }
 
     /** 只允许输入非燃料物品、燃料槽放入可燃物，输出槽禁止手动放入。 */
@@ -1776,7 +1889,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         remainder = ItemStack.EMPTY;
         proxyItem = ItemStack.EMPTY;
         cannonItem = ItemStack.EMPTY;
-        setChanged();
+        markItemChanged();
     }
 
     /** 写入设备物品、流体和进度。 */
@@ -1800,6 +1913,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!proxyItem.isEmpty()) tag.put("ProxyItem", proxyItem.save(registries));
         if (!cannonItem.isEmpty()) tag.put("CannonItem", cannonItem.save(registries));
         if (!fluid.isEmpty()) tag.put("Fluid", fluid.save(registries));
+        tag.putInt("CastingFluidCapacity", castingFluidCapacity);
         // 多流体单独保存有序列表，不读取或迁移旧控制器的单槽流体。
         if (isStructureController()) {
             ListTag layers = new ListTag();
@@ -1889,6 +2003,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             structureFluids.restore(layers);
             fluid = FluidStack.EMPTY;
         }
+        castingFluidCapacity = Math.max(0, tag.getInt("CastingFluidCapacity"));
+        if (!isCastingBlock() || fluid.isEmpty()) {
+            castingFluidCapacity = 0;
+        }
         fuelFluid = FluidStack.parseOptional(registries, tag.getCompound("FuelFluid"));
         alloyInputs = emptyFluidInputs();
         if (tag.contains("AlloyInputs", Tag.TAG_LIST)) {
@@ -1967,6 +2085,19 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
     }
 
+    /** 标记物品槽改变并请求客户端刷新方块实体渲染，等价覆盖 Mantle 的库存变更同步。 */
+    private void markItemChanged() {
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            worldSyncDirty = true;
+            if (isCastingBlock()) {
+                TinkerFoundry.LOGGER.debug("[inventory-sync] casting item update pos={} block={} input={} output={}",
+                    worldPosition, getBlockState().getBlock(), inputs[0].getItem(), output.getItem());
+            }
+            FoundryNetworking.sync(this);
+        }
+    }
+
     /** 根据灯笼内当前流体更新方块光照，普通设备不触发方块状态变化。 */
     private void updateLanternLight() {
         if (!isLanternBlock() || level == null || level.isClientSide) {
@@ -2023,6 +2154,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             fuelFluid = payload.fuelFluid().copy();
         } else {
             fluid = payload.fluid().copy();
+        }
+        castingFluidCapacity = isCastingBlock() ? Math.max(0, payload.castingFluidCapacity()) : 0;
+        if (fluid.isEmpty()) {
+            castingFluidCapacity = 0;
         }
         alloyInputs = emptyFluidInputs();
         for (int index = 0; index < Math.min(alloyInputs.length, payload.alloyInputs().size()); index++) {
@@ -2391,8 +2526,17 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 返回当前宿主是否是浇注设备。 */
     public boolean isCastingBlock() {
-        return getBlockState().is(TFBlocks.SEARED_TABLE.get()) || getBlockState().is(TFBlocks.SCORCHED_TABLE.get())
-            || getBlockState().is(TFBlocks.SEARED_BASIN.get()) || getBlockState().is(TFBlocks.SCORCHED_BASIN.get());
+        return isCastingTable() || isCastingBasin();
+    }
+
+    /** 返回当前宿主是否是需要铸模的浇注台。 */
+    private boolean isCastingTable() {
+        return getBlockState().is(TFBlocks.SEARED_TABLE.get()) || getBlockState().is(TFBlocks.SCORCHED_TABLE.get());
+    }
+
+    /** 返回当前宿主是否是无铸模盆铸造设备。 */
+    private boolean isCastingBasin() {
+        return getBlockState().is(TFBlocks.SEARED_BASIN.get()) || getBlockState().is(TFBlocks.SCORCHED_BASIN.get());
     }
 
     /** 返回当前宿主是否是排液口。 */
@@ -2869,6 +3013,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (isSmelteryController() || isFoundryController()) {
             return Math.max(DEFAULT_CAPACITY, structureCapacity);
         }
+        if (isCastingBlock()) {
+            return castingFluidCapacity > 0 ? castingFluidCapacity : fluid.isEmpty() ? 0 : fluid.getAmount();
+        }
         if (isCastingTankBlock()) {
             return FluidValues.BUCKET;
         }
@@ -3244,7 +3391,20 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return accepted;
         }
         FluidStack stored = getFluidInTank(tank);
-        int amount = Math.min(resource.getAmount(), getTankCapacity(tank) - stored.getAmount());
+        int tankCapacity = getTankCapacity(tank);
+        int previousCastingFluidCapacity = castingFluidCapacity;
+        if (isCastingBlock()) {
+            // 铸造盆和铸造台不能先按通用 4000 mB 容量接收，再事后按配方扣除。
+            tankCapacity = lockCastingFluidCapacity(level, resource, action.execute());
+            if (tankCapacity <= 0) {
+                if (level != null && level.getGameTime() % 20L == 0L) {
+                    TinkerFoundry.LOGGER.debug("[casting] rejected fill pos={} block={} fluid={} amount={} reason=no_matching_recipe",
+                        worldPosition, getBlockState().getBlock(), resource.getFluid(), resource.getAmount());
+                }
+                return 0;
+            }
+        }
+        int amount = Math.min(resource.getAmount(), tankCapacity - stored.getAmount());
         if (amount > 0 && action.execute()) {
             FluidStack updated = stored.isEmpty() ? resource.copyWithAmount(amount) : stored.copyWithAmount(stored.getAmount() + amount);
             if (isHeater()) {
@@ -3257,6 +3417,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             if (isChannelBlock()) {
                 channelLocked += amount;
             }
+            markFluidChanged();
+        } else if (action.execute() && previousCastingFluidCapacity != castingFluidCapacity) {
+            // 模拟之外的容量锁即使没有新增液量也要同步，避免客户端继续显示通用容量。
             markFluidChanged();
         }
         return Math.max(0, amount);
@@ -3362,6 +3525,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             } else {
                 fluid = updated;
             }
+            clearCastingFluidCapacityIfEmpty();
             markFluidChanged();
         }
         return result;
