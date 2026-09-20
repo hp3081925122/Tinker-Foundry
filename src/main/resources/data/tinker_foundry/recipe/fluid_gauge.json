@@ -1,9 +1,0 @@
-{
-  "type": "minecraft:crafting_shaped",
-  "pattern": [" I ", "IRI", " I "],
-  "key": {
-    "I": {"item": "minecraft:iron_ingot"},
-    "R": {"item": "minecraft:redstone"}
-  },
-  "result": {"id": "tinker_foundry:fluid_gauge", "count": 1}
-}

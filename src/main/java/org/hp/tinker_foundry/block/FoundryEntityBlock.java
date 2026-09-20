@@ -103,7 +103,6 @@ public class FoundryEntityBlock extends BaseEntityBlock {
         // 客户端只为真正会打开菜单或执行专用交互的方块确认点击。
         return entity.hasMenuScreen() || entity.isCastingBlock() || entity.isProxyTankBlock() || entity.isFluidCannonBlock()
             || entity.isFaucetBlock()
-            || state.is(org.hp.tinker_foundry.registry.TFBlocks.FAUCET.get())
             || state.is(org.hp.tinker_foundry.registry.TFBlocks.SEARED_FAUCET.get())
             || state.is(org.hp.tinker_foundry.registry.TFBlocks.SCORCHED_FAUCET.get())
             ? InteractionResult.sidedSuccess(true) : InteractionResult.PASS;
@@ -317,6 +316,10 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             ItemStack drop = new ItemStack(this);
             FoundryTankItem.setFluid(drop, entity.getTankFluid());
             Block.popResource(level, pos, drop);
+            // 流体炮的内部展示物不是方块流体组件，破坏时必须像匠魂原版一样单独掉落。
+            if (entity.isFluidCannonBlock() && !entity.getSpecialItem().isEmpty()) {
+                Block.popResource(level, pos, entity.getSpecialItem());
+            }
         }
     }
 
@@ -349,14 +352,12 @@ public class FoundryEntityBlock extends BaseEntityBlock {
     @Override
     public boolean hasAnalogOutputSignal(BlockState state) {
         return state.is(TFBlocks.SMELTERY_CONTROLLER.get()) || state.is(TFBlocks.FOUNDRY_CONTROLLER.get())
-            || state.is(TFBlocks.MELTER.get()) || state.is(TFBlocks.ALLOYER.get()) || state.is(TFBlocks.HEATER.get())
-            || state.is(TFBlocks.CASTING_TABLE.get()) || state.is(TFBlocks.CASTING_BASIN.get())
+            || state.is(TFBlocks.SEARED_MELTER.get()) || state.is(TFBlocks.SCORCHED_ALLOYER.get()) || state.is(TFBlocks.SEARED_HEATER.get())
             || state.is(TFBlocks.SEARED_TABLE.get()) || state.is(TFBlocks.SCORCHED_TABLE.get())
             || state.is(TFBlocks.SEARED_BASIN.get()) || state.is(TFBlocks.SCORCHED_BASIN.get())
-            || state.is(TFBlocks.SEARED_TANK.get()) || state.is(TFBlocks.SCORCHED_TANK.get())
             || state.is(TFBlocks.SEARED_INGOT_TANK.get()) || state.is(TFBlocks.SCORCHED_INGOT_TANK.get())
             || state.is(TFBlocks.SEARED_FUEL_TANK.get()) || state.is(TFBlocks.SCORCHED_FUEL_TANK.get())
-            || state.is(TFBlocks.SEARED_CASTING_TANK.get()) || state.is(TFBlocks.SCORCHED_CASTING_TANK.get())
+            || state.is(TFBlocks.SEARED_CASTING_TANK.get())
             || state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SCORCHED_LANTERN.get())
             || state.is(TFBlocks.SCORCHED_PROXY_TANK.get())
             || state.is(TFBlocks.SEARED_FLUID_CANNON.get()) || state.is(TFBlocks.SCORCHED_FLUID_CANNON.get());

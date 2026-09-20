@@ -1,1 +1,12 @@
-{"render_type":"minecraft:cutout","parent":"tinker_foundry:block/template/half_tank","textures":{"particle":"tinker_foundry:block/foundry/fluid_cannon/front","front":"tinker_foundry:block/foundry/fluid_cannon/front","top":"tinker_foundry:block/foundry/tank/tank_top","side":"tinker_foundry:block/foundry/tank/ingot_tank","bottom":"tinker_foundry:block/foundry/tank/ingot_tank","inside":"tinker_foundry:block/black"}}
+{
+  "render_type": "minecraft:cutout",
+  "parent": "tinker_foundry:block/template/fluid_cannon_half_tank",
+  "textures": {
+    "particle": "tinker_foundry:block/foundry/fluid_cannon/side",
+    "front": "tinker_foundry:block/foundry/fluid_cannon/side",
+    "top": "tinker_foundry:block/foundry/fluid_cannon/top",
+    "side": "tinker_foundry:block/foundry/fluid_cannon/side",
+    "bottom": "tinker_foundry:block/foundry/fluid_cannon/bottom",
+    "inside": "tinker_foundry:block/foundry/fluid_cannon/inside"
+  }
+}

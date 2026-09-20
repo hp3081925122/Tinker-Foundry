@@ -1,9 +1,0 @@
-{
-  "parent": "neoforge:item/default",
-  "loader": "neoforge:fluid_container",
-  "fluid": "minecraft:empty",
-  "textures": {
-    "base": "tinker_foundry:item/portable_tank",
-    "fluid": "neoforge:item/mask/bucket_fluid"
-  }
-}

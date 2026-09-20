@@ -1,0 +1,6 @@
+{
+  "parent": "tinker_foundry:block/scorched_alloyer",
+  "textures": {
+    "front": "tinker_foundry:block/foundry/controller/alloyer_active"
+  }
+}

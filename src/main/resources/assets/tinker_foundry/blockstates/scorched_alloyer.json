@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "active=false,facing=north": {"model": "tinker_foundry:block/scorched_alloyer"},
+    "active=false,facing=south": {"model": "tinker_foundry:block/scorched_alloyer", "y": 180, "uvlock": true},
+    "active=false,facing=west": {"model": "tinker_foundry:block/scorched_alloyer", "y": 270, "uvlock": true},
+    "active=false,facing=east": {"model": "tinker_foundry:block/scorched_alloyer", "y": 90, "uvlock": true},
+    "active=true,facing=north": {"model": "tinker_foundry:block/scorched_alloyer_active"},
+    "active=true,facing=south": {"model": "tinker_foundry:block/scorched_alloyer_active", "y": 180, "uvlock": true},
+    "active=true,facing=west": {"model": "tinker_foundry:block/scorched_alloyer_active", "y": 270, "uvlock": true},
+    "active=true,facing=east": {"model": "tinker_foundry:block/scorched_alloyer_active", "y": 90, "uvlock": true}
+  }
+}

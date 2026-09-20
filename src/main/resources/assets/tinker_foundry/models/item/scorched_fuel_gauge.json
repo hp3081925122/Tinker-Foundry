@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"tinker_foundry:block/foundry/tank/fuel_gauge"}}
+{"parent":"tinker_foundry:block/scorched_fuel_gauge"}

@@ -16,6 +16,7 @@ import org.hp.tinker_foundry.registry.TFMenus;
 import org.hp.tinker_foundry.registry.TFFluids;
 import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.registry.TFBlockEntities;
+import org.hp.tinker_foundry.registry.TFEntities;
 import org.hp.tinker_foundry.client.model.TankModel;
 import org.hp.tinker_foundry.client.model.ConnectedGlassModel;
 
@@ -32,6 +33,7 @@ public final class FoundryClientEvents {
     @SubscribeEvent
     public static void registerBlockEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(TFBlockEntities.GENERIC.get(), FoundryBlockEntityRenderer::new);
+        event.registerEntityRenderer(TFEntities.FLUID_CANNON_PROJECTILE.get(), FoundryFluidCannonProjectileRenderer::new);
     }
 
     /** 注册匠魂兼容的储液罐几何加载器，负责物品栏动态流体和 GUI 简化模型。 */
@@ -54,7 +56,7 @@ public final class FoundryClientEvents {
         DynamicFluidContainerModel.Colors colors = new DynamicFluidContainerModel.Colors();
         event.register(colors, TFItems.IRON_BUCKET.get(), TFItems.GOLD_BUCKET.get(), TFItems.COPPER_BUCKET.get());
         TFItems.EXTRA_BUCKETS.values().forEach(bucket -> event.register(colors, bucket.get()));
-        event.register(colors, TFItems.PORTABLE_TANK.get(), TFItems.COPPER_CANISTER.get());
+        event.register(colors, TFItems.COPPER_CANISTER.get());
         // 原版没有铜粒，独立铜粒沿用统一灰度物品模型和铜色着色器。
         event.register((stack, tintIndex) -> tintIndex == 0 ? 0xFFF47B45 : -1, TFItems.COPPER_NUGGET.get());
     }

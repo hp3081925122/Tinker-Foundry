@@ -32,25 +32,23 @@ public final class FoundryDeviceRenderer {
     public static boolean render(FoundryBlockEntity entity, PoseStack poseStack,
                                  MultiBufferSource buffer, int packedLight) {
         BlockState state = entity.getBlockState();
-        boolean tank = state.is(TFBlocks.SEARED_TANK.get()) || state.is(TFBlocks.SCORCHED_TANK.get())
-            || state.is(TFBlocks.SEARED_INGOT_TANK.get()) || state.is(TFBlocks.SCORCHED_INGOT_TANK.get())
-            || state.is(TFBlocks.SEARED_FUEL_TANK.get()) || state.is(TFBlocks.SCORCHED_FUEL_TANK.get());
-        boolean castingTank = state.is(TFBlocks.SEARED_CASTING_TANK.get()) || state.is(TFBlocks.SCORCHED_CASTING_TANK.get());
+        boolean tank = state.is(TFBlocks.SEARED_INGOT_TANK.get()) || state.is(TFBlocks.SCORCHED_INGOT_TANK.get())
+            || state.is(TFBlocks.SEARED_FUEL_TANK.get()) || state.is(TFBlocks.SCORCHED_FUEL_TANK.get())
+            || state.is(TFBlocks.SEARED_INGOT_GAUGE.get()) || state.is(TFBlocks.SCORCHED_INGOT_GAUGE.get())
+            || state.is(TFBlocks.SEARED_FUEL_GAUGE.get()) || state.is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
+        boolean castingTank = state.is(TFBlocks.SEARED_CASTING_TANK.get());
         boolean lantern = state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SCORCHED_LANTERN.get());
         boolean proxyTank = state.is(TFBlocks.SCORCHED_PROXY_TANK.get());
-        boolean basin = state.is(TFBlocks.CASTING_BASIN.get()) || state.is(TFBlocks.SEARED_BASIN.get())
-            || state.is(TFBlocks.SCORCHED_BASIN.get());
-        boolean table = state.is(TFBlocks.CASTING_TABLE.get()) || state.is(TFBlocks.SEARED_TABLE.get())
-            || state.is(TFBlocks.SCORCHED_TABLE.get());
-        boolean machineTank = state.is(TFBlocks.MELTER.get()) || state.is(TFBlocks.ALLOYER.get());
-        boolean faucet = state.is(TFBlocks.FAUCET.get()) || state.is(TFBlocks.SEARED_FAUCET.get())
+        boolean fluidCannon = state.is(TFBlocks.SEARED_FLUID_CANNON.get()) || state.is(TFBlocks.SCORCHED_FLUID_CANNON.get());
+        boolean basin = state.is(TFBlocks.SEARED_BASIN.get()) || state.is(TFBlocks.SCORCHED_BASIN.get());
+        boolean table = state.is(TFBlocks.SEARED_TABLE.get()) || state.is(TFBlocks.SCORCHED_TABLE.get());
+        boolean machineTank = state.is(TFBlocks.SEARED_MELTER.get()) || state.is(TFBlocks.SCORCHED_ALLOYER.get());
+        boolean faucet = state.is(TFBlocks.SEARED_FAUCET.get())
             || state.is(TFBlocks.SCORCHED_FAUCET.get());
-        boolean gauge = state.is(TFBlocks.FLUID_GAUGE.get()) || state.is(TFBlocks.COPPER_GAUGE.get())
-            || state.is(TFBlocks.OBSIDIAN_GAUGE.get()) || state.is(TFBlocks.SEARED_INGOT_GAUGE.get())
-            || state.is(TFBlocks.SCORCHED_INGOT_GAUGE.get()) || state.is(TFBlocks.SEARED_FUEL_GAUGE.get())
-            || state.is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
+        boolean gauge = state.is(TFBlocks.COPPER_GAUGE.get())
+            || state.is(TFBlocks.OBSIDIAN_GAUGE.get());
         boolean fluidDevice = faucet || gauge;
-        if (!tank && !castingTank && !lantern && !proxyTank && !basin && !table
+        if (!tank && !castingTank && !lantern && !proxyTank && !fluidCannon && !basin && !table
             && !machineTank && !fluidDevice) {
             return false;
         }
@@ -65,12 +63,16 @@ public final class FoundryDeviceRenderer {
         }
 
         // 熔化炉的固体输入采用匠魂 Mantle RenderItem 的专用中心和缩放，不再只渲染空液槽。
-        if (machineTank && state.is(TFBlocks.MELTER.get())) {
+        if (machineTank && state.is(TFBlocks.SEARED_MELTER.get())) {
             renderMelterInput(entity, poseStack, buffer, packedLight);
         }
         if (proxyTank) {
             // 代理储罐中心空间保留给可交互容器，内部物品必须先于角落流体绘制。
             FoundryRenderItem.PROXY_TANK.render(entity.getSpecialItem(), poseStack, buffer, packedLight);
+        }
+        if (fluidCannon) {
+            // 流体炮下半部沿炮口方向绘制内部物品，上下炮口使用匠魂原版的独立姿态。
+            renderFluidCannonItem(entity, poseStack, buffer, packedLight);
         }
 
         FluidStack fluid = entity.getDisplayFluid();
@@ -118,8 +120,16 @@ public final class FoundryDeviceRenderer {
             maxX = 0.995F;
             minZ = minX;
             maxZ = maxX;
-            minY = state.is(TFBlocks.ALLOYER.get()) ? 0.3175F : 0.505F;
-            usableHeight = state.is(TFBlocks.ALLOYER.get()) ? 0.6775F : 0.49F;
+            minY = state.is(TFBlocks.SCORCHED_ALLOYER.get()) ? 0.3175F : 0.505F;
+            usableHeight = state.is(TFBlocks.SCORCHED_ALLOYER.get()) ? 0.6775F : 0.49F;
+        } else if (fluidCannon) {
+            // 流体炮只在上半部绘制动态液面，边界与半储罐模型的 Mantle 等价范围一致。
+            minX = 0.08F / 16.0F;
+            maxX = 15.92F / 16.0F;
+            minZ = minX;
+            maxZ = maxX;
+            minY = 8.08F / 16.0F;
+            usableHeight = 7.84F / 16.0F;
         } else if (basin) {
             minX = 0.13125F;
             maxX = 0.86875F;
@@ -193,6 +203,31 @@ public final class FoundryDeviceRenderer {
             }
         }
         FoundryRenderItem.MELTER_INPUT.render(entity.getInput(), poseStack, buffer, packedLight);
+        if (rotated) {
+            poseStack.popPose();
+        }
+    }
+
+    /** 按流体炮六向状态绘制其下半部内部物品。 */
+    private static void renderFluidCannonItem(FoundryBlockEntity entity, PoseStack poseStack,
+                                              MultiBufferSource buffer, int packedLight) {
+        Direction facing = entity.getBlockState().getValue(FoundryDirectionalBlock.FACING);
+        if (facing == Direction.UP) {
+            FoundryRenderItem.FLUID_CANNON_UP.render(entity.getSpecialItem(), poseStack, buffer, packedLight);
+            return;
+        }
+        if (facing == Direction.DOWN) {
+            FoundryRenderItem.FLUID_CANNON_DOWN.render(entity.getSpecialItem(), poseStack, buffer, packedLight);
+            return;
+        }
+        boolean rotated = facing != Direction.SOUTH;
+        if (rotated) {
+            poseStack.pushPose();
+            poseStack.translate(0.5F, 0.0F, 0.5F);
+            poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F * facing.get2DDataValue()));
+            poseStack.translate(-0.5F, 0.0F, -0.5F);
+        }
+        FoundryRenderItem.FLUID_CANNON.render(entity.getSpecialItem(), poseStack, buffer, packedLight);
         if (rotated) {
             poseStack.popPose();
         }

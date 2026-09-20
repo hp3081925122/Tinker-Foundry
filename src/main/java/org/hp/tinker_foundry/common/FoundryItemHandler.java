@@ -15,8 +15,7 @@ public final class FoundryItemHandler implements IItemHandler {
     /** 导入槽每次访问重新解析归属，其余设备直接访问自身。 */
     private FoundryBlockEntity target() {
         // 三种滑槽使用同一套附件转发逻辑，不能只让未重贴材质的基础滑槽生效。
-        boolean chute = owner.getBlockState().is(TFBlocks.CHUTE.get())
-            || owner.getBlockState().is(TFBlocks.SEARED_CHUTE.get())
+        boolean chute = owner.getBlockState().is(TFBlocks.SEARED_CHUTE.get())
             || owner.getBlockState().is(TFBlocks.SCORCHED_CHUTE.get());
         return chute ? owner.attachedController() : owner;
     }

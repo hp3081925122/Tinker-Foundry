@@ -1,8 +1,0 @@
-{
-  "parent": "tinker_foundry:block/template/basin",
-  "textures": {
-    "side": "tinker_foundry:block/foundry/casting/basin_side",
-    "top": "tinker_foundry:block/foundry/casting/basin_top_bars",
-    "bottom": "tinker_foundry:block/foundry/casting/basin_bottom"
-  }
-}

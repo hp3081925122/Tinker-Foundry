@@ -1,1 +1,18 @@
-{"parent":"tinker_foundry:block/template/gauge","textures":{"gauge":"tinker_foundry:block/smeltery/tank/fuel_gauge"}}
+{
+  "render_type": "minecraft:cutout",
+  "loader": "tinker_foundry:tank",
+  "parent": "tinker_foundry:block/template/tank_knob_base",
+  "textures": {
+    "particle": "tinker_foundry:block/smeltery/tank/fuel_gauge",
+    "side": "tinker_foundry:block/smeltery/tank/fuel_gauge",
+    "top": "tinker_foundry:block/smeltery/tank/gauge_top"
+  },
+  "fluid": {
+    "from": [0.08, 0.08, 0.08],
+    "to": [15.92, 15.92, 15.92],
+    "increments": 256
+  },
+  "gui": {
+    "parent": "tinker_foundry:block/template/tank_knob_gui"
+  }
+}

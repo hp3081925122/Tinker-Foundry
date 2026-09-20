@@ -1,6 +1,0 @@
-{
-  "parent": "tinker_foundry:block/melter",
-  "textures": {
-    "front": "tinker_foundry:block/smeltery/controller/melter_active"
-  }
-}

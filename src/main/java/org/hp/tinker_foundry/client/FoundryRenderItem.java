@@ -20,6 +20,18 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
     public static final FoundryRenderItem MELTER_INPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 12.0F, 12.0F), 7.5F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
 
+    /** 水平流体炮下半部内部物品的原版匠魂位置参数。 */
+    public static final FoundryRenderItem FLUID_CANNON = new FoundryRenderItem(
+        new Vector3f(8.0F, 4.0F, 16.0F), 7.5F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
+
+    /** 朝上流体炮内部物品的原版匠魂位置参数。 */
+    public static final FoundryRenderItem FLUID_CANNON_UP = new FoundryRenderItem(
+        new Vector3f(8.0F, 16.0F, 8.0F), 7.5F, 270.0F, 0.0F, ItemDisplayContext.FIXED);
+
+    /** 朝下流体炮内部物品的原版匠魂位置参数。 */
+    public static final FoundryRenderItem FLUID_CANNON_DOWN = new FoundryRenderItem(
+        new Vector3f(8.0F, 0.0F, 8.0F), 7.5F, 90.0F, 0.0F, ItemDisplayContext.FIXED);
+
     /** 浇注台输入物品的原版匠魂中心、缩放和姿态。 */
     public static final FoundryRenderItem CASTING_TABLE_INPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 15.5F, 8.0F), 14.0F, 270.0F, 180.0F, ItemDisplayContext.FIXED);

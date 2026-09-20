@@ -1996,7 +1996,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 返回当前宿主是否是合金炉。 */
     public boolean isAlloyer() {
-        return getBlockState().is(TFBlocks.ALLOYER.get());
+        return getBlockState().is(TFBlocks.SCORCHED_ALLOYER.get());
     }
 
     /** 在客户端应用专用状态载荷，不参与服务端配方或权限逻辑。 */
@@ -2066,23 +2066,24 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 返回当前宿主是否是加热器。 */
     public boolean isHeater() {
-        return getBlockState().is(TFBlocks.HEATER.get());
+        return getBlockState().is(TFBlocks.SEARED_HEATER.get());
     }
 
     /** 判断当前设备是否为独立燃料罐。 */
     public boolean isFuelTankBlock() {
-        return getBlockState().is(TFBlocks.SEARED_FUEL_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_FUEL_TANK.get());
+        return getBlockState().is(TFBlocks.SEARED_FUEL_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_FUEL_TANK.get())
+            || getBlockState().is(TFBlocks.SEARED_FUEL_GAUGE.get()) || getBlockState().is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
     }
 
     /** 判断当前设备是否为大容量金属储液罐。 */
     public boolean isIngotTankBlock() {
-        return getBlockState().is(TFBlocks.SEARED_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_TANK.get())
-            || getBlockState().is(TFBlocks.SEARED_INGOT_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_INGOT_TANK.get());
+        return getBlockState().is(TFBlocks.SEARED_INGOT_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_INGOT_TANK.get())
+            || getBlockState().is(TFBlocks.SEARED_INGOT_GAUGE.get()) || getBlockState().is(TFBlocks.SCORCHED_INGOT_GAUGE.get());
     }
 
     /** 判断当前设备是否为浇注专用储液罐。 */
     public boolean isCastingTankBlock() {
-        return getBlockState().is(TFBlocks.SEARED_CASTING_TANK.get()) || getBlockState().is(TFBlocks.SCORCHED_CASTING_TANK.get());
+        return getBlockState().is(TFBlocks.SEARED_CASTING_TANK.get());
     }
 
     /** 判断当前设备是否是把流体容器作为内部储罐的代理储罐。 */
@@ -2213,6 +2214,22 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return true;
     }
 
+    /** 执行匠魂流体炮的点击分区交互：上半部传输流体，下半部交换内部物品。 */
+    public void interactFluidCannon(Player player, net.minecraft.world.InteractionHand hand, boolean clickedTank) {
+        if (!isFluidCannonBlock() || level == null || level.isClientSide) {
+            return;
+        }
+        if (clickedTank) {
+            boolean transferred = net.neoforged.neoforge.fluids.FluidUtil.interactWithFluidHandler(player, hand, this);
+            TinkerFoundry.LOGGER.debug("[fluid-cannon] tank interaction pos={} transferred={} fluid={} amount={}",
+                worldPosition, transferred, fluid.getFluid(), fluid.getAmount());
+            return;
+        }
+        boolean swapped = swapSpecialItem(player, hand);
+        TinkerFoundry.LOGGER.debug("[fluid-cannon] item interaction pos={} swapped={} stored={}",
+            worldPosition, swapped, cannonItem.getItem());
+    }
+
     /** 返回代理储罐内部物品当前提供的流体能力。 */
     private IFluidHandler proxyFluidHandler() {
         if (!isProxyTankBlock() || proxyItem.isEmpty()) return null;
@@ -2299,58 +2316,94 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
     }
 
-    /** 返回指定方块的流体炮朝向并执行一次发射。 */
+    /** 按匠魂原版规则执行一次流体炮发射，而不是把流体直接塞入相邻方块。 */
     public void shootCannon(BlockState state, ServerLevel serverLevel, RandomSource random) {
-        if (!isFluidCannonBlock()) return;
-        FluidStack stored = fluid.copy();
-        if (stored.isEmpty()) {
-            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.SOUND_DISPENSER_FAIL, worldPosition, 0);
+        if (!isFluidCannonBlock()
+            || !(state.getBlock() instanceof org.hp.tinker_foundry.block.FoundryFluidCannonBlock cannon)) {
             return;
         }
+        FluidStack stored = fluid.copy();
+        if (stored.isEmpty()) {
+            // 红石触发但没有弹药时只发出失败反馈，不改变储罐状态。
+            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.SOUND_DISPENSER_FAIL, worldPosition, 0);
+            TinkerFoundry.LOGGER.debug("[fluid-cannon] fire failed pos={} reason=empty", worldPosition);
+            return;
+        }
+        if (!org.hp.tinker_foundry.common.FoundryFluidCannonEffects.hasEffects(stored)) {
+            // 没有本地等价效果定义的流体沿用匠魂原版行为，不消耗流体也不生成无效弹体。
+            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.SOUND_DISPENSER_FAIL, worldPosition, 0);
+            TinkerFoundry.LOGGER.debug("[fluid-cannon] fire failed pos={} fluid={} reason=no_effect_definition",
+                worldPosition, stored.getFluid());
+            return;
+        }
+
         Direction direction = state.getValue(FoundryDirectionalBlock.FACING);
         BlockPos targetPos = worldPosition.relative(direction);
-        int amount = Math.min(stored.getAmount(), FluidValues.BUCKET);
-        IFluidHandler target = serverLevel.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, targetPos, direction.getOpposite());
-        if (target != null) {
-            int accepted = target.fill(stored.copyWithAmount(amount), IFluidHandler.FluidAction.SIMULATE);
-            if (accepted > 0) {
-                FluidStack drained = drainTank(0, accepted, IFluidHandler.FluidAction.EXECUTE);
-                if (drained.getAmount() == accepted) {
-                    target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
-                    serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE, worldPosition, direction.get3DDataValue());
-                    return;
-                }
-            }
+        BlockState targetState = serverLevel.getBlockState(targetPos);
+        int amount = org.hp.tinker_foundry.common.FoundryFluidCannonEffects.shotAmount(stored, cannon.power());
+        if (amount <= 0) {
+            // 流体数量不足以组成一发时保留储罐内容，避免无意义的空弹体。
+            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.SOUND_DISPENSER_FAIL, worldPosition, 0);
+            TinkerFoundry.LOGGER.debug("[fluid-cannon] fire failed pos={} reason=insufficient_fluid amount={}",
+                worldPosition, stored.getAmount());
+            return;
         }
-        // 没有接收能力时允许向空气喷出一源流体，避免红石触发只消耗而无结果。
-        if (serverLevel.getBlockState(targetPos).isAir()) {
-            BlockState fluidState = stored.getFluid().defaultFluidState().createLegacyBlock();
-            if (!fluidState.isAir() && serverLevel.setBlock(targetPos, fluidState, Block.UPDATE_ALL)) {
-                drainTank(0, amount, IFluidHandler.FluidAction.EXECUTE);
-                serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE, worldPosition, direction.get3DDataValue());
+
+        // 有直接方块效果的流体先尝试命中目标方块，保持匠魂对玻璃、砖石和宝石熔液的处理路径。
+        if (org.hp.tinker_foundry.common.FoundryFluidCannonEffects.hasBlockEffects(stored)
+            && !targetState.getShape(serverLevel, targetPos).isEmpty()) {
+            net.minecraft.world.phys.BlockHitResult directHit = new net.minecraft.world.phys.BlockHitResult(
+                net.minecraft.world.phys.Vec3.atCenterOf(targetPos), direction.getOpposite(), targetPos, false);
+            int consumed = org.hp.tinker_foundry.common.FoundryFluidCannonEffects.applyToBlock(
+                serverLevel, directHit, stored.copyWithAmount(amount), cannon.power());
+            if (consumed > 0) {
+                drainTank(0, consumed, IFluidHandler.FluidAction.EXECUTE);
+                serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE,
+                    worldPosition, direction.get3DDataValue());
+                TinkerFoundry.LOGGER.debug("[fluid-cannon] direct block effect pos={} target={} fluid={} amount={}",
+                    worldPosition, targetPos, stored.getFluid(), consumed);
                 return;
             }
         }
+
+        // 目标面不坚固时生成真正的流体弹；坚固面则拒绝发射，避免穿墙或凭空转移到容器。
+        if (!targetState.isFaceSturdy(serverLevel, targetPos, direction.getOpposite())) {
+            org.hp.tinker_foundry.entity.FoundryFluidCannonProjectile projectile =
+                new org.hp.tinker_foundry.entity.FoundryFluidCannonProjectile(
+                    serverLevel, worldPosition, direction, stored.copyWithAmount(amount), cannon.power());
+            projectile.shoot(direction.getStepX(), direction.getStepY() + 0.1D, direction.getStepZ(),
+                cannon.velocity(), cannon.inaccuracy());
+            serverLevel.addFreshEntity(projectile);
+            drainTank(0, amount, IFluidHandler.FluidAction.EXECUTE);
+            serverLevel.playSound(null, worldPosition, net.minecraft.sounds.SoundEvents.LLAMA_SPIT,
+                net.minecraft.sounds.SoundSource.BLOCKS, 0.8F, 0.9F + random.nextFloat() * 0.2F);
+            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE,
+                worldPosition, direction.get3DDataValue());
+            TinkerFoundry.LOGGER.debug("[fluid-cannon] projectile fired pos={} target={} fluid={} amount={} power={} velocity={} inaccuracy={}",
+                worldPosition, targetPos, stored.getFluid(), amount, cannon.power(), cannon.velocity(), cannon.inaccuracy());
+            return;
+        }
+
+        // 坚固目标不允许发射，流体和内部物品均保持原状。
         serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.SOUND_DISPENSER_FAIL, worldPosition, 0);
+        TinkerFoundry.LOGGER.debug("[fluid-cannon] fire failed pos={} target={} reason=sturdy_face", worldPosition, targetPos);
     }
 
     /** 返回当前宿主是否是浇注设备。 */
     public boolean isCastingBlock() {
-        return getBlockState().is(TFBlocks.CASTING_TABLE.get()) || getBlockState().is(TFBlocks.CASTING_BASIN.get())
-            || getBlockState().is(TFBlocks.SEARED_TABLE.get()) || getBlockState().is(TFBlocks.SCORCHED_TABLE.get())
+        return getBlockState().is(TFBlocks.SEARED_TABLE.get()) || getBlockState().is(TFBlocks.SCORCHED_TABLE.get())
             || getBlockState().is(TFBlocks.SEARED_BASIN.get()) || getBlockState().is(TFBlocks.SCORCHED_BASIN.get());
     }
 
     /** 返回当前宿主是否是排液口。 */
     private boolean isDrain() {
-        return getBlockState().is(TFBlocks.DRAIN.get()) || getBlockState().is(TFBlocks.SEARED_DRAIN.get())
+        return getBlockState().is(TFBlocks.SEARED_DRAIN.get())
             || getBlockState().is(TFBlocks.SCORCHED_DRAIN.get());
     }
 
     /** 返回当前宿主是否是浇注口。 */
     private boolean isFaucet() {
-        return getBlockState().is(TFBlocks.FAUCET.get()) || getBlockState().is(TFBlocks.SEARED_FAUCET.get())
+        return getBlockState().is(TFBlocks.SEARED_FAUCET.get())
             || getBlockState().is(TFBlocks.SCORCHED_FAUCET.get());
     }
 
@@ -2361,13 +2414,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 返回当前宿主是否应执行熔炼。 */
     public boolean isMeltingBlock() {
-        return isSmelteryController() || isFoundryController() || getBlockState().is(TFBlocks.MELTER.get());
+        return isSmelteryController() || isFoundryController() || getBlockState().is(TFBlocks.SEARED_MELTER.get());
     }
 
     /** 方向附件沿方块状态的端口方向传输流体，滑槽仍通过控制器代理处理物品。 */
     private boolean isTransferBlock() {
-        return getBlockState().is(TFBlocks.DUCT.get()) || getBlockState().is(TFBlocks.CHUTE.get())
-            || getBlockState().is(TFBlocks.SEARED_DUCT.get()) || getBlockState().is(TFBlocks.SCORCHED_DUCT.get())
+        return getBlockState().is(TFBlocks.SEARED_DUCT.get())
+            || getBlockState().is(TFBlocks.SCORCHED_DUCT.get())
             || getBlockState().is(TFBlocks.SEARED_CHUTE.get()) || getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())
             || getBlockState().is(TFBlocks.SEARED_CHANNEL.get()) || getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get());
     }
@@ -2379,10 +2432,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 判断当前设备是否属于排液、浇注或导流类流体设备。 */
     private boolean isFluidTransferBlock() {
-        return isDrain() || isFaucet() || isTransferBlock() || getBlockState().is(TFBlocks.FLUID_GAUGE.get())
-            || getBlockState().is(TFBlocks.COPPER_GAUGE.get()) || getBlockState().is(TFBlocks.OBSIDIAN_GAUGE.get())
-            || getBlockState().is(TFBlocks.SEARED_INGOT_GAUGE.get()) || getBlockState().is(TFBlocks.SCORCHED_INGOT_GAUGE.get())
-            || getBlockState().is(TFBlocks.SEARED_FUEL_GAUGE.get()) || getBlockState().is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
+        return isDrain() || isFaucet() || isTransferBlock() || getBlockState().is(TFBlocks.COPPER_GAUGE.get())
+            || getBlockState().is(TFBlocks.OBSIDIAN_GAUGE.get());
     }
 
     /** 判断当前方块是否应打开独立菜单，严格对应 1.20.1 的可开界面设备。 */
@@ -3079,7 +3130,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
     }
 
-    /** 返回流体计贴附的相邻冶炼设备，方向语义与 1.20.1 上游保持一致。 */
+    /** 返回铜或黑曜石贴壁流体计贴附的相邻冶炼设备。 */
     public FoundryBlockEntity getGaugeSource() {
         if (!isGaugeBlock() || level == null) {
             return null;
@@ -3092,12 +3143,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return null;
     }
 
-    /** 判断全部原版命名流体计变种。 */
+    /** 判断需要读取相邻设备的铜、黑曜石贴壁流体计。 */
     public boolean isGaugeBlock() {
-        return getBlockState().is(TFBlocks.FLUID_GAUGE.get()) || getBlockState().is(TFBlocks.COPPER_GAUGE.get())
-            || getBlockState().is(TFBlocks.OBSIDIAN_GAUGE.get()) || getBlockState().is(TFBlocks.SEARED_INGOT_GAUGE.get())
-            || getBlockState().is(TFBlocks.SCORCHED_INGOT_GAUGE.get()) || getBlockState().is(TFBlocks.SEARED_FUEL_GAUGE.get())
-            || getBlockState().is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
+        return getBlockState().is(TFBlocks.COPPER_GAUGE.get())
+            || getBlockState().is(TFBlocks.OBSIDIAN_GAUGE.get());
     }
 
     /** 兼容菜单内部旧调用，统一走动态展示流体。 */
@@ -3215,7 +3264,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 只接受仍有效且边界仍包含本排液口的控制器，避免拆炉后使用陈旧绑定。 */
     private FoundryBlockEntity drainController() {
-        if (!(isDrain() || getBlockState().is(TFBlocks.DUCT.get()) || getBlockState().is(TFBlocks.SEARED_DUCT.get())
+        if (!(isDrain() || getBlockState().is(TFBlocks.SEARED_DUCT.get())
             || getBlockState().is(TFBlocks.SCORCHED_DUCT.get()))) return null;
         return attachedController();
     }

@@ -103,14 +103,14 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 guiHelper,
                 CASTING_BASIN_TYPE,
                 Component.translatable("jei.tinker_foundry.casting.basin"),
-                TFItems.CASTING_BASIN.get(),
+                TFItems.SEARED_BASIN.get(),
                 guiHelper.createDrawable(CASTING_BACKGROUND, 117, 16, 16, 16)
             ),
             new CastingCategory(
                 guiHelper,
                 CASTING_TABLE_TYPE,
                 Component.translatable("jei.tinker_foundry.casting.table"),
-                TFItems.CASTING_TABLE.get(),
+                TFItems.SEARED_TABLE.get(),
                 guiHelper.createDrawable(CASTING_BACKGROUND, 117, 0, 16, 16)
             ),
             new MoldingCategory(guiHelper),
@@ -230,7 +230,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
             super(
                 MELTING_TYPE,
                 Component.translatable("category.tinker_foundry.melting"),
-                guiHelper.createDrawableItemLike(TFItems.MELTER.get()),
+                guiHelper.createDrawableItemLike(TFItems.SEARED_MELTER.get()),
                 guiHelper.createDrawable(MELTING_BACKGROUND, 0, 0, 132, 40),
                 132,
                 40
@@ -287,7 +287,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
             super(
                 ALLOYING_TYPE,
                 Component.translatable("category.tinker_foundry.alloying"),
-                guiHelper.createDrawableItemLike(TFItems.ALLOYER.get()),
+                guiHelper.createDrawableItemLike(TFItems.SCORCHED_ALLOYER.get()),
                 guiHelper.createDrawable(ALLOY_BACKGROUND, 0, 0, 172, 62),
                 172,
                 62
@@ -553,7 +553,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
             super(
                 FUEL_TYPE,
                 Component.translatable("category.tinker_foundry.fuel"),
-                guiHelper.createDrawableItemLike(TFItems.HEATER.get()),
+                guiHelper.createDrawableItemLike(TFItems.SEARED_HEATER.get()),
                 guiHelper.createBlankDrawable(132, 40),
                 132,
                 40

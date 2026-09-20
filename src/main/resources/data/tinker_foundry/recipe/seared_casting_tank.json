@@ -3,7 +3,7 @@
   "pattern": ["BGB", "BCB", "BGB"],
   "key": {
     "B": {"item": "tinker_foundry:seared_brick"},
-    "G": {"tag": "c:glass"},
+    "G": {"tag": "c:glass_blocks"},
     "C": {"tag": "c:ingots/copper"}
   },
   "result": {"id": "tinker_foundry:seared_casting_tank", "count": 1}

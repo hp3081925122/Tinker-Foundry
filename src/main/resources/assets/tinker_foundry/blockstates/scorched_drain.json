@@ -1,1 +1,1 @@
-{"variants":{"facing=north":{"model":"tinker_foundry:block/drain","y":180},"facing=south":{"model":"tinker_foundry:block/drain"},"facing=west":{"model":"tinker_foundry:block/drain","y":90},"facing=east":{"model":"tinker_foundry:block/drain","y":270}}}
+{"variants":{"facing=north":{"model":"tinker_foundry:block/scorched_drain","y":180},"facing=south":{"model":"tinker_foundry:block/scorched_drain"},"facing=west":{"model":"tinker_foundry:block/scorched_drain","y":90},"facing=east":{"model":"tinker_foundry:block/scorched_drain","y":270}}}

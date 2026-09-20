@@ -1,6 +1,0 @@
-{
-  "parent": "tinker_foundry:block/alloyer",
-  "textures": {
-    "front": "tinker_foundry:block/foundry/controller/alloyer_active"
-  }
-}

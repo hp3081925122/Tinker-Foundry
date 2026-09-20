@@ -50,21 +50,27 @@ public final class FoundryWorldEvents {
             || state.is(StructureTags.FOUNDRY_FLOOR) || state.is(StructureTags.FOUNDRY_TANKS)) {
             return true;
         }
-        return state.is(TFBlocks.SEARED_BRICK.get()) || state.is(TFBlocks.SEARED_GLASS.get())
+        return state.is(TFBlocks.SEARED_BRICKS.get()) || state.is(TFBlocks.SEARED_GLASS.get())
             || state.is(TFBlocks.SEARED_LANTERN.get()) || state.is(TFBlocks.SEARED_LADDER.get())
-            || state.is(TFBlocks.SEARED_WALL.get()) || state.is(TFBlocks.SEARED_FANCY_BRICK.get())
-            || state.is(TFBlocks.SCORCHED_BRICK.get()) || state.is(TFBlocks.SCORCHED_GLASS.get())
+            || state.is(TFBlocks.SEARED_FANCY_BRICKS.get())
+            || state.is(TFBlocks.SCORCHED_BRICKS.get()) || state.is(TFBlocks.SCORCHED_GLASS.get())
             || state.is(TFBlocks.SCORCHED_LANTERN.get()) || state.is(TFBlocks.SCORCHED_LADDER.get())
-            || state.is(TFBlocks.SCORCHED_WALL.get()) || state.is(TFBlocks.SCORCHED_FANCY_BRICK.get())
+            || state.is(TFBlocks.CHISELED_SCORCHED_BRICKS.get())
             || state.is(TFBlocks.SMELTERY_CONTROLLER.get()) || state.is(TFBlocks.FOUNDRY_CONTROLLER.get())
-            || state.is(TFBlocks.SEARED_TANK.get()) || state.is(TFBlocks.SCORCHED_TANK.get())
+            || state.is(TFBlocks.SEARED_INGOT_TANK.get()) || state.is(TFBlocks.SCORCHED_INGOT_TANK.get())
             || state.is(TFBlocks.SEARED_FUEL_TANK.get()) || state.is(TFBlocks.SCORCHED_FUEL_TANK.get())
-            || state.is(TFBlocks.SEARED_CASTING_TANK.get()) || state.is(TFBlocks.SCORCHED_CASTING_TANK.get())
-            || state.is(TFBlocks.MELTER.get()) || state.is(TFBlocks.HEATER.get())
-            || state.is(TFBlocks.ALLOYER.get()) || state.is(TFBlocks.CASTING_TABLE.get())
-            || state.is(TFBlocks.CASTING_BASIN.get()) || state.is(TFBlocks.DRAIN.get())
-            || state.is(TFBlocks.FAUCET.get()) || state.is(TFBlocks.DUCT.get())
-            || state.is(TFBlocks.CHUTE.get()) || state.is(TFBlocks.FLUID_GAUGE.get());
+            || state.is(TFBlocks.SEARED_CASTING_TANK.get())
+            || state.is(TFBlocks.SEARED_MELTER.get()) || state.is(TFBlocks.SEARED_HEATER.get())
+            || state.is(TFBlocks.SCORCHED_ALLOYER.get()) || state.is(TFBlocks.SEARED_TABLE.get())
+            || state.is(TFBlocks.SCORCHED_TABLE.get()) || state.is(TFBlocks.SEARED_BASIN.get())
+            || state.is(TFBlocks.SCORCHED_BASIN.get()) || state.is(TFBlocks.SEARED_DRAIN.get())
+            || state.is(TFBlocks.SCORCHED_DRAIN.get()) || state.is(TFBlocks.SEARED_FAUCET.get())
+            || state.is(TFBlocks.SCORCHED_FAUCET.get()) || state.is(TFBlocks.SEARED_DUCT.get())
+            || state.is(TFBlocks.SCORCHED_DUCT.get()) || state.is(TFBlocks.SEARED_CHUTE.get())
+            || state.is(TFBlocks.SCORCHED_CHUTE.get()) || state.is(TFBlocks.COPPER_GAUGE.get())
+            || state.is(TFBlocks.OBSIDIAN_GAUGE.get()) || state.is(TFBlocks.SEARED_INGOT_GAUGE.get())
+            || state.is(TFBlocks.SCORCHED_INGOT_GAUGE.get()) || state.is(TFBlocks.SEARED_FUEL_GAUGE.get())
+            || state.is(TFBlocks.SCORCHED_FUEL_GAUGE.get());
     }
 
     /** 区块载入时只标记该区块中的控制器，设备 tick 会在区块真正可用后验证。 */

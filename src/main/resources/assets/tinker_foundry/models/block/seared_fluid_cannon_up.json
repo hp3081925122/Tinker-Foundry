@@ -1,1 +1,7 @@
-{"render_type":"minecraft:cutout","parent":"tinker_foundry:block/seared_fluid_cannon","textures":{"top":"tinker_foundry:block/smeltery/fluid_cannon/front"}}
+{
+  "render_type": "minecraft:cutout",
+  "parent": "tinker_foundry:block/seared_fluid_cannon",
+  "textures": {
+    "top": "tinker_foundry:block/smeltery/fluid_cannon/top_nozzle"
+  }
+}

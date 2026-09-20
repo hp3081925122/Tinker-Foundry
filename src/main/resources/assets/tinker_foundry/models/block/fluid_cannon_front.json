@@ -1,0 +1,7 @@
+{
+  "render_type": "minecraft:cutout",
+  "parent": "tinker_foundry:block/fluid_cannon",
+  "textures": {
+    "front": "tinker_foundry:block/foundry/fluid_cannon/front"
+  }
+}

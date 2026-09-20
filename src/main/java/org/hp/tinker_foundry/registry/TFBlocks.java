@@ -33,8 +33,6 @@ public final class TFBlocks {
     /** 下界砂浆，烧制为焦黑砖的基础材料。 */
     public static final DeferredBlock<Block> NETHER_GROUT = simple("nether_grout", MapColor.COLOR_BROWN);
 
-    /** 普通冶炼砖。 */
-    public static final DeferredBlock<Block> SEARED_BRICK = simple("seared_brick", MapColor.COLOR_GRAY);
     /** 冶炼石及其完整的楼梯、台阶变种。 */
     public static final DeferredBlock<Block> SEARED_STONE = simple("seared_stone", MapColor.COLOR_GRAY);
     public static final DeferredBlock<Block> SEARED_STONE_STAIRS = stairs("seared_stone_stairs", SEARED_STONE, MapColor.COLOR_GRAY);
@@ -63,14 +61,8 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SEARED_LANTERN = lantern("seared_lantern", MapColor.COLOR_ORANGE);
     /** 冶炼梯子。 */
     public static final DeferredBlock<Block> SEARED_LADDER = ladder("seared_ladder", MapColor.COLOR_GRAY);
-    /** 冶炼墙。 */
-    public static final DeferredBlock<Block> SEARED_WALL = wall("seared_wall", MapColor.COLOR_GRAY);
-    /** 冶炼装饰砖。 */
-    public static final DeferredBlock<Block> SEARED_FANCY_BRICK = simple("seared_fancy_brick", MapColor.COLOR_GRAY);
     /** 冶炼灯方块，不含储液功能；储液灯仍使用 seared_lantern。 */
     public static final DeferredBlock<Block> SEARED_LAMP = lightBlock("seared_lamp", MapColor.COLOR_ORANGE);
-    /** 焦黑冶炼砖。 */
-    public static final DeferredBlock<Block> SCORCHED_BRICK = simple("scorched_brick", MapColor.COLOR_BLACK);
     /** 焦黑石柱、砖、道路及其完整变种。 */
     public static final DeferredBlock<Block> SCORCHED_STONE = pillar("scorched_stone", MapColor.COLOR_BLACK);
     public static final DeferredBlock<Block> POLISHED_SCORCHED_STONE = pillar("polished_scorched_stone", MapColor.COLOR_BLACK);
@@ -88,10 +80,6 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SCORCHED_LANTERN = lantern("scorched_lantern", MapColor.COLOR_ORANGE);
     /** 焦黑冶炼梯子。 */
     public static final DeferredBlock<Block> SCORCHED_LADDER = ladder("scorched_ladder", MapColor.COLOR_BLACK);
-    /** 焦黑冶炼墙。 */
-    public static final DeferredBlock<Block> SCORCHED_WALL = wall("scorched_wall", MapColor.COLOR_BLACK);
-    /** 焦黑装饰砖。 */
-    public static final DeferredBlock<Block> SCORCHED_FANCY_BRICK = simple("scorched_fancy_brick", MapColor.COLOR_BLACK);
     /** 焦黑灯方块，不含储液功能；储液灯仍使用 scorched_lantern。 */
     public static final DeferredBlock<Block> SCORCHED_LAMP = lightBlock("scorched_lamp", MapColor.COLOR_ORANGE);
 
@@ -109,40 +97,22 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SMELTERY_CONTROLLER = controller("smeltery_controller");
     /** 铸造炉控制器。 */
     public static final DeferredBlock<Block> FOUNDRY_CONTROLLER = controller("foundry_controller");
-    /** 小型熔炼器。 */
-    public static final DeferredBlock<Block> MELTER = machine("melter");
-    /** 加热器。 */
-    public static final DeferredBlock<Block> HEATER = machine("heater");
-    /** 合金炉。 */
-    public static final DeferredBlock<Block> ALLOYER = machine("alloyer");
-    /** 冶炼储液罐。 */
-    public static final DeferredBlock<Block> SEARED_TANK = entity("seared_tank");
-    /** 焦黑储液罐。 */
-    public static final DeferredBlock<Block> SCORCHED_TANK = entity("scorched_tank");
+    /** 原版命名的小型冶炼器。 */
+    public static final DeferredBlock<Block> SEARED_MELTER = machine("seared_melter");
+    /** 原版命名的加热器。 */
+    public static final DeferredBlock<Block> SEARED_HEATER = machine("seared_heater");
+    /** 原版命名的合金炉。 */
+    public static final DeferredBlock<Block> SCORCHED_ALLOYER = machine("scorched_alloyer");
     /** 冶炼燃料罐，允许存放燃料配方支持的流体。 */
     public static final DeferredBlock<Block> SEARED_FUEL_TANK = entity("seared_fuel_tank");
     /** 焦黑燃料罐，允许存放燃料配方支持的流体。 */
     public static final DeferredBlock<Block> SCORCHED_FUEL_TANK = entity("scorched_fuel_tank");
     /** 冶炼专用小型浇注储液罐。 */
     public static final DeferredBlock<Block> SEARED_CASTING_TANK = entity("seared_casting_tank");
-    /** 焦黑专用小型浇注储液罐。 */
-    public static final DeferredBlock<Block> SCORCHED_CASTING_TANK = entity("scorched_casting_tank");
-    /** 浇注台。 */
-    public static final DeferredBlock<Block> CASTING_TABLE = entity("casting_table");
-    /** 浇注盆。 */
-    public static final DeferredBlock<Block> CASTING_BASIN = entity("casting_basin");
-    /** 排液口。 */
-    public static final DeferredBlock<Block> DRAIN = horizontal("drain");
-    /** 浇注口。 */
-    public static final DeferredBlock<Block> FAUCET = faucet("faucet");
-    /** 流体管道。 */
-    public static final DeferredBlock<Block> DUCT = horizontal("duct");
-    /** 导流槽。 */
-    public static final DeferredBlock<Block> CHUTE = horizontal("chute");
     /** 可在六个方向自动连接和传输流体的导流槽。 */
     public static final DeferredBlock<Block> SEARED_CHANNEL = channel("seared_channel");
     public static final DeferredBlock<Block> SCORCHED_CHANNEL = channel("scorched_channel");
-    /** 原版名称对应的两套排液附件，保留旧 ID 作为兼容别名。 */
+    /** 原版命名的两套排液附件。 */
     public static final DeferredBlock<Block> SEARED_DRAIN = horizontal("seared_drain");
     public static final DeferredBlock<Block> SCORCHED_DRAIN = horizontal("scorched_drain");
     public static final DeferredBlock<Block> SEARED_DUCT = horizontal("seared_duct");
@@ -158,18 +128,18 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SCORCHED_BASIN = entity("scorched_basin");
     /** 焦黑代理储罐，容器流体能力由方块实体内部的物品代理。 */
     public static final DeferredBlock<Block> SCORCHED_PROXY_TANK = entity("scorched_proxy_tank");
-    /** 两套材质的流体炮，红石触发后向朝向侧传输或释放流体。 */
-    public static final DeferredBlock<Block> SEARED_FLUID_CANNON = fluidCannon("seared_fluid_cannon");
-    public static final DeferredBlock<Block> SCORCHED_FLUID_CANNON = fluidCannon("scorched_fluid_cannon");
-    /** 贴壁流体计，使用独立的薄片碰撞箱和存活规则。 */
-    public static final DeferredBlock<Block> FLUID_GAUGE = gauge("fluid_gauge");
-    /** 原版命名的铜、黑曜石、金属和燃料流体计。 */
+    /** 两套材质的流体炮，红石触发后按匠魂原版参数发射流体弹。 */
+    public static final DeferredBlock<Block> SEARED_FLUID_CANNON = fluidCannon("seared_fluid_cannon", 1.0F, 1.1F, 6.0F);
+    public static final DeferredBlock<Block> SCORCHED_FLUID_CANNON = fluidCannon("scorched_fluid_cannon", 2.0F, 1.5F, 7.0F);
+    /** 原版命名的铜、黑曜石贴壁流体计。 */
     public static final DeferredBlock<Block> COPPER_GAUGE = gauge("copper_gauge");
     public static final DeferredBlock<Block> OBSIDIAN_GAUGE = gauge("obsidian_gauge");
-    public static final DeferredBlock<Block> SEARED_INGOT_GAUGE = gauge("seared_ingot_gauge");
-    public static final DeferredBlock<Block> SCORCHED_INGOT_GAUGE = gauge("scorched_ingot_gauge");
-    public static final DeferredBlock<Block> SEARED_FUEL_GAUGE = gauge("seared_fuel_gauge");
-    public static final DeferredBlock<Block> SCORCHED_FUEL_GAUGE = gauge("scorched_fuel_gauge");
+    /** 原版命名的独立锭储罐量器，外形与普通储罐一致。 */
+    public static final DeferredBlock<Block> SEARED_INGOT_GAUGE = entity("seared_ingot_gauge");
+    public static final DeferredBlock<Block> SCORCHED_INGOT_GAUGE = entity("scorched_ingot_gauge");
+    /** 原版命名的独立燃料储罐量器，外形与普通储罐一致。 */
+    public static final DeferredBlock<Block> SEARED_FUEL_GAUGE = entity("seared_fuel_gauge");
+    public static final DeferredBlock<Block> SCORCHED_FUEL_GAUGE = entity("scorched_fuel_gauge");
     /** 原版命名的大容量金属储罐。 */
     public static final DeferredBlock<Block> SEARED_INGOT_TANK = entity("seared_ingot_tank");
     public static final DeferredBlock<Block> SCORCHED_INGOT_TANK = entity("scorched_ingot_tank");
@@ -281,9 +251,10 @@ public final class TFBlocks {
         return TinkerFoundry.BLOCKS.register(name, () -> new FoundryChannelBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
     }
 
-    /** 注册带红石触发状态的流体炮。 */
-    private static DeferredBlock<Block> fluidCannon(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryFluidCannonBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
+    /** 注册带红石触发状态和独立弹射参数的流体炮。 */
+    private static DeferredBlock<Block> fluidCannon(String name, float power, float velocity, float inaccuracy) {
+        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryFluidCannonBlock(
+            nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f), power, velocity, inaccuracy));
     }
 
     /** 注册具有特殊连接面放置规则的浇注口。 */

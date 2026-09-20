@@ -1,0 +1,1 @@
+{"render_type":"minecraft:cutout","parent":"tinker_foundry:block/template/chute","textures":{"particle":"tinker_foundry:block/foundry/scorched/bricks","bricks":"tinker_foundry:block/foundry/scorched/bricks","back":"tinker_foundry:block/foundry/io/back","top":"tinker_foundry:block/foundry/io/chute_top_inactive","side":"tinker_foundry:block/foundry/io/chute_side_inactive"}}

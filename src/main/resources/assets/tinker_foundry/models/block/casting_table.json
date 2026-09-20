@@ -1,8 +1,0 @@
-{
-  "parent": "tinker_foundry:block/template/table",
-  "textures": {
-    "side": "tinker_foundry:block/foundry/casting/table_side",
-    "top": "tinker_foundry:block/foundry/casting/table_plate",
-    "bottom": "tinker_foundry:block/foundry/casting/table_bottom"
-  }
-}

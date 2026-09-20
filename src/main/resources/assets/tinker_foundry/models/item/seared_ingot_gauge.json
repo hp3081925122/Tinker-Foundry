@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"tinker_foundry:block/smeltery/tank/ingot_gauge"}}
+{"parent":"tinker_foundry:block/seared_ingot_gauge"}

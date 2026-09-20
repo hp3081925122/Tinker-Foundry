@@ -9,7 +9,6 @@ import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.item.PortableTankItem;
 import org.hp.tinker_foundry.item.FoundryTankItem;
 import org.hp.tinker_foundry.item.FoundryTooltipBlockItem;
-import org.hp.tinker_foundry.item.FoundryGuideBookItem;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 冶炼方块、桶和基础便携容器的物品注册表。 */
@@ -18,44 +17,32 @@ public final class TFItems {
     public static final DeferredItem<Item> GROUT = block("grout", TFBlocks.GROUT);
     /** 下界砂浆方块物品。 */
     public static final DeferredItem<Item> NETHER_GROUT = block("nether_grout", TFBlocks.NETHER_GROUT);
-    /** 冶炼砖物品。 */
-    public static final DeferredItem<Item> SEARED_BRICK = block("seared_brick", TFBlocks.SEARED_BRICK);
+    /** 冶炼砖物品，原版匠魂将其作为材料物品而不是方块注册。 */
+    public static final DeferredItem<Item> SEARED_BRICK = simple("seared_brick");
     /** 冶炼玻璃物品。 */
     public static final DeferredItem<Item> SEARED_GLASS = block("seared_glass", TFBlocks.SEARED_GLASS);
     /** 冶炼灯物品。 */
     public static final DeferredItem<FoundryTankItem> SEARED_LANTERN = tank("seared_lantern", TFBlocks.SEARED_LANTERN, org.hp.tinker_foundry.block.FoundryLanternBlock.CAPACITY, false);
     /** 冶炼梯子物品。 */
     public static final DeferredItem<Item> SEARED_LADDER = block("seared_ladder", TFBlocks.SEARED_LADDER);
-    /** 冶炼墙物品。 */
-    public static final DeferredItem<Item> SEARED_WALL = block("seared_wall", TFBlocks.SEARED_WALL);
-    /** 冶炼装饰砖物品。 */
-    public static final DeferredItem<Item> SEARED_FANCY_BRICK = block("seared_fancy_brick", TFBlocks.SEARED_FANCY_BRICK);
-    /** 焦黑方块物品。 */
-    public static final DeferredItem<Item> SCORCHED_BRICK = block("scorched_brick", TFBlocks.SCORCHED_BRICK);
+    /** 焦黑砖物品，原版匠魂将其作为材料物品而不是方块注册。 */
+    public static final DeferredItem<Item> SCORCHED_BRICK = simple("scorched_brick");
     /** 焦黑玻璃物品。 */
     public static final DeferredItem<Item> SCORCHED_GLASS = block("scorched_glass", TFBlocks.SCORCHED_GLASS);
     /** 焦黑灯物品。 */
     public static final DeferredItem<FoundryTankItem> SCORCHED_LANTERN = tank("scorched_lantern", TFBlocks.SCORCHED_LANTERN, org.hp.tinker_foundry.block.FoundryLanternBlock.CAPACITY, false);
     /** 焦黑梯子物品。 */
     public static final DeferredItem<Item> SCORCHED_LADDER = block("scorched_ladder", TFBlocks.SCORCHED_LADDER);
-    /** 焦黑墙物品。 */
-    public static final DeferredItem<Item> SCORCHED_WALL = block("scorched_wall", TFBlocks.SCORCHED_WALL);
-    /** 焦黑装饰砖物品。 */
-    public static final DeferredItem<Item> SCORCHED_FANCY_BRICK = block("scorched_fancy_brick", TFBlocks.SCORCHED_FANCY_BRICK);
     /** 冶炼系统设备物品。 */
     public static final DeferredItem<Item> SMELTERY_CONTROLLER = block("smeltery_controller", TFBlocks.SMELTERY_CONTROLLER);
     /** 铸造炉设备物品。 */
     public static final DeferredItem<Item> FOUNDRY_CONTROLLER = block("foundry_controller", TFBlocks.FOUNDRY_CONTROLLER);
-    /** 小型熔炼器物品。 */
-    public static final DeferredItem<Item> MELTER = block("melter", TFBlocks.MELTER);
-    /** 加热器物品。 */
-    public static final DeferredItem<Item> HEATER = block("heater", TFBlocks.HEATER);
-    /** 合金炉物品。 */
-    public static final DeferredItem<Item> ALLOYER = block("alloyer", TFBlocks.ALLOYER);
-    /** 储液罐物品。 */
-    public static final DeferredItem<FoundryTankItem> SEARED_TANK = tank("seared_tank", TFBlocks.SEARED_TANK, FluidValues.INGOT * 48, false);
-    /** 焦黑储液罐物品。 */
-    public static final DeferredItem<FoundryTankItem> SCORCHED_TANK = tank("scorched_tank", TFBlocks.SCORCHED_TANK, FluidValues.INGOT * 48, false);
+    /** 小型冶炼炉物品。 */
+    public static final DeferredItem<Item> SEARED_MELTER = block("seared_melter", TFBlocks.SEARED_MELTER);
+    /** 冶炼炉加热器物品。 */
+    public static final DeferredItem<Item> SEARED_HEATER = block("seared_heater", TFBlocks.SEARED_HEATER);
+    /** 焦黑合金炉物品。 */
+    public static final DeferredItem<Item> SCORCHED_ALLOYER = block("scorched_alloyer", TFBlocks.SCORCHED_ALLOYER);
     /** 原版命名的大容量金属储罐物品。 */
     public static final DeferredItem<FoundryTankItem> SEARED_INGOT_TANK = tank("seared_ingot_tank", TFBlocks.SEARED_INGOT_TANK, FluidValues.INGOT * 48, false);
     public static final DeferredItem<FoundryTankItem> SCORCHED_INGOT_TANK = tank("scorched_ingot_tank", TFBlocks.SCORCHED_INGOT_TANK, FluidValues.INGOT * 48, false);
@@ -65,24 +52,44 @@ public final class TFItems {
     public static final DeferredItem<FoundryTankItem> SCORCHED_FUEL_TANK = tank("scorched_fuel_tank", TFBlocks.SCORCHED_FUEL_TANK, FoundryBlockEntity.DEFAULT_CAPACITY, true);
     /** 冶炼小型浇注储液罐物品。 */
     public static final DeferredItem<FoundryTankItem> SEARED_CASTING_TANK = tank("seared_casting_tank", TFBlocks.SEARED_CASTING_TANK, FluidValues.BUCKET, false);
-    /** 焦黑小型浇注储液罐物品。 */
-    public static final DeferredItem<FoundryTankItem> SCORCHED_CASTING_TANK = tank("scorched_casting_tank", TFBlocks.SCORCHED_CASTING_TANK, FluidValues.BUCKET, false);
     /** 原版没有铜粒，因此由独立命名空间提供铜粒以闭合铜的浇注链。 */
     public static final DeferredItem<Item> COPPER_NUGGET = simple("copper_nugget");
-    /** 浇注台物品。 */
-    public static final DeferredItem<Item> CASTING_TABLE = block("casting_table", TFBlocks.CASTING_TABLE);
-    /** 浇注盆物品。 */
-    public static final DeferredItem<Item> CASTING_BASIN = block("casting_basin", TFBlocks.CASTING_BASIN);
-    /** 排液口物品。 */
-    public static final DeferredItem<Item> DRAIN = block("drain", TFBlocks.DRAIN);
-    /** 浇注口物品。 */
-    public static final DeferredItem<Item> FAUCET = block("faucet", TFBlocks.FAUCET);
-    /** 流体管道物品。 */
-    public static final DeferredItem<Item> DUCT = block("duct", TFBlocks.DUCT);
-    /** 导流槽物品。 */
-    public static final DeferredItem<Item> CHUTE = block("chute", TFBlocks.CHUTE);
-    /** 流体计物品。 */
-    public static final DeferredItem<Item> FLUID_GAUGE = block("fluid_gauge", TFBlocks.FLUID_GAUGE);
+    /** 冶炼浇注台物品。 */
+    public static final DeferredItem<Item> SEARED_TABLE = block("seared_table", TFBlocks.SEARED_TABLE);
+    /** 焦黑浇注台物品。 */
+    public static final DeferredItem<Item> SCORCHED_TABLE = block("scorched_table", TFBlocks.SCORCHED_TABLE);
+    /** 冶炼浇注盆物品。 */
+    public static final DeferredItem<Item> SEARED_BASIN = block("seared_basin", TFBlocks.SEARED_BASIN);
+    /** 焦黑浇注盆物品。 */
+    public static final DeferredItem<Item> SCORCHED_BASIN = block("scorched_basin", TFBlocks.SCORCHED_BASIN);
+    /** 冶炼排液口物品。 */
+    public static final DeferredItem<Item> SEARED_DRAIN = block("seared_drain", TFBlocks.SEARED_DRAIN);
+    /** 焦黑排液口物品。 */
+    public static final DeferredItem<Item> SCORCHED_DRAIN = block("scorched_drain", TFBlocks.SCORCHED_DRAIN);
+    /** 冶炼浇注口物品。 */
+    public static final DeferredItem<Item> SEARED_FAUCET = block("seared_faucet", TFBlocks.SEARED_FAUCET);
+    /** 焦黑浇注口物品。 */
+    public static final DeferredItem<Item> SCORCHED_FAUCET = block("scorched_faucet", TFBlocks.SCORCHED_FAUCET);
+    /** 冶炼流体管道物品。 */
+    public static final DeferredItem<Item> SEARED_DUCT = block("seared_duct", TFBlocks.SEARED_DUCT);
+    /** 焦黑流体管道物品。 */
+    public static final DeferredItem<Item> SCORCHED_DUCT = block("scorched_duct", TFBlocks.SCORCHED_DUCT);
+    /** 冶炼导流槽物品。 */
+    public static final DeferredItem<Item> SEARED_CHUTE = block("seared_chute", TFBlocks.SEARED_CHUTE);
+    /** 焦黑导流槽物品。 */
+    public static final DeferredItem<Item> SCORCHED_CHUTE = block("scorched_chute", TFBlocks.SCORCHED_CHUTE);
+    /** 铜制流体计物品。 */
+    public static final DeferredItem<Item> COPPER_GAUGE = block("copper_gauge", TFBlocks.COPPER_GAUGE);
+    /** 黑曜石流体计物品。 */
+    public static final DeferredItem<Item> OBSIDIAN_GAUGE = block("obsidian_gauge", TFBlocks.OBSIDIAN_GAUGE);
+    /** 冶炼锭容量量器物品，沿用储罐的流体组件和物品栏动态模型。 */
+    public static final DeferredItem<FoundryTankItem> SEARED_INGOT_GAUGE = tank("seared_ingot_gauge", TFBlocks.SEARED_INGOT_GAUGE, FluidValues.INGOT * 48, false);
+    /** 焦黑锭容量量器物品，沿用储罐的流体组件和物品栏动态模型。 */
+    public static final DeferredItem<FoundryTankItem> SCORCHED_INGOT_GAUGE = tank("scorched_ingot_gauge", TFBlocks.SCORCHED_INGOT_GAUGE, FluidValues.INGOT * 48, false);
+    /** 冶炼燃料量器物品，沿用储罐的流体组件和物品栏动态模型。 */
+    public static final DeferredItem<FoundryTankItem> SEARED_FUEL_GAUGE = tank("seared_fuel_gauge", TFBlocks.SEARED_FUEL_GAUGE, FoundryBlockEntity.DEFAULT_CAPACITY, true);
+    /** 焦黑燃料量器物品，沿用储罐的流体组件和物品栏动态模型。 */
+    public static final DeferredItem<FoundryTankItem> SCORCHED_FUEL_GAUGE = tank("scorched_fuel_gauge", TFBlocks.SCORCHED_FUEL_GAUGE, FoundryBlockEntity.DEFAULT_CAPACITY, true);
     /** 流体炮物品，同时保留方块中的流体槽能力。 */
     public static final DeferredItem<FoundryTankItem> SEARED_FLUID_CANNON = tank("seared_fluid_cannon", TFBlocks.SEARED_FLUID_CANNON, FluidValues.BUCKET * 2, true);
     public static final DeferredItem<FoundryTankItem> SCORCHED_FLUID_CANNON = tank("scorched_fluid_cannon", TFBlocks.SCORCHED_FLUID_CANNON, FluidValues.BUCKET * 2, true);
@@ -115,12 +122,8 @@ public final class TFItems {
     /** 保留原有熔融铜桶，供原版铜的熔炼和浇注配方使用。 */
     public static final DeferredItem<BucketItem> COPPER_BUCKET = bucket("copper", TFFluids.COPPER);
 
-    /** 便携储液罐。 */
-    public static final DeferredItem<PortableTankItem> PORTABLE_TANK = TinkerFoundry.ITEMS.register("portable_tank", () -> new PortableTankItem(8000, new Item.Properties()));
     /** 铜制便携罐。 */
     public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.register("copper_canister", () -> new PortableTankItem(FluidValues.INGOT, new Item.Properties()));
-    /** 仅包含当前已实现冶炼内容的指南书。 */
-    public static final DeferredItem<FoundryGuideBookItem> GUIDE_BOOK = TinkerFoundry.ITEMS.register("foundry_guide", () -> new FoundryGuideBookItem(new Item.Properties().stacksTo(1)));
 
     /** 变种方块统一注册，避免为每个不参与逻辑判断的装饰方块复制一套 Java 字段。 */
     private static final Map<String, DeferredItem<Item>> VARIANT_BLOCK_ITEMS = registerVariantBlockItems();
@@ -142,6 +145,11 @@ public final class TFItems {
     /** 注册流体桶。 */
     private static DeferredItem<BucketItem> bucket(String name, java.util.function.Supplier<? extends net.minecraft.world.level.material.Fluid> fluid) {
         return TinkerFoundry.ITEMS.register(name + "_bucket", () -> new BucketItem(fluid.get(), new Item.Properties().stacksTo(1)));
+    }
+
+    /** 按注册名取得批量注册的装饰方块物品，供创造标签页保持匠魂顺序。 */
+    public static Item variantBlock(String name) {
+        return VARIANT_BLOCK_ITEMS.get(name).get();
     }
 
     /** 注册上游冶炼砖、玻璃、附件和方块结构变种。 */
@@ -184,26 +192,8 @@ public final class TFItems {
         items.put("scorched_tinted_glass", block("scorched_tinted_glass", TFBlocks.SCORCHED_TINTED_GLASS));
         items.put("scorched_soul_glass", block("scorched_soul_glass", TFBlocks.SCORCHED_SOUL_GLASS));
         items.put("scorched_soul_glass_pane", block("scorched_soul_glass_pane", TFBlocks.SCORCHED_SOUL_GLASS_PANE));
-        items.put("seared_drain", block("seared_drain", TFBlocks.SEARED_DRAIN));
-        items.put("scorched_drain", block("scorched_drain", TFBlocks.SCORCHED_DRAIN));
-        items.put("seared_duct", block("seared_duct", TFBlocks.SEARED_DUCT));
-        items.put("scorched_duct", block("scorched_duct", TFBlocks.SCORCHED_DUCT));
-        items.put("seared_chute", block("seared_chute", TFBlocks.SEARED_CHUTE));
-        items.put("scorched_chute", block("scorched_chute", TFBlocks.SCORCHED_CHUTE));
-        items.put("seared_faucet", block("seared_faucet", TFBlocks.SEARED_FAUCET));
-        items.put("scorched_faucet", block("scorched_faucet", TFBlocks.SCORCHED_FAUCET));
         items.put("seared_channel", block("seared_channel", TFBlocks.SEARED_CHANNEL));
         items.put("scorched_channel", block("scorched_channel", TFBlocks.SCORCHED_CHANNEL));
-        items.put("seared_table", block("seared_table", TFBlocks.SEARED_TABLE));
-        items.put("scorched_table", block("scorched_table", TFBlocks.SCORCHED_TABLE));
-        items.put("seared_basin", block("seared_basin", TFBlocks.SEARED_BASIN));
-        items.put("scorched_basin", block("scorched_basin", TFBlocks.SCORCHED_BASIN));
-        items.put("copper_gauge", block("copper_gauge", TFBlocks.COPPER_GAUGE));
-        items.put("obsidian_gauge", block("obsidian_gauge", TFBlocks.OBSIDIAN_GAUGE));
-        items.put("seared_ingot_gauge", block("seared_ingot_gauge", TFBlocks.SEARED_INGOT_GAUGE));
-        items.put("scorched_ingot_gauge", block("scorched_ingot_gauge", TFBlocks.SCORCHED_INGOT_GAUGE));
-        items.put("seared_fuel_gauge", block("seared_fuel_gauge", TFBlocks.SEARED_FUEL_GAUGE));
-        items.put("scorched_fuel_gauge", block("scorched_fuel_gauge", TFBlocks.SCORCHED_FUEL_GAUGE));
         return items;
     }
 

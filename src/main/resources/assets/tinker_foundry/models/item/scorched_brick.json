@@ -1,1 +1,4 @@
-{"parent":"tinker_foundry:block/scorched_brick"}
+{
+  "parent": "minecraft:item/generated",
+  "textures": {"layer0": "tinker_foundry:item/materials/scorched_brick"}
+}

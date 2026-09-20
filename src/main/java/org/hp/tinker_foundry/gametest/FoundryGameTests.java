@@ -72,12 +72,12 @@ public final class FoundryGameTests {
         BlockPos tablePos = new BlockPos(3, 0, 0);
         BlockPos tankPos = new BlockPos(4, 0, 0);
         BlockPos gaugePos = new BlockPos(5, 0, 0);
-        helper.setBlock(melterPos, TFBlocks.MELTER.get());
-        helper.setBlock(heaterPos, TFBlocks.HEATER.get());
-        helper.setBlock(alloyerPos, TFBlocks.ALLOYER.get());
-        helper.setBlock(tablePos, TFBlocks.CASTING_TABLE.get());
-        helper.setBlock(tankPos, TFBlocks.SEARED_TANK.get());
-        helper.setBlock(gaugePos, TFBlocks.FLUID_GAUGE.get().defaultBlockState()
+        helper.setBlock(melterPos, TFBlocks.SEARED_MELTER.get());
+        helper.setBlock(heaterPos, TFBlocks.SEARED_HEATER.get());
+        helper.setBlock(alloyerPos, TFBlocks.SCORCHED_ALLOYER.get());
+        helper.setBlock(tablePos, TFBlocks.SEARED_TABLE.get());
+        helper.setBlock(tankPos, TFBlocks.SEARED_INGOT_TANK.get());
+        helper.setBlock(gaugePos, TFBlocks.COPPER_GAUGE.get().defaultBlockState()
             .setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
 
         // 三类真正的设备使用专用界面分类，其余方块必须返回无界面分类。
@@ -110,8 +110,8 @@ public final class FoundryGameTests {
     public static void fluidCapacity(GameTestHelper helper) {
         // 在空测试结构中放置一个独立模组的熔炼器，并确认方块实体能被创建。
         BlockPos pos = BlockPos.ZERO;
-        helper.setBlock(pos, TFBlocks.MELTER.get());
-        helper.assertBlockPresent(TFBlocks.MELTER.get(), pos);
+        helper.setBlock(pos, TFBlocks.SEARED_MELTER.get());
+        helper.assertBlockPresent(TFBlocks.SEARED_MELTER.get(), pos);
         FoundryBlockEntity entity = helper.getBlockEntity(pos);
 
         // 执行注入后检查容量、流体数量和不同流体之间的匹配限制。
@@ -166,10 +166,10 @@ public final class FoundryGameTests {
         BlockPos faucetPos = new BlockPos(2, 0, 0);
         // 浇注口的输出端固定在下方，盆必须放在浇注口正下方而不是朝向侧面。
         BlockPos basinPos = new BlockPos(2, -1, 0);
-        helper.setBlock(sourcePos, TFBlocks.MELTER.get());
-        helper.setBlock(drainPos, TFBlocks.DRAIN.get().defaultBlockState().setValue(FoundryHorizontalBlock.FACING, Direction.WEST));
-        helper.setBlock(faucetPos, TFBlocks.FAUCET.get().defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
-        helper.setBlock(basinPos, TFBlocks.CASTING_BASIN.get());
+        helper.setBlock(sourcePos, TFBlocks.SEARED_MELTER.get());
+        helper.setBlock(drainPos, TFBlocks.SEARED_DRAIN.get().defaultBlockState().setValue(FoundryHorizontalBlock.FACING, Direction.WEST));
+        helper.setBlock(faucetPos, TFBlocks.SEARED_FAUCET.get().defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
+        helper.setBlock(basinPos, TFBlocks.SEARED_BASIN.get());
 
         // 向熔炼器注入一份仍保留的副产物流体作为传输源。
         FoundryBlockEntity source = helper.getBlockEntity(sourcePos);
@@ -199,7 +199,7 @@ public final class FoundryGameTests {
                     boolean boundary = x == -1 || x == 2 || z == 0 || z == 3 || y == 0
                         || (y == 3 && (x == -1 || x == 2 || z == 0 || z == 3));
                     if (boundary) {
-                        helper.setBlock(new BlockPos(x, y, z), TFBlocks.SEARED_BRICK.get());
+                        helper.setBlock(new BlockPos(x, y, z), TFBlocks.SEARED_BRICKS.get());
                     } else {
                         // 官方冶炼炉的炉腔必须保持空气，储罐应放在墙体位置而不是炉腔内部。
                         helper.setBlock(new BlockPos(x, y, z), net.minecraft.world.level.block.Blocks.AIR);
@@ -231,7 +231,7 @@ public final class FoundryGameTests {
                     boolean boundary = x == -1 || x == 1 || z == 0 || z == 2 || y == 0
                         || (y == 2 && (x == -1 || x == 1 || z == 0 || z == 2));
                     if (boundary) {
-                        helper.setBlock(new BlockPos(x, y, z), TFBlocks.SCORCHED_BRICK.get());
+                        helper.setBlock(new BlockPos(x, y, z), TFBlocks.SCORCHED_BRICKS.get());
                     } else {
                         // 官方铸造炉的炉腔必须保持空气，内部放置外壳方块会被判定为无效结构。
                         helper.setBlock(new BlockPos(x, y, z), net.minecraft.world.level.block.Blocks.AIR);
@@ -257,7 +257,7 @@ public final class FoundryGameTests {
                 helper.assertValueEqual(controller.structureErrorReason(), StructureErrorReason.INVALID_WALL_BLOCK,
                     "foundry error reason");
                 // 恢复炉壁后再次等待校验，确认结构可以重新激活。
-                helper.setBlock(new BlockPos(-1, 1, 1), TFBlocks.SCORCHED_BRICK.get());
+                helper.setBlock(new BlockPos(-1, 1, 1), TFBlocks.SCORCHED_BRICKS.get());
                 controller.markStructureDirty();
                 helper.runAfterDelay(8, () -> {
                     helper.assertTrue(controller.isStructureValid(), "restored foundry structure remained invalid");
@@ -274,8 +274,8 @@ public final class FoundryGameTests {
         // 摆放合金炉和相邻加热器，使用仍保留的副产物流体验证多输入槽。
         BlockPos alloyerPos = new BlockPos(0, 0, 0);
         BlockPos heaterPos = new BlockPos(1, 0, 0);
-        helper.setBlock(alloyerPos, TFBlocks.ALLOYER.get());
-        helper.setBlock(heaterPos, TFBlocks.HEATER.get());
+        helper.setBlock(alloyerPos, TFBlocks.SCORCHED_ALLOYER.get());
+        helper.setBlock(heaterPos, TFBlocks.SEARED_HEATER.get());
         FoundryBlockEntity alloyer = helper.getBlockEntity(alloyerPos);
         FoundryBlockEntity heater = helper.getBlockEntity(heaterPos);
         helper.assertValueEqual(alloyer.getTanks(), FoundryBlockEntity.MAX_ALLOY_INPUTS + 1, "alloyer tank count");
@@ -309,7 +309,7 @@ public final class FoundryGameTests {
         BlockPos ingotPos = new BlockPos(0, 0, 0);
         BlockPos fuelPos = new BlockPos(1, 0, 0);
         BlockPos castingPos = new BlockPos(2, 0, 0);
-        helper.setBlock(ingotPos, TFBlocks.SEARED_TANK.get());
+        helper.setBlock(ingotPos, TFBlocks.SEARED_INGOT_TANK.get());
         helper.setBlock(fuelPos, TFBlocks.SEARED_FUEL_TANK.get());
         helper.setBlock(castingPos, TFBlocks.SEARED_CASTING_TANK.get());
         FoundryBlockEntity ingotTank = helper.getBlockEntity(ingotPos);
@@ -353,17 +353,17 @@ public final class FoundryGameTests {
     public static void dedicatedTankItemRetention(GameTestHelper helper) {
         // 直接走当前 1.21.1 Block.setPlacedBy 和 getCloneItemStack API，覆盖存档外的物品往返路径。
         BlockPos pos = BlockPos.ZERO;
-        ItemStack filled = new ItemStack(TFItems.SEARED_TANK.get());
+        ItemStack filled = new ItemStack(TFItems.SEARED_INGOT_TANK.get());
         org.hp.tinker_foundry.item.FoundryTankItem.setFluid(filled,
             new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.INGOT));
         helper.assertValueEqual(((org.hp.tinker_foundry.item.FoundryTankItem) filled.getItem()).getFluid(filled).getAmount(),
             FluidValues.INGOT, "filled tank item did not store fluid component");
-        helper.setBlock(pos, TFBlocks.SEARED_TANK.get());
+        helper.setBlock(pos, TFBlocks.SEARED_INGOT_TANK.get());
         BlockPos absolutePos = helper.absolutePos(pos);
-        TFBlocks.SEARED_TANK.get().setPlacedBy(helper.getLevel(), absolutePos, helper.getLevel().getBlockState(absolutePos), null, filled);
+        TFBlocks.SEARED_INGOT_TANK.get().setPlacedBy(helper.getLevel(), absolutePos, helper.getLevel().getBlockState(absolutePos), null, filled);
         FoundryBlockEntity tank = helper.getBlockEntity(pos);
         helper.assertValueEqual(tank.getFluidInTank(0).getAmount(), FluidValues.INGOT, "filled tank lost fluid on placement");
-        ItemStack clone = TFBlocks.SEARED_TANK.get().getCloneItemStack(helper.getLevel(), absolutePos, helper.getLevel().getBlockState(absolutePos));
+        ItemStack clone = TFBlocks.SEARED_INGOT_TANK.get().getCloneItemStack(helper.getLevel(), absolutePos, helper.getLevel().getBlockState(absolutePos));
         helper.assertValueEqual(((org.hp.tinker_foundry.item.FoundryTankItem) clone.getItem()).getFluid(clone).getAmount(),
             FluidValues.INGOT, "clone tank lost fluid component");
         helper.succeed();
@@ -374,14 +374,14 @@ public final class FoundryGameTests {
     public static void moldingRemainderAndSaveReload(GameTestHelper helper) {
         // 金属浇注配方已删除，因此直接验证未加工状态下的物品和流体存档。
         BlockPos pos = BlockPos.ZERO;
-        helper.setBlock(pos, TFBlocks.CASTING_TABLE.get());
+        helper.setBlock(pos, TFBlocks.SEARED_TABLE.get());
         FoundryBlockEntity table = helper.getBlockEntity(pos);
         table.setItem(0, new ItemStack(TFItems.COPPER_CANISTER.get()));
         table.setItem(FoundryBlockEntity.REMAINDER_SLOT, new ItemStack(TFItems.COPPER_CANISTER.get()));
         table.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.INGOT * 2), FluidAction.EXECUTE);
         CompoundTag saved = table.saveWithoutMetadata(helper.getLevel().registryAccess());
         FoundryBlockEntity restored = new FoundryBlockEntity(TFBlockEntities.GENERIC.get(), new BlockPos(4, 0, 0),
-            TFBlocks.CASTING_TABLE.get().defaultBlockState());
+            TFBlocks.SEARED_TABLE.get().defaultBlockState());
         restored.loadCustomOnly(saved, helper.getLevel().registryAccess());
         helper.assertTrue(restored.getItem(FoundryBlockEntity.REMAINDER_SLOT).is(TFItems.COPPER_CANISTER.get()), "remainder changed after reload");
         helper.assertValueEqual(restored.getFluidInTank(0).getAmount(), FluidValues.INGOT * 2, "fluid amount changed after reload");
@@ -393,7 +393,7 @@ public final class FoundryGameTests {
     public static void castingOutputFullProtection(GameTestHelper helper) {
         // 预先填满输出槽，设备不得在没有匹配配方时丢失流体和模具。
         BlockPos pos = BlockPos.ZERO;
-        helper.setBlock(pos, TFBlocks.CASTING_TABLE.get());
+        helper.setBlock(pos, TFBlocks.SEARED_TABLE.get());
         FoundryBlockEntity table = helper.getBlockEntity(pos);
         table.setItem(0, new ItemStack(TFItems.INGOT_CAST.get()));
         table.setItem(FoundryBlockEntity.OUTPUT_SLOT, new ItemStack(Items.IRON_INGOT, 64));
@@ -487,7 +487,7 @@ public final class FoundryGameTests {
             for (int x = 0; x <= 3; x++) {
                 for (int z = 0; z <= 3; z++) {
                     helper.setBlock(new BlockPos(x, y, z), y == 0 || x == 0 || x == 3 || z == 0 || z == 3
-                        ? TFBlocks.SEARED_BRICK.get() : net.minecraft.world.level.block.Blocks.AIR);
+                        ? TFBlocks.SEARED_BRICKS.get() : net.minecraft.world.level.block.Blocks.AIR);
                 }
             }
         }
@@ -496,7 +496,7 @@ public final class FoundryGameTests {
         helper.setBlock(new BlockPos(0, 1, 1), TFBlocks.SEARED_FUEL_TANK.get());
         helper.setBlock(new BlockPos(0, 1, 2), TFBlocks.SEARED_FUEL_TANK.get());
         helper.setBlock(new BlockPos(3, 1, 1), TFBlocks.SEARED_FUEL_TANK.get());
-        helper.setBlock(new BlockPos(3, 1, 2), TFBlocks.DRAIN.get());
+        helper.setBlock(new BlockPos(3, 1, 2), TFBlocks.SEARED_DRAIN.get());
         FoundryBlockEntity first = helper.getBlockEntity(new BlockPos(0, 1, 1));
         FoundryBlockEntity second = helper.getBlockEntity(new BlockPos(0, 1, 2));
         FoundryBlockEntity third = helper.getBlockEntity(new BlockPos(3, 1, 1));

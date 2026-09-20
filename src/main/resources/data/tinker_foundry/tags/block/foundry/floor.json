@@ -2,12 +2,9 @@
   "replace": false,
   "values": [
     "#tinker_foundry:scorched_blocks",
-    "tinker_foundry:scorched_brick",
-    "tinker_foundry:scorched_fancy_brick",
+    "tinker_foundry:scorched_bricks",
+    "tinker_foundry:chiseled_scorched_bricks",
     "tinker_foundry:scorched_lantern",
-    "tinker_foundry:drain",
-    "tinker_foundry:duct",
-    "tinker_foundry:chute",
     "tinker_foundry:scorched_drain",
     "tinker_foundry:scorched_duct",
     "tinker_foundry:scorched_chute"
