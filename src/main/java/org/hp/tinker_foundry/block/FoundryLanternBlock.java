@@ -1,16 +1,15 @@
 package org.hp.tinker_foundry.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.LanternBlock;
@@ -24,7 +23,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.phys.BlockHitResult;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.item.FoundryTankItem;
 import org.hp.tinker_foundry.registry.TFBlockEntities;
@@ -36,7 +35,6 @@ public final class FoundryLanternBlock extends LanternBlock implements EntityBlo
     /** 灯笼根据流体类型保存的光照等级。 */
     public static final IntegerProperty LIGHT = IntegerProperty.create("light", 0, 15);
     /** 使用原版方块编解码器，避免引入额外模型或配置加载器。 */
-    public static final MapCodec<LanternBlock> CODEC = simpleCodec(FoundryLanternBlock::new);
 
     /** 创建带动态光照状态的独立冶炼灯。 */
     public FoundryLanternBlock(BlockBehaviour.Properties properties) {
@@ -80,13 +78,17 @@ public final class FoundryLanternBlock extends LanternBlock implements EntityBlo
 
     /** 灯笼复用冶炼设备的服务端流体交互，不打开不存在的菜单。 */
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
-                                              Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
+                                 InteractionHand hand, BlockHitResult hit) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (stack.isEmpty()) {
+            return super.use(state, level, pos, player, hand, hit);
+        }
         if (!(level.getBlockEntity(pos) instanceof FoundryBlockEntity entity)) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.PASS;
         }
         if (level.isClientSide) {
-            return ItemInteractionResult.sidedSuccess(true);
+            return InteractionResult.sidedSuccess(true);
         }
         return FoundryEntityBlock.handleItemOn(stack, state, level, pos, player, hand, hit, entity);
     }
@@ -110,7 +112,7 @@ public final class FoundryLanternBlock extends LanternBlock implements EntityBlo
 
     /** 中键取块时保留灯笼中的流体。 */
     @Override
-    public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
+    public ItemStack getCloneItemStack(BlockGetter level, BlockPos pos, BlockState state) {
         ItemStack stack = super.getCloneItemStack(level, pos, state);
         if (level.getBlockEntity(pos) instanceof FoundryBlockEntity entity) {
             FoundryTankItem.setFluid(stack, entity.getTankFluid());
@@ -145,8 +147,4 @@ public final class FoundryLanternBlock extends LanternBlock implements EntityBlo
     }
 
     /** 返回方块自身的编解码器。 */
-    @Override
-    public MapCodec<LanternBlock> codec() {
-        return CODEC;
-    }
 }

@@ -2,8 +2,9 @@ package org.hp.tinker_foundry.common;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
+import org.hp.tinker_foundry.TinkerFoundry;
 
 /** 共享总容量的有序多流体槽，第一层同时是默认排液目标。 */
 public final class StructureFluidTank {
@@ -45,7 +46,7 @@ public final class StructureFluidTank {
     /** 按流体和组件匹配已有层，防止不同组件的数据被合并。 */
     public int indexOf(FluidStack stack) {
         for (int index = 0; index < fluids.size(); index++) {
-            if (FluidStack.isSameFluidSameComponents(fluids.get(index), stack)) return index;
+            if (FoundryFluidUtil.sameFluid(fluids.get(index), stack)) return index;
         }
         return -1;
     }
@@ -57,8 +58,12 @@ public final class StructureFluidTank {
         if (index < 0 && fluids.size() >= MAX_LAYERS) return 0;
         int accepted = Math.min(stack.getAmount(), Math.max(0, capacity - amount()));
         if (accepted > 0 && action.execute()) {
-            if (index < 0) fluids.add(stack.copyWithAmount(accepted));
-            else fluids.set(index, stack.copyWithAmount(fluids.get(index).getAmount() + accepted));
+            if (index < 0) fluids.add(FoundryFluidUtil.copy(stack, accepted));
+            else {
+                fluids.set(index, FoundryFluidUtil.copy(stack, fluids.get(index).getAmount() + accepted));
+                TinkerFoundry.LOGGER.debug("[fluid-tank] merged fluid={} layer={} amount={} total={}",
+                    stack.getFluid(), index, accepted, fluids.get(index).getAmount());
+            }
         }
         return accepted;
     }
@@ -70,9 +75,9 @@ public final class StructureFluidTank {
         int drained = Math.min(requested, stored.getAmount());
         if (action.execute()) {
             if (drained == stored.getAmount()) fluids.remove(index);
-            else fluids.set(index, stored.copyWithAmount(stored.getAmount() - drained));
+            else fluids.set(index, FoundryFluidUtil.copy(stored, stored.getAmount() - drained));
         }
-        return stored.copyWithAmount(drained);
+        return FoundryFluidUtil.copy(stored, drained);
     }
 
     /** 把点击的层置底，使手动取液和自动排液使用相同优先顺序。 */

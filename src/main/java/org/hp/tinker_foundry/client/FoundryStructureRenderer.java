@@ -2,21 +2,21 @@ package org.hp.tinker_foundry.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
+import com.mojang.math.Vector3f;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.client.model.data.ModelData;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.client.model.data.ModelData;
 import org.hp.tinker_foundry.block.FoundryControllerBlock;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import net.minecraft.world.phys.AABB;
@@ -57,7 +57,7 @@ public final class FoundryStructureRenderer {
             TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
                 .apply(extensions.getStillTexture(fluid));
             float next = y + heights[index] * compression;
-            int brightness = Math.max(light & 65535, fluid.getFluidType().getLightLevel(fluid) << 4)
+            int brightness = Math.max(light & 65535, fluid.getFluid().getFluidType().getLightLevel(fluid) << 4)
                 | light & 0xFFFF0000;
             VertexConsumer consumer = FoundryFluidRenderer.translucentConsumer(buffer);
             // 按方块切分纹理，只绘制炉腔外表面，避免内部生成重复面片。
@@ -96,11 +96,11 @@ public final class FoundryStructureRenderer {
             poseStack.pushPose();
             poseStack.translate(itemX + 0.5F, itemY + 0.5F, itemZ + 0.5F);
             if (entity.getBlockState().hasProperty(FoundryControllerBlock.FACING)) {
-                poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F * entity.getBlockState()
+                poseStack.mulPose(Vector3f.YP.rotationDegrees(-90.0F * entity.getBlockState()
                     .getValue(FoundryControllerBlock.FACING).get2DDataValue()));
             }
             FoundryRenderItem.renderAt(item, poseStack, buffer, light, 15.0F / 16.0F,
-                0.0F, 0.0F, ItemDisplayContext.FIXED);
+                0.0F, 0.0F, ItemTransforms.TransformType.FIXED);
             poseStack.popPose();
             var model = renderer.getModel(item, entity.getLevel(), null, 0);
             if (model.isCustomRenderer()) {
@@ -145,7 +145,7 @@ public final class FoundryStructureRenderer {
         poseStack.scale(-0.025F, -0.025F, 0.025F);
         float width = font.width(message);
         font.drawInBatch(message, -width / 2.0F, 0.0F, 0xFFFFFFFF, false, poseStack.last().pose(),
-            buffer, Font.DisplayMode.NORMAL, 0, packedLight);
+            buffer, false, 0, packedLight);
         poseStack.popPose();
     }
 

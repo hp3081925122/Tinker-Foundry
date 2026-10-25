@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.datafixers.util.Pair;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.BlockElement;
@@ -15,9 +16,10 @@ import net.minecraft.client.renderer.block.model.ItemOverrides;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
+import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.client.resources.model.ModelState;
 import net.minecraft.client.resources.model.SimpleBakedModel;
+import net.minecraft.client.resources.model.UnbakedModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
@@ -28,17 +30,18 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.PipeBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.RenderTypeGroup;
-import net.neoforged.neoforge.client.model.CompositeModel;
-import net.neoforged.neoforge.client.model.geometry.IGeometryBakingContext;
-import net.neoforged.neoforge.client.model.geometry.IGeometryLoader;
-import net.neoforged.neoforge.client.model.geometry.IUnbakedGeometry;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.client.model.data.ModelProperty;
+import net.minecraftforge.client.RenderTypeGroup;
+import net.minecraftforge.client.model.CompositeModel;
+import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
+import net.minecraftforge.client.model.geometry.IGeometryLoader;
+import net.minecraftforge.client.model.geometry.IUnbakedGeometry;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelProperty;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,21 +67,21 @@ public final class ConnectedGlassModel implements IUnbakedGeometry<ConnectedGlas
         this.panePredicate = panePredicate;
     }
 
-    /** 解析普通父模型，保证模板元素和纹理别名已经展开。 */
     @Override
-    public void resolveParents(Function<ResourceLocation, net.minecraft.client.resources.model.UnbakedModel> modelGetter,
-                               IGeometryBakingContext context) {
-        model.resolveParents(modelGetter);
+    public Collection<Material> getMaterials(IGeometryBakingContext context,
+                                             Function<ResourceLocation, UnbakedModel> modelGetter,
+                                             Set<Pair<String, String>> missingTextureErrors) {
+        return model.getMaterials(modelGetter, missingTextureErrors);
     }
 
     /** 按连接纹理定义烘焙一个可缓存十六种连接状态的模型。 */
     @Override
-    public BakedModel bake(IGeometryBakingContext context, ModelBaker baker,
+    public BakedModel bake(IGeometryBakingContext context, ModelBakery baker,
                            Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState,
-                           ItemOverrides overrides) {
+                           ItemOverrides overrides, ResourceLocation modelLocation) {
         BakedModel[] variants = new BakedModel[16];
         for (int mask = 0; mask < variants.length; mask++) {
-            variants[mask] = bakeVariant(context, spriteGetter, modelState, (byte) mask);
+            variants[mask] = bakeVariant(context, spriteGetter, modelState, (byte) mask, modelLocation);
         }
         TinkerFoundry.LOGGER.debug("Loaded connected glass model with {} texture keys", connectedTextures.size());
         return new Baked(this, context, variants[0], variants);
@@ -87,7 +90,7 @@ public final class ConnectedGlassModel implements IUnbakedGeometry<ConnectedGlas
     /** 烘焙指定四方向连接状态的元素和面。 */
     private BakedModel bakeVariant(IGeometryBakingContext context,
                                    Function<Material, TextureAtlasSprite> spriteGetter,
-                                   ModelState modelState, byte connections) {
+                                   ModelState modelState, byte connections, ResourceLocation modelLocation) {
         TextureAtlasSprite particle = spriteGetter.apply(context.getMaterial("particle"));
         SimpleBakedModel.Builder builder = new SimpleBakedModel.Builder(
             context.useAmbientOcclusion(), context.useBlockLight(), context.isGui3d(),
@@ -97,11 +100,11 @@ public final class ConnectedGlassModel implements IUnbakedGeometry<ConnectedGlas
                 Direction direction = entry.getKey();
                 BlockElementFace face = entry.getValue();
                 TextureAtlasSprite sprite = spriteGetter.apply(resolveSprite(context, face, direction, connections));
-                BakedQuad quad = BlockModel.bakeFace(element, face, sprite, direction, modelState);
-                if (face.cullForDirection() == null) {
+                BakedQuad quad = BlockModel.bakeFace(element, face, sprite, direction, modelState, modelLocation);
+                if (face.cullForDirection == null) {
                     builder.addUnculledFace(quad);
                 } else {
-                    builder.addCulledFace(Direction.rotate(modelState.getRotation().getMatrix(), face.cullForDirection()), quad);
+                    builder.addCulledFace(Direction.rotate(modelState.getRotation().getMatrix(), face.cullForDirection), quad);
                 }
             }
         }
@@ -111,21 +114,20 @@ public final class ConnectedGlassModel implements IUnbakedGeometry<ConnectedGlas
     /** 根据面方向和连接状态解析当前面的纹理资源。 */
     private Material resolveSprite(IGeometryBakingContext context, BlockElementFace face,
                                    Direction faceDirection, byte connections) {
-        String textureKey = face.texture();
+        String textureKey = face.texture;
         if (textureKey.startsWith("#")) {
             textureKey = textureKey.substring(1);
         }
         if (!connectedTextures.contains(textureKey)) {
             return context.getMaterial(textureKey);
         }
-        String suffix = getTextureSuffix(connections, getTransform(faceDirection, face.uv()));
+        String suffix = getTextureSuffix(connections, getTransform(faceDirection, face.uv));
         if (suffix.isEmpty()) {
             return context.getMaterial(textureKey);
         }
         Material base = context.getMaterial(textureKey);
         ResourceLocation texture = base.texture();
-        ResourceLocation variant = ResourceLocation.fromNamespaceAndPath(
-            texture.getNamespace(), texture.getPath() + "/" + suffix);
+        ResourceLocation variant = new ResourceLocation(texture.getNamespace(), texture.getPath() + "/" + suffix);
         return new Material(base.atlasLocation(), variant);
     }
 

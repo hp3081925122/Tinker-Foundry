@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:smelting",
+  "category": "blocks",
+  "cookingtime": 200,
+  "experience": 0.1,
+  "ingredient": {
+    "item": "tinker_foundry:seared_stone"
+  },
+  "result": {
+    "item": "tinker_foundry:seared_paver"
+  }
+}

@@ -1,6 +1,6 @@
 package org.hp.tinker_foundry.multiblock;
 
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
@@ -25,7 +25,7 @@ public final class StructureTags {
 
     /** 使用当前版本的方块标签注册表。 */
     private static TagKey<Block> block(String path) {
-        return TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, path));
+        return TagKey.create(Registry.BLOCK_REGISTRY, new ResourceLocation(TinkerFoundry.MOD_ID, path));
     }
 
     private StructureTags() { }

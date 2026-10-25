@@ -2,15 +2,15 @@ package org.hp.tinker_foundry.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
+import com.mojang.math.Vector3f;
 import net.minecraft.core.BlockPos;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Direction;
 import net.minecraft.world.inventory.InventoryMenu;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.FoundryChannelBlock;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
@@ -138,7 +138,7 @@ public final class FoundryChannelRenderer {
         if (direction.getAxis().isHorizontal() && direction != Direction.SOUTH) {
             poseStack.pushPose();
             poseStack.translate(0.5F, 0.0F, 0.5F);
-            poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F * direction.get2DDataValue()));
+            poseStack.mulPose(Vector3f.YP.rotationDegrees(-90.0F * direction.get2DDataValue()));
             poseStack.translate(-0.5F, 0.0F, -0.5F);
             return true;
         }

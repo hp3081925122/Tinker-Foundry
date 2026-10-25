@@ -1,11 +1,12 @@
 package org.hp.tinker_foundry.block;
 
-import com.mojang.serialization.MapCodec;
+import org.hp.tinker_foundry.common.FoundryFluidUtil;
+import org.hp.tinker_foundry.common.FoundryCapabilityUtil;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BucketItem;
@@ -34,10 +35,11 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandlerItem;
+import net.minecraftforge.network.NetworkHooks;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.item.PortableTankFluidHandler;
@@ -55,7 +57,6 @@ public class FoundryEntityBlock extends BaseEntityBlock {
     public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
 
     /** 使用原版方块属性编解码器，避免引入额外配置格式。 */
-    public static final MapCodec<FoundryEntityBlock> CODEC = simpleCodec(FoundryEntityBlock::new);
     /** 浇注盆与模型一致的底部支脚、外壁和内部空腔碰撞体积。 */
     private static final VoxelShape CASTING_BASIN_SHAPE = Shapes.join(
         Shapes.block(),
@@ -94,9 +95,18 @@ public class FoundryEntityBlock extends BaseEntityBlock {
         return super.getShape(state, level, pos, context);
     }
 
-    /** 空手取出设备已经完成的物品。 */
+    /** 统一适配 1.20.1 的方块交互入口，将空手和持物交互分派到各自逻辑。 */
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        ItemStack stack = player.getItemInHand(hand);
+        return stack.isEmpty()
+            ? useEmptyHand(state, level, pos, player, hand, hit)
+            : useHeldItem(stack, state, level, pos, player, hand, hit);
+    }
+
+    /** 空手取出设备已经完成的物品。 */
+    private InteractionResult useEmptyHand(BlockState state, Level level, BlockPos pos, Player player,
+                                           InteractionHand hand, BlockHitResult hit) {
         if (!(level.getBlockEntity(pos) instanceof FoundryBlockEntity entity)) {
             return InteractionResult.PASS;
         }
@@ -122,14 +132,14 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             // 代理储罐和流体炮的空手区域用于取出内部物品，不能落入普通菜单逻辑。
             if (entity.isProxyTankBlock()) {
                 // 代理储罐四角是液体区域；空手点击四角时保留容器，不把它误当成物品槽取出。
-                if (!isProxyTankFluidArea(hit, pos) && entity.swapSpecialItem(player, InteractionHand.MAIN_HAND)) {
+                if (!isProxyTankFluidArea(hit, pos) && entity.swapSpecialItem(player, hand)) {
                     return InteractionResult.SUCCESS;
                 }
-            } else if (entity.swapSpecialItem(player, InteractionHand.MAIN_HAND)) {
+            } else if (entity.swapSpecialItem(player, hand)) {
                 return InteractionResult.SUCCESS;
             }
             // 铸造台空手右键遵循匠魂语义：取出完成产物，否则取回台面上的输入物品。
-            if (entity.isCastingTable() && entity.interactCastingTable(player, InteractionHand.MAIN_HAND)) {
+            if (entity.isCastingTable() && entity.interactCastingTable(player, hand)) {
                 return InteractionResult.SUCCESS;
             }
             // 浇注台和浇注盆才允许空手取出铸造结果，普通冶炼设备的产物必须从菜单槽取出。
@@ -156,58 +166,58 @@ public class FoundryEntityBlock extends BaseEntityBlock {
     }
 
     /** 处理桶装流体、燃料和物品输入，所有修改只在服务端执行。 */
-    @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    private InteractionResult useHeldItem(ItemStack stack, BlockState state, Level level, BlockPos pos,
+                                          Player player, InteractionHand hand, BlockHitResult hit) {
         if (!(level.getBlockEntity(pos) instanceof FoundryBlockEntity entity)) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.PASS;
         }
         // 浇注口的非空手交互只切换浇注状态，不把手持物误传入自身缓存。
         if (entity.isFaucetBlock()) {
             if (player.isShiftKeyDown()) {
-                return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+                return InteractionResult.PASS;
             }
             if (level.isClientSide) {
-                return ItemInteractionResult.sidedSuccess(true);
+                return InteractionResult.sidedSuccess(true);
             }
             entity.activateFaucet();
-            return ItemInteractionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         // 菜单设备的普通手持物只负责打开菜单，不再触发基类的隐式物品插入。
-        boolean fluidContainer = net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(stack).isPresent();
+        boolean fluidContainer = net.minecraftforge.fluids.FluidUtil.getFluidHandler(stack).isPresent();
         if (entity.hasMenuScreen() && !fluidContainer) {
             if (level.isClientSide) {
-                return ItemInteractionResult.sidedSuccess(true);
+                return InteractionResult.sidedSuccess(true);
             }
             return player instanceof ServerPlayer serverPlayer
                 ? itemInteractionResult(openMenu(state, pos, entity, serverPlayer))
-                : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+                : InteractionResult.PASS;
         }
         // 代理储罐按 Mantle 的中心物品区和四角液体区分别处理交互，失败的流体交互可继续交换容器。
         if (entity.isProxyTankBlock()) {
-            if (level.isClientSide) return ItemInteractionResult.sidedSuccess(true);
+            if (level.isClientSide) return InteractionResult.sidedSuccess(true);
             return handleProxyTankItem(stack, pos, hit, level, player, hand, entity, fluidContainer);
         }
         // 流体炮只接受非流体物品作为内部弹药或展示物。
         if (!fluidContainer && entity.isFluidCannonBlock()) {
-            if (level.isClientSide) return ItemInteractionResult.sidedSuccess(true);
+            if (level.isClientSide) return InteractionResult.sidedSuccess(true);
             return entity.swapSpecialItem(player, hand)
-                ? ItemInteractionResult.SUCCESS : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+                ? InteractionResult.SUCCESS : InteractionResult.PASS;
         }
         // 浇注台和浇注盆保留自身的物品交互，流体容器则进入同一套受限流体传输逻辑。
         if (!fluidContainer && !entity.isCastingBlock() && !entity.isFuelTankBlock()) {
             TinkerFoundry.LOGGER.debug("[interaction] ignored item={} on block={} at {}", stack.getItem(), state.getBlock(), pos);
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.PASS;
         }
         if (level.isClientSide) {
-            return ItemInteractionResult.sidedSuccess(true);
+            return InteractionResult.sidedSuccess(true);
         }
         return handleItemOn(stack, state, level, pos, player, hand, hit, entity);
     }
 
-    /** 把空手交互结果转换为 NeoForge 1.21.1 的物品交互结果。 */
-    private static ItemInteractionResult itemInteractionResult(InteractionResult result) {
+    /** 把空手交互结果转换为 Forge 1.20.1 的物品交互结果。 */
+    private static InteractionResult itemInteractionResult(InteractionResult result) {
         return result == InteractionResult.SUCCESS
-            ? ItemInteractionResult.SUCCESS : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            ? InteractionResult.SUCCESS : InteractionResult.PASS;
     }
 
     /** 只为真正拥有界面的冶炼设备打开菜单，并在打开前重新确认控制器结构。 */
@@ -234,7 +244,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                 : entity.isAlloyer()
                     ? Component.translatable("gui.tinker_foundry.alloyer")
                 : Component.translatable(state.getBlock().getDescriptionId());
-        player.openMenu(new SimpleMenuProvider(
+        NetworkHooks.openScreen(player, new SimpleMenuProvider(
             (containerId, inventory, ignored) -> new FoundryMenu(containerId, inventory, entity),
             menuTitle
         ), buffer -> buffer.writeBlockPos(pos).writeVarInt(entity.screenKind()).writeVarInt(entity.inputSlotCount()));
@@ -244,59 +254,59 @@ public class FoundryEntityBlock extends BaseEntityBlock {
     }
 
     /** 统一处理设备和冶炼灯的容器交互，避免两个方块类出现不同的流体规则。 */
-    static ItemInteractionResult handleItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
+    static InteractionResult handleItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
                                               Player player, InteractionHand hand, BlockHitResult hit,
                                               FoundryBlockEntity entity) {
         if (FluidUtil.getFluidHandler(stack).isPresent()) {
             // 传入实际点击面，疏导孔等分面能力必须据此区分输入面和输出面。
-            IFluidHandler handler = level.getCapability(
-                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, hit.getDirection());
-            if (handler == null) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            IFluidHandler handler = FoundryCapabilityUtil.get(level, pos,
+                net.minecraftforge.common.capabilities.ForgeCapabilities.FLUID_HANDLER, hit.getDirection()).resolve().orElse(null);
+            if (handler == null) return InteractionResult.PASS;
             return interactWithFluidContainer(player, hand, handler, hit.getDirection(), state.getBlock().toString())
-                ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
+                ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }
         // 非流体物品只能进入代理储罐或流体炮的专用内部槽。
         if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) {
             return entity.swapSpecialItem(player, hand)
-                ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
+                ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }
         // 只有浇注台和浇注盆允许普通手持物走专用铸造输入逻辑。
         if (entity.isCastingTable()) {
             return entity.interactCastingTable(player, hand)
-                ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
+                ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }
         if ((entity.isCastingBlock() || entity.isFuelTankBlock()) && entity.insertItem(stack)) {
-            return ItemInteractionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        return InteractionResult.PASS;
     }
 
     /** 处理代理储罐的中心物品槽和四角流体槽，替代 Mantle InventoryBlock 的点击区域判断。 */
-    private static ItemInteractionResult handleProxyTankItem(ItemStack stack, BlockPos pos, BlockHitResult hit,
+    private static InteractionResult handleProxyTankItem(ItemStack stack, BlockPos pos, BlockHitResult hit,
                                                               Level level, Player player, InteractionHand hand,
                                                               FoundryBlockEntity entity, boolean fluidContainer) {
         boolean clickedFluid = isProxyTankFluidArea(hit, pos);
         if (fluidContainer) {
-            IFluidHandler handler = level.getCapability(
-                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, hit.getDirection());
+            IFluidHandler handler = FoundryCapabilityUtil.get(level, pos,
+                net.minecraftforge.common.capabilities.ForgeCapabilities.FLUID_HANDLER, hit.getDirection()).resolve().orElse(null);
             if (handler != null && interactWithFluidContainer(player, hand, handler, hit.getDirection(), stateBlock(entity))) {
-                return ItemInteractionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
             // 已有内部容器时，点击四角只表示液体槽交互失败，不应意外替换容器。
             if (clickedFluid && !entity.getSpecialItem().isEmpty()) {
-                return ItemInteractionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
         }
         // 空内部槽可以从任意点击面放入有效流体容器；已有容器只有中心区域允许交换。
         if (!clickedFluid || entity.getSpecialItem().isEmpty()) {
             return entity.swapSpecialItem(player, hand)
-                ? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
+                ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }
-        return ItemInteractionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     /**
-     * 以目标先提交、源容器后扣除的顺序传输流体，避免 NeoForge 默认顺序造成单边扣液。
+     * 以目标先提交、源容器后扣除的顺序传输流体，避免容器默认顺序造成单边扣液。
      * 两边的执行量不一致时尽力回滚已经提交的一侧，并保留原手持物。
      */
     public static boolean interactWithFluidContainer(Player player, InteractionHand hand, IFluidHandler target,
@@ -313,7 +323,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             if (simulated <= 0) {
                 return false;
             }
-            FluidStack requested = contained.copyWithAmount(simulated);
+            FluidStack requested = FoundryFluidUtil.copy(contained, simulated);
             int accepted = target.fill(requested, IFluidHandler.FluidAction.EXECUTE);
             if (accepted != simulated) {
                 rollbackTarget(target, requested, accepted);
@@ -344,7 +354,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
         if (simulated <= 0) {
             return false;
         }
-        FluidStack requested = available.copyWithAmount(simulated);
+        FluidStack requested = FoundryFluidUtil.copy(available, simulated);
         int accepted = item.fill(requested, IFluidHandler.FluidAction.EXECUTE);
         if (accepted != simulated) {
             if (accepted > 0) {
@@ -370,7 +380,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
     /** 回滚目标方块已经接收的部分，失败时只记录诊断而不继续吞掉手持物。 */
     private static void rollbackTarget(IFluidHandler target, FluidStack requested, int accepted) {
         if (accepted > 0) {
-            target.drain(requested.copyWithAmount(accepted), IFluidHandler.FluidAction.EXECUTE);
+            target.drain(FoundryFluidUtil.copy(requested, accepted), IFluidHandler.FluidAction.EXECUTE);
         }
     }
 
@@ -405,7 +415,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
     /** 邻居变化时同步浇注口的红石边沿，其他统一设备不参与该状态机。 */
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
         super.neighborChanged(state, level, pos, block, fromPos, isMoving);
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof FoundryBlockEntity entity && entity.isFaucetBlock()) {
             entity.handleFaucetRedstone(level.hasNeighborSignal(pos));
@@ -414,7 +424,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
     /** 红石延迟 tick 到达后启动浇注口，等价于原版方块层调度。 */
     @Override
-    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+    public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         if (level.getBlockEntity(pos) instanceof FoundryBlockEntity entity && entity.isFaucetBlock()) {
             entity.activateFaucet();
         }
@@ -422,10 +432,6 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
 
     /** 返回方块自身的编解码器。 */
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
-    }
 
     /** 为所有设备创建独立的持久化方块实体。 */
     @Override
@@ -439,7 +445,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
         super.setPlacedBy(level, pos, state, placer, stack);
         if (stack.getItem() instanceof FoundryTankItem tankItem
             && level.getBlockEntity(pos) instanceof FoundryBlockEntity entity) {
-            net.neoforged.neoforge.fluids.FluidStack stored = tankItem.getFluid(stack);
+            net.minecraftforge.fluids.FluidStack stored = tankItem.getFluid(stack);
             TinkerFoundry.LOGGER.debug("[tank] placement callback at {}, item fluid={} mB, state={}", pos, stored.getAmount(), state.getBlock());
             entity.setTankFluid(stored);
         }
@@ -476,7 +482,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
     /** 使用精准采集或中键取块时保留专用储液罐的流体。 */
     @Override
-    public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
+    public ItemStack getCloneItemStack(BlockGetter level, BlockPos pos, BlockState state) {
         ItemStack stack = super.getCloneItemStack(level, pos, state);
         if (level.getBlockEntity(pos) instanceof FoundryBlockEntity entity && entity.isTankBlock()) {
             FoundryTankItem.setFluid(stack, entity.getTankFluid());
@@ -495,7 +501,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
 
     /** 设备需要方块实体渲染器时再由客户端注册具体模型。 */
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
+    public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
     }
 

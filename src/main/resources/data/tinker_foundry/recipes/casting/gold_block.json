@@ -1,0 +1,7 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:molten/gold"}, "amount": 810},
+  "result": {"id": "minecraft:gold_block", "count": 1},
+  "time": 180
+}
+

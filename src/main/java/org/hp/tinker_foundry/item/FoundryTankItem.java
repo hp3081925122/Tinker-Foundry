@@ -8,7 +8,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 
 /** 可放置、可携带流体并在破坏后保留内容的专用储液罐物品。 */
 public final class FoundryTankItem extends FoundryTooltipBlockItem {
@@ -43,15 +45,15 @@ public final class FoundryTankItem extends FoundryTooltipBlockItem {
             return;
         }
         PortableTankFluidHandler handler = new PortableTankFluidHandler(stack, tankItem.capacity, tankItem.allowFuel);
-        handler.drain(Integer.MAX_VALUE, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+        handler.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.EXECUTE);
         if (!fluid.isEmpty()) {
-            handler.fill(fluid, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+            handler.fill(fluid, IFluidHandler.FluidAction.EXECUTE);
         }
     }
 
     /** 显示罐内流体和当前储量，便于创造栏和普通物品栏识别填充状态。 */
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
         FluidStack fluid = getFluid(stack);
         if (fluid.isEmpty()) {
             tooltip.add(Component.translatable("tooltip.tinker_foundry.empty_tank").withStyle(ChatFormatting.GRAY));
@@ -60,7 +62,7 @@ public final class FoundryTankItem extends FoundryTooltipBlockItem {
             tooltip.add(Component.translatable("tooltip.tinker_foundry.tank_amount", fluid.getAmount(), capacity)
                 .withStyle(ChatFormatting.GRAY));
         }
-        super.appendHoverText(stack, context, tooltip, flag);
+        super.appendHoverText(stack, level, tooltip, flag);
     }
 
 }

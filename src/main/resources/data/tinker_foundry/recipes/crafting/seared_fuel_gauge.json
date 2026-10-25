@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "#G#",
+    "GGG",
+    "#G#"
+  ],
+  "key": {
+    "#": {
+      "item": "tinker_foundry:seared_brick"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:seared_fuel_gauge"
+  }
+}

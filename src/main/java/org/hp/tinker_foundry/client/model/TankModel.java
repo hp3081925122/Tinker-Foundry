@@ -4,8 +4,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -19,28 +22,29 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
+import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.client.resources.model.ModelState;
 import net.minecraft.client.resources.model.SimpleBakedModel;
+import net.minecraft.client.resources.model.UnbakedModel;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.client.RenderTypeGroup;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.client.model.CompositeModel;
-import net.neoforged.neoforge.client.model.QuadTransformers;
-import net.neoforged.neoforge.client.model.geometry.IGeometryBakingContext;
-import net.neoforged.neoforge.client.model.geometry.IGeometryLoader;
-import net.neoforged.neoforge.client.model.geometry.IUnbakedGeometry;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import net.minecraftforge.client.RenderTypeGroup;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.client.model.CompositeModel;
+import net.minecraftforge.client.model.QuadTransformers;
+import net.minecraftforge.client.model.IQuadTransformer;
+import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
+import net.minecraftforge.client.model.geometry.IGeometryLoader;
+import net.minecraftforge.client.model.geometry.IUnbakedGeometry;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import org.hp.tinker_foundry.item.FoundryTankItem;
-import org.joml.Vector3f;
+import com.mojang.math.Vector3f;
 import org.jetbrains.annotations.Nullable;
 
 /** 复刻匠魂储液罐的静态模型、库存模型和物品动态流体层。 */
@@ -69,26 +73,27 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
         this.increments = increments;
     }
 
-    /** 让模型自身和库存模型解析普通父模型。 */
     @Override
-    public void resolveParents(Function<ResourceLocation, net.minecraft.client.resources.model.UnbakedModel> modelGetter,
-                               IGeometryBakingContext context) {
-        model.resolveParents(modelGetter);
+    public Collection<Material> getMaterials(IGeometryBakingContext context,
+                                             Function<ResourceLocation, UnbakedModel> modelGetter,
+                                             java.util.Set<Pair<String, String>> missingTextureErrors) {
+        Collection<Material> materials = new ArrayList<>(model.getMaterials(modelGetter, missingTextureErrors));
         if (gui != null) {
-            gui.resolveParents(modelGetter);
+            materials.addAll(gui.getMaterials(modelGetter, missingTextureErrors));
         }
+        return materials;
     }
 
     /** 烘焙静态罐体，并挂接读取物品流体能力的动态覆盖。 */
     @Override
-    public BakedModel bake(IGeometryBakingContext context, ModelBaker baker,
+    public BakedModel bake(IGeometryBakingContext context, ModelBakery baker,
                            Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState,
-                           ItemOverrides overrides) {
-        BakedModel base = bakeLayer(context, model, spriteGetter, modelState, ItemOverrides.EMPTY);
-        BakedModel guiModel = gui == null ? base : bakeLayer(context, gui, spriteGetter, modelState, ItemOverrides.EMPTY);
+                           ItemOverrides overrides, ResourceLocation modelLocation) {
+        BakedModel base = bakeLayer(context, model, spriteGetter, modelState, ItemOverrides.EMPTY, modelLocation);
+        BakedModel guiModel = gui == null ? base : bakeLayer(context, gui, spriteGetter, modelState, ItemOverrides.EMPTY, modelLocation);
         FluidOverrides fluidOverrides = new FluidOverrides();
         Baked baked = new Baked(context, baker, spriteGetter, modelState, base, guiModel,
-            fluidOverrides, ImmutableMap.of("base", base), ImmutableList.of(base));
+            fluidOverrides, ImmutableMap.of("base", base), ImmutableList.of(base), modelLocation);
         fluidOverrides.owner = baked;
         return baked;
     }
@@ -96,7 +101,7 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
     /** 使用外层方块模型的纹理别名烘焙一层，避免父模板丢失子模型的 side 和 top。 */
     private BakedModel bakeLayer(IGeometryBakingContext context, BlockModel source,
                                  Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState,
-                                 ItemOverrides overrides) {
+                                 ItemOverrides overrides, ResourceLocation modelLocation) {
         TextureAtlasSprite particle = spriteGetter.apply(context.getMaterial("particle"));
         SimpleBakedModel.Builder builder = new SimpleBakedModel.Builder(
             context.useAmbientOcclusion(), context.useBlockLight(), context.isGui3d(),
@@ -105,12 +110,12 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
             for (Map.Entry<Direction, BlockElementFace> entry : element.faces.entrySet()) {
                 Direction direction = entry.getKey();
                 BlockElementFace face = entry.getValue();
-                TextureAtlasSprite sprite = spriteGetter.apply(context.getMaterial(face.texture()));
-                var quad = BlockModel.bakeFace(element, face, sprite, direction, modelState);
-                if (face.cullForDirection() == null) {
+                TextureAtlasSprite sprite = spriteGetter.apply(context.getMaterial(face.texture));
+                var quad = BlockModel.bakeFace(element, face, sprite, direction, modelState, modelLocation);
+                if (face.cullForDirection == null) {
                     builder.addUnculledFace(quad);
                 } else {
-                    builder.addCulledFace(Direction.rotate(modelState.getRotation().getMatrix(), face.cullForDirection()), quad);
+                    builder.addCulledFace(Direction.rotate(modelState.getRotation().getMatrix(), face.cullForDirection), quad);
                 }
             }
         }
@@ -184,7 +189,7 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
         /** 当前储液罐几何定义。 */
         private final IGeometryBakingContext context;
         /** 用于动态流体纹理的模型烘焙器。 */
-        private final ModelBaker baker;
+        private final ModelBakery baker;
         /** 用于解析流体纹理材质的纹理函数。 */
         private final Function<Material, TextureAtlasSprite> spriteGetter;
         /** 当前方块或物品变换。 */
@@ -193,14 +198,17 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
         private final BakedModel guiModel;
         /** 当前模型中的静态主体层。 */
         private final BakedModel baseModel;
+        /** 当前模型资源位置，供 Forge 1.20.1 面烘焙 API 记录来源。 */
+        private final ResourceLocation modelLocation;
         /** 已按流体类型和液面高度缓存的动态模型。 */
         private final Map<FluidKey, BakedModel> fluidModels = new HashMap<>();
 
         /** 创建一个静态或动态储液罐烘焙模型。 */
-        private Baked(IGeometryBakingContext context, ModelBaker baker,
+        private Baked(IGeometryBakingContext context, ModelBakery baker,
                       Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState,
                       BakedModel baseModel, BakedModel guiModel, ItemOverrides overrides,
-                      ImmutableMap<String, BakedModel> children, ImmutableList<BakedModel> itemPasses) {
+                      ImmutableMap<String, BakedModel> children, ImmutableList<BakedModel> itemPasses,
+                      ResourceLocation modelLocation) {
             super(context.isGui3d(), context.useBlockLight(), context.useAmbientOcclusion(),
                 baseModel.getParticleIcon(), context.getTransforms(), overrides, children, itemPasses);
             this.context = context;
@@ -209,12 +217,13 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
             this.modelState = modelState;
             this.guiModel = guiModel;
             this.baseModel = baseModel;
+            this.modelLocation = modelLocation;
         }
 
         /** 在物品栏变换阶段切换到匠魂同样的简化 GUI 模型。 */
         @Override
-        public BakedModel applyTransform(ItemDisplayContext displayContext, PoseStack poseStack, boolean leftHand) {
-            if (displayContext == ItemDisplayContext.GUI) {
+        public BakedModel applyTransform(ItemTransforms.TransformType displayContext, PoseStack poseStack, boolean leftHand) {
+            if (displayContext == ItemTransforms.TransformType.GUI) {
                 return guiModel.applyTransform(displayContext, poseStack, leftHand);
             }
             getTransforms().getTransform(displayContext).apply(leftHand, poseStack);
@@ -232,12 +241,12 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
         private BakedModel bakeFluidModel(FluidStack fluid, int level) {
             BakedModel baseLayer = getBaseLayer();
             BakedModel guiLayer = getGuiLayer();
-            BakedModel fluidLayer = bakeFluidLayer(fluid, level, modelState, context.isGui3d());
-            BakedModel guiFluidLayer = bakeFluidLayer(fluid, level, modelState, context.isGui3d());
+            BakedModel fluidLayer = bakeFluidLayer(fluid, level, modelState, context.isGui3d(), modelLocation);
+            BakedModel guiFluidLayer = bakeFluidLayer(fluid, level, modelState, context.isGui3d(), modelLocation);
             BakedModel guiComposite = composite(context, guiLayer, guiFluidLayer);
             return new Baked(context, baker, spriteGetter, modelState, baseLayer, guiComposite,
                 ItemOverrides.EMPTY, ImmutableMap.of("base", baseLayer, "fluid", fluidLayer),
-                ImmutableList.of(baseLayer, fluidLayer));
+                ImmutableList.of(baseLayer, fluidLayer), modelLocation);
         }
 
         /** 返回静态模型层，供动态模型复用。 */
@@ -264,15 +273,16 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
         }
 
         /** 按液面高度构造六面流体体积，并应用流体颜色和发光等级。 */
-        private BakedModel bakeFluidLayer(FluidStack fluid, int level, ModelState state, boolean gui3d) {
+        private BakedModel bakeFluidLayer(FluidStack fluid, int level, ModelState state, boolean gui3d,
+                                          ResourceLocation modelLocation) {
             IClientFluidTypeExtensions extensions = IClientFluidTypeExtensions.of(fluid.getFluid());
             TextureAtlasSprite sprite = spriteGetter.apply(new Material(TextureAtlas.LOCATION_BLOCKS,
                 extensions.getStillTexture(fluid)));
-            float maxY = fluidFrom.y + (fluidTo.y - fluidFrom.y) * level / (float) increments;
-            Vector3f from = new Vector3f(fluidFrom.x, fluidFrom.y, fluidFrom.z);
-            Vector3f to = new Vector3f(fluidTo.x, maxY, fluidTo.z);
+            float maxY = fluidFrom.y() + (fluidTo.y() - fluidFrom.y()) * level / (float) increments;
+            Vector3f from = new Vector3f(fluidFrom.x(), fluidFrom.y(), fluidFrom.z());
+            Vector3f to = new Vector3f(fluidTo.x(), maxY, fluidTo.z());
             BlockElement element = fluidElement(from, to);
-            net.neoforged.neoforge.client.model.IModelBuilder<?> builder = net.neoforged.neoforge.client.model.IModelBuilder.of(
+            net.minecraftforge.client.model.IModelBuilder<?> builder = net.minecraftforge.client.model.IModelBuilder.of(
                 context.useAmbientOcclusion(), context.useBlockLight(), gui3d, context.getTransforms(),
                 ItemOverrides.EMPTY, sprite, getRenderTypes());
             int tint = extensions.getTintColor(fluid);
@@ -281,9 +291,12 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
                 if (face == null) {
                     continue;
                 }
-                var quad = BlockModel.bakeFace(element, face, sprite, direction, state);
-                QuadTransformers.applyingColor(tint).processInPlace(quad);
-                int light = Math.min(15, fluid.getFluidType().getLightLevel(fluid));
+                var quad = BlockModel.bakeFace(element, face, sprite, direction, state, modelLocation);
+                int[] vertices = quad.getVertices();
+                for (int vertex = 0; vertex < 4; vertex++) {
+                    vertices[vertex * IQuadTransformer.STRIDE + IQuadTransformer.COLOR] = tint;
+                }
+                int light = Math.min(15, fluid.getFluid().getFluidType().getLightLevel(fluid));
                 if (light > 0) {
                     QuadTransformers.settingEmissivity(light).processInPlace(quad);
                 }
@@ -309,40 +322,40 @@ public final class TankModel implements IUnbakedGeometry<TankModel> {
             float v2;
             switch (direction) {
                 case DOWN -> {
-                    u1 = from.x;
-                    v1 = 16.0F - to.z;
-                    u2 = to.x;
-                    v2 = 16.0F - from.z;
+                    u1 = from.x();
+                    v1 = 16.0F - to.z();
+                    u2 = to.x();
+                    v2 = 16.0F - from.z();
                 }
                 case UP -> {
-                    u1 = from.x;
-                    v1 = from.z;
-                    u2 = to.x;
-                    v2 = to.z;
+                    u1 = from.x();
+                    v1 = from.z();
+                    u2 = to.x();
+                    v2 = to.z();
                 }
                 case NORTH -> {
-                    u1 = 16.0F - to.x;
-                    v1 = 16.0F - to.y;
-                    u2 = 16.0F - from.x;
-                    v2 = 16.0F - from.y;
+                    u1 = 16.0F - to.x();
+                    v1 = 16.0F - to.y();
+                    u2 = 16.0F - from.x();
+                    v2 = 16.0F - from.y();
                 }
                 case SOUTH -> {
-                    u1 = from.x;
-                    v1 = 16.0F - to.y;
-                    u2 = to.x;
-                    v2 = 16.0F - from.y;
+                    u1 = from.x();
+                    v1 = 16.0F - to.y();
+                    u2 = to.x();
+                    v2 = 16.0F - from.y();
                 }
                 case WEST -> {
-                    u1 = from.z;
-                    v1 = 16.0F - to.y;
-                    u2 = to.z;
-                    v2 = 16.0F - from.y;
+                    u1 = from.z();
+                    v1 = 16.0F - to.y();
+                    u2 = to.z();
+                    v2 = 16.0F - from.y();
                 }
                 case EAST -> {
-                    u1 = 16.0F - to.z;
-                    v1 = 16.0F - to.y;
-                    u2 = 16.0F - from.z;
-                    v2 = 16.0F - from.y;
+                    u1 = 16.0F - to.z();
+                    v1 = 16.0F - to.y();
+                    u2 = 16.0F - from.z();
+                    v2 = 16.0F - from.y();
                 }
                 default -> throw new IllegalStateException("Unexpected fluid direction: " + direction);
             }

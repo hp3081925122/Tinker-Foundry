@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "#Q#",
+    "QQQ",
+    "#Q#"
+  ],
+  "key": {
+    "#": {
+      "item": "tinker_foundry:scorched_brick"
+    },
+    "Q": {
+      "item": "minecraft:quartz"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:scorched_fuel_gauge"
+  }
+}

@@ -1,7 +1,7 @@
 package org.hp.tinker_foundry.common;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.AreaEffectCloud;
@@ -13,9 +13,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.registry.TFBlocks;
 import org.hp.tinker_foundry.registry.TFItems;
@@ -84,7 +87,7 @@ public final class FoundryFluidCannonEffects {
             // 岩浆效果对应匠魂的破坏衰减爆炸，同时允许在爆炸范围内生成火焰。
             Vec3 location = hit.getLocation();
             level.explode(null, location.x(), location.y(), location.z(), 0.5F + 0.5F * power,
-                true, Level.ExplosionInteraction.BLOCK);
+                true, Explosion.BlockInteraction.DESTROY);
             changed = true;
         } else if (path.equals("molten_emerald") || path.equals("molten_diamond")) {
             // 宝石熔液按原版硬度比例检查，不直接破坏不可破坏方块。
@@ -97,11 +100,11 @@ public final class FoundryFluidCannonEffects {
                 ? TFItems.SCORCHED_BRICK.get() : path.equals("seared_stone")
                     ? TFItems.SEARED_BRICK.get() : net.minecraft.world.item.Items.BRICK);
             if (power < 2.0F) {
-                if (placeState.canBeReplaced()) {
+                if (placeState.canBeReplaced(Fluids.EMPTY)) {
                     Block.popResource(level, placePos, brick);
                     changed = true;
                 }
-            } else if (placeState.canBeReplaced()) {
+            } else if (placeState.canBeReplaced(Fluids.EMPTY)) {
                 BlockState output = path.equals("scorched_stone")
                     ? TFBlocks.SCORCHED_BRICKS_SLAB.get().defaultBlockState()
                     : path.equals("seared_stone")
@@ -111,7 +114,7 @@ public final class FoundryFluidCannonEffects {
             }
         } else if (path.equals("molten_glass") || path.equals("liquid_soul")) {
             // 玻璃缩放效果在一级生成薄片，在更高等级才生成完整方块。
-            if (placeState.canBeReplaced()) {
+            if (placeState.canBeReplaced(Fluids.EMPTY)) {
                 BlockState output;
                 if (path.equals("liquid_soul")) {
                     output = power >= 4.0F ? TFBlocks.SEARED_SOUL_GLASS.get().defaultBlockState()
@@ -124,7 +127,7 @@ public final class FoundryFluidCannonEffects {
             }
         } else if (path.equals("blazing_blood")) {
             // 本项目没有 tconstruct:glow 方块，使用已有发光石完成同一类可见方块效果。
-            if (placeState.canBeReplaced()) {
+            if (placeState.canBeReplaced(Fluids.EMPTY)) {
                 changed = level.setBlock(placePos, Blocks.GLOWSTONE.defaultBlockState(), 3);
             }
         } else if (path.equals("gold")) {
@@ -158,7 +161,7 @@ public final class FoundryFluidCannonEffects {
         String path = path(fluid);
         if (path.equals("magma")) {
             level.explode(null, target.getX(), target.getY(), target.getZ(), 0.5F + 0.5F * power,
-                true, Level.ExplosionInteraction.BLOCK);
+                true, Explosion.BlockInteraction.DESTROY);
             TinkerFoundry.LOGGER.debug("[fluid-cannon] entity explosion fluid={} target={} amount={} power={}",
                 path, target.getType(), cost, power);
             return cost;
@@ -191,7 +194,7 @@ public final class FoundryFluidCannonEffects {
                 default -> 2.0F;
             } * Math.max(1.0F, power);
             if (damage > 0.0F && (!living.fireImmune() || !path.equals("molten_emerald"))) {
-                changed = living.hurt(level.damageSources().inFire(), damage);
+                changed = living.hurt(DamageSource.IN_FIRE, damage);
             }
             if (path.equals("copper")) {
                 living.setAirSupply(Math.min(living.getMaxAirSupply(), living.getAirSupply() + Math.round(90.0F * power)));
@@ -265,7 +268,7 @@ public final class FoundryFluidCannonEffects {
         if (fluid.isEmpty()) {
             return "empty";
         }
-        var key = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
+        var key = Registry.FLUID.getKey(fluid.getFluid());
         return key == null ? "unknown" : key.getPath();
     }
 

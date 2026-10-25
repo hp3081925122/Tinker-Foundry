@@ -114,11 +114,13 @@ public final class FoundryFluidRenderer {
     public static void vertex(VertexConsumer consumer, PoseStack.Pose pose, float x, float y, float z,
                               float u, float v, int red, int green, int blue, int alpha, int packedLight,
                               float normalX, float normalY, float normalZ) {
-        VertexConsumer vertex = consumer.addVertex(pose, x, y, z)
-            .setColor(red, green, blue, alpha)
-            .setUv(u, v);
-        vertex.setLight(packedLight);
-        vertex.setNormal(pose, normalX, normalY, normalZ);
+        // Forge 1.20.1 使用 vertex/color/uv/uv2/normal/endVertex 链式写入，不使用 1.21 的 addVertex API。
+        consumer.vertex(pose.pose(), x, y, z)
+            .color(red, green, blue, alpha)
+            .uv(u, v)
+            .uv2(packedLight)
+            .normal(pose.normal(), normalX, normalY, normalZ)
+            .endVertex();
     }
 
     /** 防止把本地流体渲染工具误当作可实例化状态对象。 */

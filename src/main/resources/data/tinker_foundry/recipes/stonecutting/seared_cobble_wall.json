@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:stonecutting",
+  "count": 1,
+  "ingredient": {
+    "item": "tinker_foundry:seared_cobble"
+  },
+  "result": "tinker_foundry:seared_cobble_wall"
+}

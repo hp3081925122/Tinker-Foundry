@@ -1,64 +1,58 @@
 package org.hp.tinker_foundry.recipe;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Optional;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import com.google.gson.JsonObject;
+import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 流体经过可选模具冷却后产出物品。 */
-public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time,
+public record CastingRecipe(ResourceLocation id, FoundryFluidAmount fluid, Optional<Ingredient> mold, ItemStack result, int time,
                             boolean castConsumed, boolean switchSlots, boolean copyPotionContents) implements Recipe<FluidRecipeInput> {
-    /** 保留旧构造签名，默认使用可重复铸模且不切换槽位。 */
-    public CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time) {
-        this(fluid, mold, result, time, false, false, false);
+    /** 返回 Forge 1.20.1 Recipe 接口要求的配方 ID。 */
+    @Override
+    public ResourceLocation getId() {
+        return id;
     }
 
-    /** 浇注配方支持可选模具和冷却时间。 */
-    public static final MapCodec<CastingRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
-        SizedFluidIngredient.NESTED_CODEC.fieldOf("fluid").forGetter(CastingRecipe::fluid),
-        Ingredient.CODEC.optionalFieldOf("mold").forGetter(CastingRecipe::mold),
-        ItemStack.CODEC.fieldOf("result").forGetter(CastingRecipe::result),
-        Codec.INT.fieldOf("time").orElse(60).forGetter(CastingRecipe::time),
-        Codec.BOOL.optionalFieldOf("cast_consumed", false).forGetter(CastingRecipe::castConsumed),
-        Codec.BOOL.optionalFieldOf("switch_slots", false).forGetter(CastingRecipe::switchSlots),
-        Codec.BOOL.optionalFieldOf("copy_potion_contents", false).forGetter(CastingRecipe::copyPotionContents)
-    ).apply(instance, CastingRecipe::new));
+    /** 保留旧构造签名，默认使用可重复铸模且不切换槽位。 */
+    public CastingRecipe(FoundryFluidAmount fluid, Optional<Ingredient> mold, ItemStack result, int time) {
+        this(runtimeId(), fluid, mold, result, time, false, false, false);
+    }
 
-    /** 客户端同步配方内容。 */
-    public static final StreamCodec<RegistryFriendlyByteBuf, CastingRecipe> STREAM_CODEC = StreamCodec.of(CastingRecipe::writeNetwork, CastingRecipe::readNetwork);
+    /** 从数据包读取浇注配方。 */
+    public static CastingRecipe fromJson(ResourceLocation id, JsonObject json) {
+        Optional<Ingredient> mold = json.has("mold") ? Optional.of(Ingredient.fromJson(json.get("mold"))) : Optional.empty();
+        return new CastingRecipe(id, FoundryFluidAmount.fromJson(json.getAsJsonObject("fluid")), mold,
+            FoundryRecipeData.item(json.getAsJsonObject("result")), json.has("time") ? json.get("time").getAsInt() : 60,
+            json.has("cast_consumed") && json.get("cast_consumed").getAsBoolean(),
+            json.has("switch_slots") && json.get("switch_slots").getAsBoolean(),
+            json.has("copy_potion_contents") && json.get("copy_potion_contents").getAsBoolean());
+    }
 
     /** 从网络读取浇注配方。 */
-    private static CastingRecipe readNetwork(RegistryFriendlyByteBuf buffer) {
-        return new CastingRecipe(
-            SizedFluidIngredient.STREAM_CODEC.decode(buffer),
-            ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).decode(buffer),
-            ItemStack.STREAM_CODEC.decode(buffer),
-            buffer.readVarInt(),
-            buffer.readBoolean(),
-            buffer.readBoolean(),
-            buffer.readBoolean()
-        );
+    public static CastingRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
+        Optional<Ingredient> mold = buffer.readBoolean() ? Optional.of(Ingredient.fromNetwork(buffer)) : Optional.empty();
+        return new CastingRecipe(id, FoundryFluidAmount.fromNetwork(buffer), mold, buffer.readItem(), buffer.readVarInt(),
+            buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean());
     }
 
     /** 向网络写入浇注配方。 */
-    private static void writeNetwork(RegistryFriendlyByteBuf buffer, CastingRecipe recipe) {
-        SizedFluidIngredient.STREAM_CODEC.encode(buffer, recipe.fluid);
-        ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).encode(buffer, recipe.mold);
-        ItemStack.STREAM_CODEC.encode(buffer, recipe.result);
+    public static void toNetwork(FriendlyByteBuf buffer, CastingRecipe recipe) {
+        buffer.writeBoolean(recipe.mold.isPresent());
+        recipe.mold.ifPresent(value -> value.toNetwork(buffer));
+        recipe.fluid.toNetwork(buffer);
+        buffer.writeItem(recipe.result);
         buffer.writeVarInt(recipe.time);
         buffer.writeBoolean(recipe.castConsumed);
         buffer.writeBoolean(recipe.switchSlots);
@@ -68,24 +62,26 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
     /** 校验流体和可选模具。 */
     @Override
     public boolean matches(FluidRecipeInput input, Level level) {
-        // 浇注盆只匹配无模具配方，浇注台只匹配有模具配方，避免两个设备互相抢配方。
-        if (input.requireMold() != mold.isPresent()) {
-            return false;
-        }
-        // 有模具的配方必须使用对应物品，没有模具的配方只允许空物品槽。
-        boolean moldMatches = mold.map(value -> !input.item().isEmpty() && value.test(input.item())).orElse(input.item().isEmpty());
-        return !input.fluids().isEmpty() && input.fluids().get(0).getAmount() >= fluid.amount() && fluid.test(input.fluids().get(0)) && moldMatches;
+        if (input.requireMold() != mold.isPresent()) return false;
+        boolean moldMatches = mold.map(value -> !input.getItem(0).isEmpty() && value.test(input.getItem(0))).orElse(input.getItem(0).isEmpty());
+        return !input.fluids().isEmpty() && fluid.test(input.fluids().get(0)) && moldMatches;
     }
 
-    /** 返回浇注物品副本。 */
+    /** 返回浇注物品副本，并保留旧版流体附加 NBT 的移交语义。 */
     @Override
-    public ItemStack assemble(FluidRecipeInput input, HolderLookup.Provider registries) {
-        // 药水浇注需要把流体携带的药水内容复制到瓶子，普通浇注仍只返回固定结果。
+    public ItemStack assemble(FluidRecipeInput input) {
         ItemStack assembled = result.copy();
-        if (copyPotionContents && !input.fluids().isEmpty()) {
-            var potionContents = input.fluids().get(0).get(DataComponents.POTION_CONTENTS);
-            if (potionContents != null) {
-                assembled.set(DataComponents.POTION_CONTENTS, potionContents);
+        if (copyPotionContents && !input.fluids().isEmpty() && input.fluids().get(0).hasTag()) {
+            CompoundTag fluidTag = input.fluids().get(0).getTag();
+            CompoundTag itemTag = assembled.getOrCreateTag();
+            if (fluidTag.contains("Potion", Tag.TAG_STRING)) {
+                itemTag.putString("Potion", fluidTag.getString("Potion"));
+            }
+            if (fluidTag.contains("CustomPotionColor", Tag.TAG_INT)) {
+                itemTag.putInt("CustomPotionColor", fluidTag.getInt("CustomPotionColor"));
+            }
+            if (fluidTag.contains("CustomPotionEffects", Tag.TAG_LIST)) {
+                itemTag.put("CustomPotionEffects", fluidTag.get("CustomPotionEffects").copy());
             }
         }
         return assembled;
@@ -99,11 +95,11 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
 
     /** 返回浇注结果。 */
     @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
+    public ItemStack getResultItem() {
         return result.copy();
     }
 
-    /** 浇注配方不进入原版配方书，交由冶炼界面或 JEI 展示。 */
+    /** 浇注配方不进入原版配方书。 */
     @Override
     public boolean isSpecial() {
         return true;
@@ -119,5 +115,10 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
     @Override
     public RecipeType<?> getType() {
         return TFRecipes.CASTING.get();
+    }
+
+    /** 旧构造使用的稳定内部 ID。 */
+    private static ResourceLocation runtimeId() {
+        return new ResourceLocation(TinkerFoundry.MOD_ID, "casting/runtime");
     }
 }

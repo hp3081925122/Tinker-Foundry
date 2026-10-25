@@ -1,0 +1,12 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/ravager_strength",
+  "result": {
+    "id": "tinker_foundry:potion",
+    "amount": 50,
+    "tag": {
+      "Potion": "minecraft:strength"
+    }
+  },
+  "damage": 4
+}

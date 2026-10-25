@@ -2,7 +2,7 @@ package org.hp.tinker_foundry.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
+import com.mojang.math.Vector3f;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -10,8 +10,8 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.InventoryMenu;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.entity.FoundryFluidCannonProjectile;
 
 /** 流体炮弹体渲染器，使用本地流体面片替代 Mantle 的 FluidEffectProjectileRenderer。 */
@@ -39,8 +39,8 @@ public final class FoundryFluidCannonProjectileRenderer extends EntityRenderer<F
             poseStack.pushPose();
             // 采用匠魂 FluidEffectProjectileRenderer 的旋转顺序，使六段流体弹朝向速度向量。
             poseStack.translate(0.0D, 0.15D, 0.0D);
-            poseStack.mulPose(Axis.YP.rotationDegrees(yRotation - 90.0F));
-            poseStack.mulPose(Axis.ZP.rotationDegrees(xRotation));
+            poseStack.mulPose(Vector3f.YP.rotationDegrees(yRotation - 90.0F));
+            poseStack.mulPose(Vector3f.ZP.rotationDegrees(xRotation));
             VertexConsumer consumer = FoundryFluidRenderer.solidConsumer(buffer);
             drawSegment(poseStack, consumer, sprite, -0.25F, 0.0F, 0.0F, -0.125F, 0.125F, 0.125F,
                 tint, brightness);

@@ -1,6 +1,5 @@
 package org.hp.tinker_foundry.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -18,14 +17,11 @@ public final class FoundryAlloyerBlock extends FoundryMachineBlock {
     /** 下方存在合法燃料来源时的形成状态。 */
     public static final BooleanProperty IN_STRUCTURE = BooleanProperty.create("in_structure");
     /** 使用当前版本方块状态的编解码器。 */
-    public static final MapCodec<FoundryAlloyerBlock> CODEC = simpleCodec(FoundryAlloyerBlock::new);
-
     /** 创建带微型结构状态的合金炉。 */
     public FoundryAlloyerBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH).setValue(ACTIVE, false).setValue(IN_STRUCTURE, false));
-    }
-
+}
     /** 将合金炉的形成状态加入继承的设备方块状态。 */
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
@@ -57,7 +53,7 @@ public final class FoundryAlloyerBlock extends FoundryMachineBlock {
 
     /** 任意非下方邻居变化都会使输入储罐缓存失效，下方变化还会触发结构重检。 */
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
         super.neighborChanged(state, level, pos, block, fromPos, isMoving);
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof FoundryBlockEntity entity) {
             entity.markAlloyerNeighborDirty();
@@ -69,9 +65,4 @@ public final class FoundryAlloyerBlock extends FoundryMachineBlock {
         return state.is(StructureTags.FUEL_TANKS);
     }
 
-    /** 返回专用方块状态编解码器。 */
-    @Override
-    protected MapCodec<? extends net.minecraft.world.level.block.BaseEntityBlock> codec() {
-        return CODEC;
-    }
-}
+    /** 返回专用方块状态编解码器。 */}

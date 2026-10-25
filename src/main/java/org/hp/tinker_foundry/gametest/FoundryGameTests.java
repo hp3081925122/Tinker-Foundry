@@ -2,24 +2,24 @@ package org.hp.tinker_foundry.gametest;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import com.mojang.serialization.JsonOps;
 import java.util.List;
+import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.block.FoundryControllerBlock;
@@ -29,6 +29,7 @@ import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.recipe.AlloyingRecipe;
 import org.hp.tinker_foundry.recipe.FluidRecipeInput;
 import org.hp.tinker_foundry.recipe.MeltingRecipe;
+import org.hp.tinker_foundry.recipe.OreMeltingRecipe;
 import org.hp.tinker_foundry.multiblock.FoundryMultiblock;
 import org.hp.tinker_foundry.multiblock.SmelteryMultiblock;
 import org.hp.tinker_foundry.multiblock.StructureErrorReason;
@@ -42,6 +43,27 @@ import org.hp.tinker_foundry.registry.TFRecipes;
 @GameTestHolder(TinkerFoundry.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class FoundryGameTests {
+    // 统一通过 1.20.1 Forge 的基础方块实体返回值完成类型校验。
+    private static FoundryBlockEntity getFoundryBlockEntity(GameTestHelper helper, BlockPos pos) {
+        net.minecraft.world.level.block.entity.BlockEntity blockEntity = helper.getBlockEntity(pos);
+        assertTrue(helper, blockEntity instanceof FoundryBlockEntity,
+            "expected FoundryBlockEntity at " + pos);
+        return (FoundryBlockEntity) blockEntity;
+    }
+
+    private static void assertTrue(GameTestHelper helper, boolean condition, String message) {
+        if (!condition) helper.fail(message);
+    }
+
+    private static void assertFalse(GameTestHelper helper, boolean condition, String message) {
+        assertTrue(helper, !condition, message);
+    }
+
+    // 兼容 1.20.1 Forge 没有 assertValueEqual 的 GameTestHelper API。
+    private static void assertValueEqual(GameTestHelper helper, Object actual, Object expected, String message) {
+        assertTrue(helper, Objects.equals(actual, expected),
+            message + " (expected=" + expected + ", actual=" + actual + ")");
+    }
     /** 使用原版稳定存在的空结构作为测试容器，测试体在运行时放置自己的方块。 */
     private static final String VANILLA_EMPTY_TEMPLATE = "bastion/blocks/air";
 
@@ -58,8 +80,8 @@ public final class FoundryGameTests {
         helper.setBlock(scorchedPos, TFBlocks.SCORCHED_LADDER.get().defaultBlockState().setValue(net.minecraft.world.level.block.LadderBlock.FACING, Direction.NORTH));
 
         // NeoForge 1.21.1 的默认梯子判定通过 minecraft:climbable 标签识别方块。
-        helper.assertTrue(helper.getBlockState(searedPos).is(BlockTags.CLIMBABLE), "seared ladder is not climbable");
-        helper.assertTrue(helper.getBlockState(scorchedPos).is(BlockTags.CLIMBABLE), "scorched ladder is not climbable");
+        assertTrue(helper, helper.getBlockState(searedPos).is(BlockTags.CLIMBABLE), "seared ladder is not climbable");
+        assertTrue(helper, helper.getBlockState(scorchedPos).is(BlockTags.CLIMBABLE), "scorched ladder is not climbable");
         helper.succeed();
     }
 
@@ -82,26 +104,26 @@ public final class FoundryGameTests {
             .setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
 
         // 三类真正的设备使用专用界面分类，其余方块必须返回无界面分类。
-        FoundryBlockEntity melter = helper.getBlockEntity(melterPos);
-        FoundryBlockEntity heater = helper.getBlockEntity(heaterPos);
-        FoundryBlockEntity alloyer = helper.getBlockEntity(alloyerPos);
-        FoundryBlockEntity table = helper.getBlockEntity(tablePos);
-        FoundryBlockEntity tank = helper.getBlockEntity(tankPos);
-        FoundryBlockEntity gauge = helper.getBlockEntity(gaugePos);
-        helper.assertTrue(melter.hasMenuScreen(), "melter should have a menu screen");
-        helper.assertTrue(heater.hasMenuScreen(), "heater should have a menu screen");
-        helper.assertTrue(alloyer.hasMenuScreen(), "alloyer should have a menu screen");
-        helper.assertValueEqual(melter.screenKind(), 0, "melter screen kind");
-        helper.assertValueEqual(heater.screenKind(), 2, "heater screen kind");
-        helper.assertValueEqual(alloyer.screenKind(), 1, "alloyer screen kind");
-        helper.assertFalse(table.hasMenuScreen(), "casting table should not have a menu screen");
-        helper.assertFalse(tank.hasMenuScreen(), "tank should not have a menu screen");
-        helper.assertFalse(gauge.hasMenuScreen(), "fluid gauge should not have a menu screen");
+        FoundryBlockEntity melter = getFoundryBlockEntity(helper, melterPos);
+        FoundryBlockEntity heater = getFoundryBlockEntity(helper, heaterPos);
+        FoundryBlockEntity alloyer = getFoundryBlockEntity(helper, alloyerPos);
+        FoundryBlockEntity table = getFoundryBlockEntity(helper, tablePos);
+        FoundryBlockEntity tank = getFoundryBlockEntity(helper, tankPos);
+        FoundryBlockEntity gauge = getFoundryBlockEntity(helper, gaugePos);
+        assertTrue(helper, melter.hasMenuScreen(), "melter should have a menu screen");
+        assertTrue(helper, heater.hasMenuScreen(), "heater should have a menu screen");
+        assertTrue(helper, alloyer.hasMenuScreen(), "alloyer should have a menu screen");
+        assertValueEqual(helper, melter.screenKind(), 0, "melter screen kind");
+        assertValueEqual(helper, heater.screenKind(), 2, "heater screen kind");
+        assertValueEqual(helper, alloyer.screenKind(), 1, "alloyer screen kind");
+        assertFalse(helper, table.hasMenuScreen(), "casting table should not have a menu screen");
+        assertFalse(helper, tank.hasMenuScreen(), "tank should not have a menu screen");
+        assertFalse(helper, gauge.hasMenuScreen(), "fluid gauge should not have a menu screen");
         // 流体计朝向东侧时读取西侧储罐，并且只保留贴壁薄片碰撞箱。
-        helper.assertTrue(helper.getBlockState(gaugePos).canSurvive(
+        assertTrue(helper, helper.getBlockState(gaugePos).canSurvive(
             helper.getLevel(), helper.absolutePos(gaugePos)),
             "fluid gauge should attach to the adjacent tank");
-        helper.assertValueEqual(gauge.getDisplayCapacity(), tank.getTankCapacity(0),
+        assertValueEqual(helper, gauge.getDisplayCapacity(), tank.getTankCapacity(0),
             "fluid gauge should read the attached tank capacity");
         helper.succeed();
     }
@@ -113,16 +135,16 @@ public final class FoundryGameTests {
         BlockPos pos = BlockPos.ZERO;
         helper.setBlock(pos, TFBlocks.SEARED_MELTER.get());
         helper.assertBlockPresent(TFBlocks.SEARED_MELTER.get(), pos);
-        FoundryBlockEntity entity = helper.getBlockEntity(pos);
+        FoundryBlockEntity entity = getFoundryBlockEntity(helper, pos);
 
         // 执行注入后检查容量、流体数量和不同流体之间的匹配限制。
-        FluidStack cobalt = new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 1200);
+        FluidStack cobalt = new FluidStack(TFFluids.metal("cobalt"), 1200);
         int accepted = entity.fill(cobalt, FluidAction.EXECUTE);
-        helper.assertValueEqual(accepted, 1200, "accepted preserved fluid amount");
-        helper.assertValueEqual(entity.getFluidInTank(0).getAmount(), 1200, "stored preserved fluid amount");
-        helper.assertValueEqual(entity.getTankCapacity(0), FoundryBlockEntity.DEFAULT_CAPACITY, "melter capacity");
-        helper.assertValueEqual(entity.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 4000), FluidAction.SIMULATE), 2800, "remaining capacity");
-        helper.assertValueEqual(entity.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 1), FluidAction.SIMULATE), 0, "different fluid rejection");
+        assertValueEqual(helper, accepted, 1200, "accepted preserved fluid amount");
+        assertValueEqual(helper, entity.getFluidInTank(0).getAmount(), 1200, "stored preserved fluid amount");
+        assertValueEqual(helper, entity.getTankCapacity(0), FoundryBlockEntity.DEFAULT_CAPACITY, "melter capacity");
+        assertValueEqual(helper, entity.fill(new FluidStack(TFFluids.metal("cobalt"), 4000), FluidAction.SIMULATE), 2800, "remaining capacity");
+        assertValueEqual(helper, entity.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 1), FluidAction.SIMULATE), 0, "different fluid rejection");
         helper.succeed();
     }
 
@@ -132,20 +154,46 @@ public final class FoundryGameTests {
         // 构造一个仅用于验证 Codec 的最小熔炼配方，不写入或修改运行时配方注册表。
         MeltingRecipe expected = new MeltingRecipe(
             Ingredient.of(Items.IRON_INGOT),
-            new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.INGOT),
+            new FluidStack(TFFluids.metal("cobalt"), FluidValues.INGOT),
             1000,
             60
         );
-        RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, helper.getLevel().registryAccess());
+        // 1.20.1 Forge 通过已注册序列化器的 JSON 入口读取配方，不使用 1.21 的 Codec。
+        JsonElement encoded = JsonParser.parseString("""
+            {
+              "ingredient": {"item": "minecraft:iron_ingot"},
+              "result": {"id": "tinker_foundry:molten/cobalt", "amount": 144},
+              "temperature": 1000,
+              "time": 60
+            }
+            """);
+        MeltingRecipe decoded = MeltingRecipe.fromJson(
+            new ResourceLocation(TinkerFoundry.MOD_ID, "gametest/melting"), encoded.getAsJsonObject());
+        assertTrue(helper, decoded.ingredient().test(new ItemStack(Items.IRON_INGOT)), "decoded ingredient does not match");
+        assertValueEqual(helper, decoded.result().getAmount(), FluidValues.INGOT, "decoded fluid amount");
+        assertTrue(helper, decoded.result().getFluid() == TFFluids.metal("cobalt"), "decoded fluid does not match preserved fluid");
+        assertValueEqual(helper, decoded.temperature(), expected.temperature(), "decoded temperature");
+        assertValueEqual(helper, decoded.time(), expected.time(), "decoded processing time");
+        helper.succeed();
+    }
 
-        // 使用当前世界的注册表上下文编码和解码，确保自定义流体不会退化成未注册值。
-        JsonElement encoded = MeltingRecipe.CODEC.codec().encodeStart(ops, expected).getOrThrow();
-        MeltingRecipe decoded = MeltingRecipe.CODEC.codec().parse(ops, encoded).getOrThrow();
-        helper.assertTrue(decoded.ingredient().test(new ItemStack(Items.IRON_INGOT)), "decoded ingredient does not match");
-        helper.assertValueEqual(decoded.result().getAmount(), FluidValues.INGOT, "decoded fluid amount");
-        helper.assertTrue(decoded.result().is(TFFluids.EXTRA_SOURCES.get("cobalt").get()), "decoded fluid does not match preserved fluid");
-        helper.assertValueEqual(decoded.temperature(), expected.temperature(), "decoded temperature");
-        helper.assertValueEqual(decoded.time(), expected.time(), "decoded processing time");
+    @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 20)
+    public static void oreYieldMultiplier(GameTestHelper helper) {
+        JsonElement encoded = JsonParser.parseString("""
+            {
+              "ingredient": {"item": "minecraft:raw_iron"},
+              "result": {"id": "tinker_foundry:molten/cobalt", "amount": 90},
+              "rate": "metal",
+              "temperature": 800,
+              "byproducts": [{"result": {"id": "tinker_foundry:molten/cobalt", "amount": 90}}]
+            }
+            """);
+        OreMeltingRecipe recipe = OreMeltingRecipe.fromJson(
+            new ResourceLocation(TinkerFoundry.MOD_ID, "gametest/ore_yield"), encoded.getAsJsonObject());
+        assertTrue(helper, recipe.ingredient().test(new ItemStack(Items.RAW_IRON)), "raw iron ingredient does not match");
+        assertValueEqual(helper, recipe.output(false).getAmount(), 120, "melter metal yield multiplier");
+        assertValueEqual(helper, recipe.output(true).getAmount(), 90, "foundry metal yield multiplier");
+        assertValueEqual(helper, recipe.byproductOutputs().get(0).getAmount(), 30, "inherited metal byproduct multiplier");
         helper.succeed();
     }
 
@@ -153,8 +201,8 @@ public final class FoundryGameTests {
     @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 20)
     public static void castingAndMoldingRecipeTypesRegistered(GameTestHelper helper) {
         // 删除金属流体配方后，浇注和模具的自定义配方类型仍应保留给后续附属内容使用。
-        helper.assertTrue(TFRecipes.CASTING.get() != null, "casting recipe type is missing");
-        helper.assertTrue(TFRecipes.MOLDING.get() != null, "molding recipe type is missing");
+        assertTrue(helper, TFRecipes.CASTING.get() != null, "casting recipe type is missing");
+        assertTrue(helper, TFRecipes.MOLDING.get() != null, "molding recipe type is missing");
         helper.succeed();
     }
 
@@ -173,17 +221,17 @@ public final class FoundryGameTests {
         helper.setBlock(basinPos, TFBlocks.SEARED_BASIN.get());
 
         // 向熔炼器注入一份仍保留的副产物流体作为传输源。
-        FoundryBlockEntity source = helper.getBlockEntity(sourcePos);
-        FoundryBlockEntity basin = helper.getBlockEntity(basinPos);
-        FoundryBlockEntity faucet = helper.getBlockEntity(faucetPos);
-        source.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.BUCKET), FluidAction.EXECUTE);
+        FoundryBlockEntity source = getFoundryBlockEntity(helper, sourcePos);
+        FoundryBlockEntity basin = getFoundryBlockEntity(helper, basinPos);
+        FoundryBlockEntity faucet = getFoundryBlockEntity(helper, faucetPos);
+        source.fill(new FluidStack(TFFluids.metal("cobalt"), FluidValues.BUCKET), FluidAction.EXECUTE);
         // 浇注口不是常驻自动泵，按匠魂交互先手动启动一次，再由服务端逐 tick 输出。
         faucet.activateFaucet();
 
         // 等待传输，确认源流体被搬运到浇注盆，不再断言已经删除的金属浇注产物。
         helper.runAfterDelay(80, () -> {
-            helper.assertTrue(source.getFluidInTank(0).getAmount() < FluidValues.BUCKET, "drain did not pull source fluid");
-            helper.assertTrue(basin.getFluidInTank(0).is(TFFluids.EXTRA_SOURCES.get("cobalt").get()), "casting basin did not receive preserved fluid");
+            assertTrue(helper, source.getFluidInTank(0).getAmount() < FluidValues.BUCKET, "drain did not pull source fluid");
+            assertTrue(helper, basin.getFluidInTank(0).getFluid() == TFFluids.metal("cobalt"), "casting basin did not receive preserved fluid");
             helper.succeed();
         });
     }
@@ -199,17 +247,17 @@ public final class FoundryGameTests {
             .setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
 
         // 注入一桶仍保留的副产物流体，启动浇注口后确认源槽没有减少。
-        FoundryBlockEntity source = helper.getBlockEntity(sourcePos);
-        FoundryBlockEntity faucet = helper.getBlockEntity(faucetPos);
-        FluidStack stored = new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.BUCKET);
+        FoundryBlockEntity source = getFoundryBlockEntity(helper, sourcePos);
+        FoundryBlockEntity faucet = getFoundryBlockEntity(helper, faucetPos);
+        FluidStack stored = new FluidStack(TFFluids.metal("cobalt"), FluidValues.BUCKET);
         source.fill(stored, FluidAction.EXECUTE);
         faucet.activateFaucet();
 
         // 等待一次服务端 tick，覆盖 activateFaucet 后的实际转移路径。
         helper.runAfterDelay(5, () -> {
-            helper.assertValueEqual(source.getFluidInTank(0).getAmount(), FluidValues.BUCKET,
+            assertValueEqual(helper, source.getFluidInTank(0).getAmount(), FluidValues.BUCKET,
                 "faucet drained source without an output target");
-            helper.assertTrue(helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, faucetPos, Direction.UP) == null,
+            assertTrue(helper, !faucet.getCapability(ForgeCapabilities.FLUID_HANDLER, Direction.UP).isPresent(),
                 "faucet exposed a generic fluid handler");
             helper.succeed();
         });
@@ -237,13 +285,13 @@ public final class FoundryGameTests {
         }
         helper.setBlock(controllerPos, TFBlocks.SMELTERY_CONTROLLER.get().defaultBlockState().setValue(FoundryControllerBlock.FACING, Direction.NORTH));
         helper.setBlock(new BlockPos(1, 0, 0), TFBlocks.SEARED_FUEL_TANK.get());
-        FoundryBlockEntity controller = helper.getBlockEntity(controllerPos);
+        FoundryBlockEntity controller = getFoundryBlockEntity(helper, controllerPos);
         // 直接确认炉腔中心为空气，防止测试再次把储罐误放进官方不允许的内部区域。
-        helper.assertTrue(helper.getBlockState(new BlockPos(0, 1, 1)).isAir(), "smeltery interior must be air");
-        helper.assertTrue(SmelteryMultiblock.validate(helper.getLevel(), helper.absolutePos(controllerPos)).valid(), "variable smeltery structure was rejected");
+        assertTrue(helper, helper.getBlockState(new BlockPos(0, 1, 1)).isAir(), "smeltery interior must be air");
+        assertTrue(helper, SmelteryMultiblock.validate(helper.getLevel(), helper.absolutePos(controllerPos)).valid(), "variable smeltery structure was rejected");
         // 金属熔炼配方已按授权删除，因此这里只验证结构本身，不伪造已删除的输入和产物。
-        helper.assertValueEqual(controller.inputSlotCount(), 12, "variable smeltery input slot count");
-        helper.assertTrue(controller.isStructureValid(), "variable smeltery structure is not valid");
+        assertValueEqual(helper, controller.inputSlotCount(), 12, "variable smeltery input slot count");
+        assertTrue(helper, controller.isStructureValid(), "variable smeltery structure is not valid");
         helper.succeed();
     }
 
@@ -271,25 +319,25 @@ public final class FoundryGameTests {
 
         // 等待一次服务端结构检查，确认铸造炉容量和腔体统计已建立。
         helper.runAfterDelay(8, () -> {
-            FoundryBlockEntity controller = helper.getBlockEntity(controllerPos);
-            helper.assertTrue(controller.isStructureValid(), "variable foundry structure was rejected");
-            helper.assertTrue(controller.structureCapacity() > FoundryMultiblock.MINIMUM_CAPACITY, "foundry capacity did not use shell size");
+            FoundryBlockEntity controller = getFoundryBlockEntity(helper, controllerPos);
+            assertTrue(helper, controller.isStructureValid(), "variable foundry structure was rejected");
+            assertTrue(helper, controller.structureCapacity() > FoundryMultiblock.MINIMUM_CAPACITY, "foundry capacity did not use shell size");
             // 三乘三铸造炉的开放炉腔有上下两个内部层，输入槽数量应随结构容量变为两个。
-            helper.assertValueEqual(controller.inputSlotCount(), 2, "foundry input slot count");
+            assertValueEqual(helper, controller.inputSlotCount(), 2, "foundry input slot count");
             // 临时移除一块炉壁，确认结构变化会让控制器失效而不是继续沿用旧缓存。
             helper.setBlock(new BlockPos(-1, 1, 1), net.minecraft.world.level.block.Blocks.AIR);
             controller.markStructureDirty();
             helper.runAfterDelay(8, () -> {
-                helper.assertFalse(controller.isStructureValid(), "broken foundry structure remained valid");
-                helper.assertValueEqual(controller.structureErrorPos(), helper.absolutePos(new BlockPos(-1, 1, 1)), "foundry error position");
-                helper.assertValueEqual(controller.structureErrorReason(), StructureErrorReason.INVALID_WALL_BLOCK,
+                assertFalse(helper, controller.isStructureValid(), "broken foundry structure remained valid");
+                assertValueEqual(helper, controller.structureErrorPos(), helper.absolutePos(new BlockPos(-1, 1, 1)), "foundry error position");
+                assertValueEqual(helper, controller.structureErrorReason(), StructureErrorReason.INVALID_WALL_BLOCK,
                     "foundry error reason");
                 // 恢复炉壁后再次等待校验，确认结构可以重新激活。
                 helper.setBlock(new BlockPos(-1, 1, 1), TFBlocks.SCORCHED_BRICKS.get());
                 controller.markStructureDirty();
                 helper.runAfterDelay(8, () -> {
-                    helper.assertTrue(controller.isStructureValid(), "restored foundry structure remained invalid");
-                    helper.assertTrue(controller.structureErrorPos() == null, "restored foundry error position");
+                    assertTrue(helper, controller.isStructureValid(), "restored foundry structure remained invalid");
+                    assertTrue(helper, controller.structureErrorPos() == null, "restored foundry error position");
                     helper.succeed();
                 });
             });
@@ -308,20 +356,20 @@ public final class FoundryGameTests {
         helper.setBlock(heaterPos, TFBlocks.SEARED_HEATER.get());
         helper.setBlock(firstTankPos, TFBlocks.SEARED_INGOT_TANK.get());
         helper.setBlock(secondTankPos, TFBlocks.SEARED_INGOT_TANK.get());
-        FoundryBlockEntity alloyer = helper.getBlockEntity(alloyerPos);
-        FoundryBlockEntity heater = helper.getBlockEntity(heaterPos);
-        FoundryBlockEntity firstTank = helper.getBlockEntity(firstTankPos);
-        FoundryBlockEntity secondTank = helper.getBlockEntity(secondTankPos);
-        helper.assertValueEqual(alloyer.getTanks(), FoundryBlockEntity.MAX_ALLOY_INPUTS + 1, "alloyer tank count");
-        helper.assertValueEqual(firstTank.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 540), FluidAction.EXECUTE), 540,
+        FoundryBlockEntity alloyer = getFoundryBlockEntity(helper, alloyerPos);
+        FoundryBlockEntity heater = getFoundryBlockEntity(helper, heaterPos);
+        FoundryBlockEntity firstTank = getFoundryBlockEntity(helper, firstTankPos);
+        FoundryBlockEntity secondTank = getFoundryBlockEntity(helper, secondTankPos);
+        assertValueEqual(helper, alloyer.getTanks(), FoundryBlockEntity.MAX_ALLOY_INPUTS + 1, "alloyer tank count");
+        assertValueEqual(helper, firstTank.fill(new FluidStack(TFFluids.metal("cobalt"), 540), FluidAction.EXECUTE), 540,
             "alloyer first adjacent input amount");
-        helper.assertValueEqual(secondTank.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 180), FluidAction.EXECUTE), 180,
+        assertValueEqual(helper, secondTank.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 180), FluidAction.EXECUTE), 180,
             "alloyer second adjacent input amount");
-        helper.assertValueEqual(heater.fill(new FluidStack(Fluids.LAVA, FluidValues.BUCKET), FluidAction.EXECUTE), FluidValues.BUCKET,
+        assertValueEqual(helper, heater.fill(new FluidStack(Fluids.LAVA, FluidValues.BUCKET), FluidAction.EXECUTE), FluidValues.BUCKET,
             "alloyer lava fuel amount");
         // 合金金属配方已按授权删除，这里只确认相邻输入没有被错误吞掉。
-        helper.assertValueEqual(alloyer.getFluidInTank(0).getAmount(), 540, "alloyer first input was changed");
-        helper.assertValueEqual(alloyer.getFluidInTank(1).getAmount(), 180, "alloyer second input was changed");
+        assertValueEqual(helper, alloyer.getFluidInTank(0).getAmount(), 540, "alloyer first input was changed");
+        assertValueEqual(helper, alloyer.getFluidInTank(1).getAmount(), 180, "alloyer second input was changed");
         helper.succeed();
     }
 
@@ -329,10 +377,10 @@ public final class FoundryGameTests {
     @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 20)
     public static void originalMetalFluidRegistrations(GameTestHelper helper) {
         // 三种原有基础金属流体仍由本模组注册，供熔炼和浇注配方使用。
-        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.size() == 3, "original metal fluid registration count changed");
-        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.containsKey("iron"), "missing original iron fluid registration");
-        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.containsKey("gold"), "missing original gold fluid registration");
-        helper.assertTrue(TFFluids.ORIGINAL_SOURCES.containsKey("copper"), "missing original copper fluid registration");
+        assertTrue(helper, TFFluids.metal("iron") != net.minecraft.world.level.material.Fluids.EMPTY && TFFluids.metal("gold") != net.minecraft.world.level.material.Fluids.EMPTY && TFFluids.metal("copper") != net.minecraft.world.level.material.Fluids.EMPTY, "original metal fluid registration count changed");
+        assertTrue(helper, TFFluids.metal("iron") != net.minecraft.world.level.material.Fluids.EMPTY, "missing original iron fluid registration");
+        assertTrue(helper, TFFluids.metal("gold") != net.minecraft.world.level.material.Fluids.EMPTY, "missing original gold fluid registration");
+        assertTrue(helper, TFFluids.metal("copper") != net.minecraft.world.level.material.Fluids.EMPTY, "missing original copper fluid registration");
         helper.succeed();
     }
 
@@ -346,13 +394,13 @@ public final class FoundryGameTests {
         helper.setBlock(ingotPos, TFBlocks.SEARED_INGOT_TANK.get());
         helper.setBlock(fuelPos, TFBlocks.SEARED_FUEL_TANK.get());
         helper.setBlock(castingPos, TFBlocks.SEARED_CASTING_TANK.get());
-        FoundryBlockEntity ingotTank = helper.getBlockEntity(ingotPos);
-        FoundryBlockEntity fuelTank = helper.getBlockEntity(fuelPos);
-        FoundryBlockEntity castingTank = helper.getBlockEntity(castingPos);
-        helper.assertValueEqual(ingotTank.getTankCapacity(0), FluidValues.INGOT * 48, "ingot tank capacity");
-        helper.assertValueEqual(fuelTank.getTankCapacity(0), FoundryBlockEntity.DEFAULT_CAPACITY, "fuel tank capacity");
-        helper.assertValueEqual(castingTank.getTankCapacity(0), FluidValues.BUCKET, "casting tank capacity");
-        helper.assertValueEqual(fuelTank.fill(new FluidStack(Fluids.LAVA, FluidValues.BUCKET), FluidAction.EXECUTE), FluidValues.BUCKET,
+        FoundryBlockEntity ingotTank = getFoundryBlockEntity(helper, ingotPos);
+        FoundryBlockEntity fuelTank = getFoundryBlockEntity(helper, fuelPos);
+        FoundryBlockEntity castingTank = getFoundryBlockEntity(helper, castingPos);
+        assertValueEqual(helper, ingotTank.getTankCapacity(0), FluidValues.INGOT * 48, "ingot tank capacity");
+        assertValueEqual(helper, fuelTank.getTankCapacity(0), FoundryBlockEntity.DEFAULT_CAPACITY, "fuel tank capacity");
+        assertValueEqual(helper, castingTank.getTankCapacity(0), FluidValues.BUCKET, "casting tank capacity");
+        assertValueEqual(helper, fuelTank.fill(new FluidStack(Fluids.LAVA, FluidValues.BUCKET), FluidAction.EXECUTE), FluidValues.BUCKET,
             "fuel tank did not accept lava");
         helper.succeed();
     }
@@ -363,19 +411,19 @@ public final class FoundryGameTests {
         // 先验证空桶从浇注储液罐取出一桶原版熔岩，转换结果进入输出槽。
         BlockPos pos = BlockPos.ZERO;
         helper.setBlock(pos, TFBlocks.SEARED_CASTING_TANK.get());
-        FoundryBlockEntity tank = helper.getBlockEntity(pos);
+        FoundryBlockEntity tank = getFoundryBlockEntity(helper, pos);
         tank.fill(new FluidStack(Fluids.LAVA, FluidValues.BUCKET), FluidAction.EXECUTE);
         tank.setItem(0, new ItemStack(Items.BUCKET));
         helper.runAfterDelay(5, () -> {
-            helper.assertTrue(tank.getItem(FoundryBlockEntity.OUTPUT_SLOT).is(Items.LAVA_BUCKET),
+            assertTrue(helper, tank.getItem(FoundryBlockEntity.OUTPUT_SLOT).is(Items.LAVA_BUCKET),
                 "casting tank did not fill an empty bucket");
-            helper.assertValueEqual(tank.getFluidInTank(0).getAmount(), 0, "casting tank kept drained fluid");
+            assertValueEqual(helper, tank.getFluidInTank(0).getAmount(), 0, "casting tank kept drained fluid");
             tank.setItem(FoundryBlockEntity.OUTPUT_SLOT, ItemStack.EMPTY);
             tank.setItem(0, new ItemStack(Items.LAVA_BUCKET));
             helper.runAfterDelay(5, () -> {
-                helper.assertTrue(tank.getItem(FoundryBlockEntity.OUTPUT_SLOT).is(Items.BUCKET),
+                assertTrue(helper, tank.getItem(FoundryBlockEntity.OUTPUT_SLOT).is(Items.BUCKET),
                     "casting tank did not empty a molten bucket");
-                helper.assertValueEqual(tank.getFluidInTank(0).getAmount(), FluidValues.BUCKET,
+                assertValueEqual(helper, tank.getFluidInTank(0).getAmount(), FluidValues.BUCKET,
                     "casting tank did not receive molten bucket fluid");
                 helper.succeed();
             });
@@ -389,16 +437,16 @@ public final class FoundryGameTests {
         BlockPos pos = BlockPos.ZERO;
         ItemStack filled = new ItemStack(TFItems.SEARED_INGOT_TANK.get());
         org.hp.tinker_foundry.item.FoundryTankItem.setFluid(filled,
-            new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.INGOT));
-        helper.assertValueEqual(((org.hp.tinker_foundry.item.FoundryTankItem) filled.getItem()).getFluid(filled).getAmount(),
+            new FluidStack(TFFluids.metal("cobalt"), FluidValues.INGOT));
+        assertValueEqual(helper, ((org.hp.tinker_foundry.item.FoundryTankItem) filled.getItem()).getFluid(filled).getAmount(),
             FluidValues.INGOT, "filled tank item did not store fluid component");
         helper.setBlock(pos, TFBlocks.SEARED_INGOT_TANK.get());
         BlockPos absolutePos = helper.absolutePos(pos);
         TFBlocks.SEARED_INGOT_TANK.get().setPlacedBy(helper.getLevel(), absolutePos, helper.getLevel().getBlockState(absolutePos), null, filled);
-        FoundryBlockEntity tank = helper.getBlockEntity(pos);
-        helper.assertValueEqual(tank.getFluidInTank(0).getAmount(), FluidValues.INGOT, "filled tank lost fluid on placement");
+        FoundryBlockEntity tank = getFoundryBlockEntity(helper, pos);
+        assertValueEqual(helper, tank.getFluidInTank(0).getAmount(), FluidValues.INGOT, "filled tank lost fluid on placement");
         ItemStack clone = TFBlocks.SEARED_INGOT_TANK.get().getCloneItemStack(helper.getLevel(), absolutePos, helper.getLevel().getBlockState(absolutePos));
-        helper.assertValueEqual(((org.hp.tinker_foundry.item.FoundryTankItem) clone.getItem()).getFluid(clone).getAmount(),
+        assertValueEqual(helper, ((org.hp.tinker_foundry.item.FoundryTankItem) clone.getItem()).getFluid(clone).getAmount(),
             FluidValues.INGOT, "clone tank lost fluid component");
         helper.succeed();
     }
@@ -409,16 +457,16 @@ public final class FoundryGameTests {
         // 金属浇注配方已删除，因此直接验证未加工状态下的物品和流体存档。
         BlockPos pos = BlockPos.ZERO;
         helper.setBlock(pos, TFBlocks.SEARED_TABLE.get());
-        FoundryBlockEntity table = helper.getBlockEntity(pos);
+        FoundryBlockEntity table = getFoundryBlockEntity(helper, pos);
         table.setItem(0, new ItemStack(TFItems.COPPER_CANISTER.get()));
         table.setItem(FoundryBlockEntity.REMAINDER_SLOT, new ItemStack(TFItems.COPPER_CANISTER.get()));
-        table.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.INGOT * 2), FluidAction.EXECUTE);
-        CompoundTag saved = table.saveWithoutMetadata(helper.getLevel().registryAccess());
+        table.fill(new FluidStack(TFFluids.metal("cobalt"), FluidValues.INGOT * 2), FluidAction.EXECUTE);
+        CompoundTag saved = table.saveWithoutMetadata();
         FoundryBlockEntity restored = new FoundryBlockEntity(TFBlockEntities.GENERIC.get(), new BlockPos(4, 0, 0),
             TFBlocks.SEARED_TABLE.get().defaultBlockState());
-        restored.loadCustomOnly(saved, helper.getLevel().registryAccess());
-        helper.assertTrue(restored.getItem(FoundryBlockEntity.REMAINDER_SLOT).is(TFItems.COPPER_CANISTER.get()), "remainder changed after reload");
-        helper.assertValueEqual(restored.getFluidInTank(0).getAmount(), FluidValues.INGOT * 2, "fluid amount changed after reload");
+        restored.load(saved);
+        assertTrue(helper, restored.getItem(FoundryBlockEntity.REMAINDER_SLOT).is(TFItems.COPPER_CANISTER.get()), "remainder changed after reload");
+        assertValueEqual(helper, restored.getFluidInTank(0).getAmount(), FluidValues.INGOT * 2, "fluid amount changed after reload");
         helper.succeed();
     }
 
@@ -428,13 +476,13 @@ public final class FoundryGameTests {
         // 预先填满输出槽，设备不得在没有匹配配方时丢失流体和模具。
         BlockPos pos = BlockPos.ZERO;
         helper.setBlock(pos, TFBlocks.SEARED_TABLE.get());
-        FoundryBlockEntity table = helper.getBlockEntity(pos);
+        FoundryBlockEntity table = getFoundryBlockEntity(helper, pos);
         table.setItem(0, new ItemStack(TFItems.INGOT_CAST.get()));
         table.setItem(FoundryBlockEntity.OUTPUT_SLOT, new ItemStack(Items.IRON_INGOT, 64));
-        table.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), FluidValues.INGOT), FluidAction.EXECUTE);
-        helper.assertValueEqual(table.getFluidInTank(0).getAmount(), FluidValues.INGOT, "unmatched fluid was consumed");
-        helper.assertTrue(table.getItem(0).is(TFItems.INGOT_CAST.get()), "unmatched mold was consumed");
-        helper.assertValueEqual(table.getItem(FoundryBlockEntity.OUTPUT_SLOT).getCount(), 64, "full output stack changed");
+        table.fill(new FluidStack(TFFluids.metal("cobalt"), FluidValues.INGOT), FluidAction.EXECUTE);
+        assertValueEqual(helper, table.getFluidInTank(0).getAmount(), FluidValues.INGOT, "unmatched fluid was consumed");
+        assertTrue(helper, table.getItem(0).is(TFItems.INGOT_CAST.get()), "unmatched mold was consumed");
+        assertValueEqual(helper, table.getItem(FoundryBlockEntity.OUTPUT_SLOT).getCount(), 64, "full output stack changed");
         helper.succeed();
     }
 
@@ -445,21 +493,20 @@ public final class FoundryGameTests {
         JsonElement json = JsonParser.parseString("""
             {
               "ingredients": [
-                {"ingredient": {"fluid": "tinker_foundry:cobalt"}, "amount": 90, "catalyst": true},
+                {"ingredient": {"fluid": "tinker_foundry:molten/cobalt"}, "amount": 90, "catalyst": true},
                 {"ingredient": {"fluid": "tinker_foundry:liquid_soul"}, "amount": 90}
               ],
               "result": {"id": "tinker_foundry:venom", "amount": 180},
               "temperature": 700
             }
             """);
-        RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, helper.getLevel().registryAccess());
-
         // 解析后确认催化槽参与匹配，但该字段不会退化成物品催化剂。
-        AlloyingRecipe recipe = AlloyingRecipe.CODEC.codec().parse(ops, json).getOrThrow();
-        helper.assertValueEqual(recipe.ingredients().size(), 2, "alloy ingredient count");
-        helper.assertTrue(recipe.ingredients().get(0).catalyst(), "alloy catalyst flag was lost");
-        helper.assertTrue(recipe.matches(new FluidRecipeInput(List.of(
-            new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 90),
+        AlloyingRecipe recipe = AlloyingRecipe.fromJson(
+            new ResourceLocation(TinkerFoundry.MOD_ID, "gametest/alloying_catalyst"), json.getAsJsonObject());
+        assertValueEqual(helper, recipe.ingredients().size(), 2, "alloy ingredient count");
+        assertTrue(helper, recipe.ingredients().get(0).catalyst(), "alloy catalyst flag was lost");
+        assertTrue(helper, recipe.matches(new FluidRecipeInput(List.of(
+            new FluidStack(TFFluids.metal("cobalt"), 90),
             new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 90)
         )), helper.getLevel()), "catalyst alloy recipe does not match fluid inputs");
         helper.succeed();
@@ -472,7 +519,7 @@ public final class FoundryGameTests {
         JsonElement json = JsonParser.parseString("""
             {
               "ingredients": [
-                {"ingredient": {"fluid": "tinker_foundry:cobalt"}, "amount": 90},
+                {"ingredient": {"fluid": "tinker_foundry:molten/cobalt"}, "amount": 90},
                 {"ingredient": {"fluid": "tinker_foundry:liquid_soul"}, "amount": 90},
                 {"ingredient": {"fluid": "tinker_foundry:honey"}, "amount": 90}
               ],
@@ -480,11 +527,11 @@ public final class FoundryGameTests {
               "temperature": 900
             }
             """);
-        RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, helper.getLevel().registryAccess());
-        AlloyingRecipe recipe = AlloyingRecipe.CODEC.codec().parse(ops, json).getOrThrow();
-        helper.assertValueEqual(recipe.ingredients().size(), 3, "three-input alloy recipe was truncated");
-        helper.assertTrue(recipe.matches(new FluidRecipeInput(List.of(
-            new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 90),
+        AlloyingRecipe recipe = AlloyingRecipe.fromJson(
+            new ResourceLocation(TinkerFoundry.MOD_ID, "gametest/alloying_three_input"), json.getAsJsonObject());
+        assertValueEqual(helper, recipe.ingredients().size(), 3, "three-input alloy recipe was truncated");
+        assertTrue(helper, recipe.matches(new FluidRecipeInput(List.of(
+            new FluidStack(TFFluids.metal("cobalt"), 90),
             new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 90),
             new FluidStack(TFFluids.EXTRA_SOURCES.get("honey").get(), 90)
         )), helper.getLevel()), "three-input alloy recipe does not match");
@@ -495,21 +542,21 @@ public final class FoundryGameTests {
     @GameTest(templateNamespace = "minecraft", template = VANILLA_EMPTY_TEMPLATE, timeoutTicks = 20)
     public static void sharedMultiFluidStorage(GameTestHelper helper) {
         var tank = new org.hp.tinker_foundry.common.StructureFluidTank();
-        FluidStack cobalt = new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 900);
+        FluidStack cobalt = new FluidStack(TFFluids.metal("cobalt"), 900);
         FluidStack liquidSoul = new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 900);
-        helper.assertValueEqual(tank.fill(cobalt, 1000, FluidAction.SIMULATE), 900, "simulated fill");
-        helper.assertValueEqual(tank.amount(), 0, "simulation mutated tank");
+        assertValueEqual(helper, tank.fill(cobalt, 1000, FluidAction.SIMULATE), 900, "simulated fill");
+        assertValueEqual(helper, tank.amount(), 0, "simulation mutated tank");
         tank.fill(cobalt, 1000, FluidAction.EXECUTE);
-        helper.assertValueEqual(tank.fill(liquidSoul, 1000, FluidAction.EXECUTE), 100, "shared capacity exceeded");
-        helper.assertValueEqual(tank.amount(), 1000, "shared capacity total");
-        helper.assertTrue(tank.select(1), "selection did not reorder layers");
-        helper.assertTrue(tank.get(0).is(TFFluids.EXTRA_SOURCES.get("liquid_soul").get()), "selected layer not at bottom");
+        assertValueEqual(helper, tank.fill(liquidSoul, 1000, FluidAction.EXECUTE), 100, "shared capacity exceeded");
+        assertValueEqual(helper, tank.amount(), 1000, "shared capacity total");
+        assertTrue(helper, tank.select(1), "selection did not reorder layers");
+        assertTrue(helper, tank.get(0).getFluid() == TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), "selected layer not at bottom");
         tank.drain(0, 100, FluidAction.SIMULATE);
-        helper.assertValueEqual(tank.amount(), 1000, "simulated drain mutated tank");
+        assertValueEqual(helper, tank.amount(), 1000, "simulated drain mutated tank");
         tank.drain(0, 100, FluidAction.EXECUTE);
-        helper.assertValueEqual(tank.size(), 1, "empty layer was retained");
-        helper.assertValueEqual(tank.fill(liquidSoul, 500, FluidAction.EXECUTE), 0, "shrunk structure accepted overflow");
-        helper.assertValueEqual(tank.amount(), 900, "shrinking deleted stored fluid");
+        assertValueEqual(helper, tank.size(), 1, "empty layer was retained");
+        assertValueEqual(helper, tank.fill(liquidSoul, 500, FluidAction.EXECUTE), 0, "shrunk structure accepted overflow");
+        assertValueEqual(helper, tank.amount(), 900, "shrinking deleted stored fluid");
         helper.succeed();
     }
 
@@ -531,41 +578,41 @@ public final class FoundryGameTests {
         helper.setBlock(new BlockPos(0, 1, 2), TFBlocks.SEARED_FUEL_TANK.get());
         helper.setBlock(new BlockPos(3, 1, 1), TFBlocks.SEARED_FUEL_TANK.get());
         helper.setBlock(new BlockPos(3, 1, 2), TFBlocks.SEARED_DRAIN.get());
-        FoundryBlockEntity first = helper.getBlockEntity(new BlockPos(0, 1, 1));
-        FoundryBlockEntity second = helper.getBlockEntity(new BlockPos(0, 1, 2));
-        FoundryBlockEntity third = helper.getBlockEntity(new BlockPos(3, 1, 1));
-        FoundryBlockEntity controller = helper.getBlockEntity(controllerPos);
-        FoundryBlockEntity drain = helper.getBlockEntity(new BlockPos(3, 1, 2));
+        FoundryBlockEntity first = getFoundryBlockEntity(helper, new BlockPos(0, 1, 1));
+        FoundryBlockEntity second = getFoundryBlockEntity(helper, new BlockPos(0, 1, 2));
+        FoundryBlockEntity third = getFoundryBlockEntity(helper, new BlockPos(3, 1, 1));
+        FoundryBlockEntity controller = getFoundryBlockEntity(helper, controllerPos);
+        FoundryBlockEntity drain = getFoundryBlockEntity(helper, new BlockPos(3, 1, 2));
         controller.refreshStructureIfDirty();
-        helper.assertTrue(controller.isStructureValid(), "test structure invalid");
+        assertTrue(helper, controller.isStructureValid(), "test structure invalid");
         first.fill(new FluidStack(Fluids.LAVA, 500), FluidAction.EXECUTE);
         second.fill(new FluidStack(Fluids.LAVA, 500), FluidAction.EXECUTE);
-        helper.assertValueEqual(controller.fuelDisplayFluid().getAmount(), 1000, "fuel amount not aggregated");
-        helper.assertValueEqual(controller.fuelDisplayCapacity(), 12000, "empty tank capacity missing");
+        assertValueEqual(helper, controller.fuelDisplayFluid().getAmount(), 1000, "fuel amount not aggregated");
+        assertValueEqual(helper, controller.fuelDisplayCapacity(), 12000, "empty tank capacity missing");
         // 不同流体不应被计入当前熔岩的数量与容量。
         third.fill(new FluidStack(Fluids.WATER, 500), FluidAction.EXECUTE);
-        helper.assertValueEqual(controller.fuelDisplayCapacity(), 8000, "different fuel capacity was mixed");
+        assertValueEqual(helper, controller.fuelDisplayCapacity(), 8000, "different fuel capacity was mixed");
         third.drain(500, FluidAction.EXECUTE);
-        helper.assertValueEqual(controller.drainStructureFuel(new FluidStack(Fluids.LAVA, 1000), FluidAction.SIMULATE).getAmount(), 1000, "split fuel simulation failed");
-        helper.assertValueEqual(first.getFluidInTank(0).getAmount(), 500, "fuel simulation mutated source");
-        controller.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("cobalt").get(), 270), FluidAction.EXECUTE);
+        assertValueEqual(helper, controller.drainStructureFuel(new FluidStack(Fluids.LAVA, 1000), FluidAction.SIMULATE).getAmount(), 1000, "split fuel simulation failed");
+        assertValueEqual(helper, first.getFluidInTank(0).getAmount(), 500, "fuel simulation mutated source");
+        controller.fill(new FluidStack(TFFluids.metal("cobalt"), 270), FluidAction.EXECUTE);
         controller.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 90), FluidAction.EXECUTE);
         controller.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("honey").get(), 180), FluidAction.EXECUTE);
         helper.runAfterDelay(15, () -> {
             List<FluidStack> layers = controller.structureFluidLayers();
-            helper.assertValueEqual(layers.stream().mapToInt(FluidStack::getAmount).sum(), 540, "alloy volume changed");
-            helper.assertTrue(layers.stream().anyMatch(stack -> stack.is(TFFluids.EXTRA_SOURCES.get("cobalt").get()) && stack.getAmount() == 270), "preserved fluid layer missing");
-            helper.assertValueEqual(first.getFluidInTank(0).getAmount() + second.getFluidInTank(0).getAmount(), 1000, "fuel tanks changed without a recipe");
+            assertValueEqual(helper, layers.stream().mapToInt(FluidStack::getAmount).sum(), 540, "alloy volume changed");
+            assertTrue(helper, layers.stream().anyMatch(stack -> stack.getFluid() == TFFluids.metal("cobalt") && stack.getAmount() == 270), "preserved fluid layer missing");
+            assertValueEqual(helper, first.getFluidInTank(0).getAmount() + second.getFluidInTank(0).getAmount(), 1000, "fuel tanks changed without a recipe");
             // 再装另一罐时应自动显示新来源，旧空罐仍贡献容量。
             third.fill(new FluidStack(Fluids.LAVA, 1000), FluidAction.EXECUTE);
-            helper.assertValueEqual(controller.fuelDisplayFluid().getAmount(), 1000, "empty first tank hid later fuel");
-            helper.assertValueEqual(controller.fuelDisplayCapacity(), 12000, "aggregate capacity changed after switch");
-            CompoundTag saved = controller.saveWithoutMetadata(helper.getLevel().registryAccess());
+            assertValueEqual(helper, controller.fuelDisplayFluid().getAmount(), 1000, "empty first tank hid later fuel");
+            assertValueEqual(helper, controller.fuelDisplayCapacity(), 12000, "aggregate capacity changed after switch");
+            CompoundTag saved = controller.saveWithoutMetadata();
             FoundryBlockEntity restored = new FoundryBlockEntity(controller.getBlockPos(), controller.getBlockState());
-            restored.loadCustomOnly(saved, helper.getLevel().registryAccess());
-            helper.assertValueEqual(restored.structureFluidLayers().size(), 3, "reload lost fluid layers");
-            helper.assertTrue(restored.getFluidInTank(0).is(TFFluids.EXTRA_SOURCES.get("cobalt").get()), "reload lost selected fluid order");
-            helper.assertValueEqual(restored.getFluidInTank(0).getAmount(), 270, "reload changed selected amount");
+            restored.load(saved);
+            assertValueEqual(helper, restored.structureFluidLayers().size(), 3, "reload lost fluid layers");
+            assertTrue(helper, restored.getFluidInTank(0).getFluid() == TFFluids.metal("cobalt"), "reload lost selected fluid order");
+            assertValueEqual(helper, restored.getFluidInTank(0).getAmount(), 270, "reload changed selected amount");
             helper.succeed();
         });
     }

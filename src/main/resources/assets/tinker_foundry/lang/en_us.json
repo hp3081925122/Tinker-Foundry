@@ -92,6 +92,8 @@
   "tooltip.tinker_foundry.empty_tank": "Empty",
   "tooltip.tinker_foundry.tank_amount": "%s / %s mB",
   "category.tinker_foundry.melting": "Melting",
+  "category.tinker_foundry.ore_melting": "Ore Melting",
+  "category.tinker_foundry.damageable_melting": "Damageable Melting",
   "category.tinker_foundry.alloying": "Alloying",
   "category.tinker_foundry.casting": "Casting",
   "category.tinker_foundry.molding": "Molding",

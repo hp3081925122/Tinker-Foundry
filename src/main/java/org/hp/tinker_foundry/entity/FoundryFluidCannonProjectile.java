@@ -1,9 +1,11 @@
 package org.hp.tinker_foundry.entity;
 
+import org.hp.tinker_foundry.common.FoundryFluidUtil;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -20,7 +22,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.common.FoundryFluidCannonEffects;
 
 /** 本地等价实现 Mantle 流体炮的流体弹实体。 */
@@ -56,12 +58,6 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         entityData.set(POWER, power);
     }
 
-    /** 流体弹按匠魂原版弹射物使用固定重力。 */
-    @Override
-    protected double getDefaultGravity() {
-        return 0.06D;
-    }
-
     /** 设置网络同步的流体内容。 */
     public void setFluid(FluidStack fluid) {
         if (fluid.isEmpty()) {
@@ -69,7 +65,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
             entityData.set(FLUID_AMOUNT, 0);
             return;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
+        ResourceLocation id = Registry.FLUID.getKey(fluid.getFluid());
         entityData.set(FLUID_ID, id == null ? "" : id.toString());
         entityData.set(FLUID_AMOUNT, Math.max(0, fluid.getAmount()));
     }
@@ -85,7 +81,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         if (location == null) {
             return FluidStack.EMPTY;
         }
-        return BuiltInRegistries.FLUID.getOptional(location)
+        return Registry.FLUID.getOptional(location)
             .map(fluid -> new FluidStack(fluid, amount))
             .orElse(FluidStack.EMPTY);
     }
@@ -100,9 +96,9 @@ public final class FoundryFluidCannonProjectile extends Projectile {
     public void tick() {
         super.tick();
         Vec3 movement = getDeltaMovement();
-        HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
+        HitResult hit = ProjectileUtil.getHitResult(this, this::canHitEntity);
         if (hit.getType() != HitResult.Type.MISS) {
-            hitTargetOrDeflectSelf(hit);
+            onHit(hit);
         }
         if (isRemoved()) {
             return;
@@ -112,11 +108,11 @@ public final class FoundryFluidCannonProjectile extends Projectile {
             // 命中方块时把弹体移到碰撞面外沿，避免小实体尺寸导致穿过目标或卡入方块。
             EntityDimensions dimensions = getType().getDimensions();
             float offset = 0.01F + (hit instanceof BlockHitResult blockHit && blockHit.getDirection().getAxis() == Axis.Y
-                ? dimensions.height() : dimensions.width() / 2.0F);
+                ? dimensions.height : dimensions.width / 2.0F);
             nextLocation = hit.getLocation().add(movement.normalize().scale(offset));
         }
         updateRotation();
-        if (tickCount > 80 || getY() > level().getMaxBuildHeight() + 64) {
+        if (tickCount > 80 || getY() > getLevel().getMaxBuildHeight() + 64) {
             discard();
             return;
         }
@@ -140,13 +136,13 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         if (knockback.lengthSqr() > 0.0D) {
             hit.getEntity().push(knockback.x, 0.1D, knockback.z);
         }
-        if (level().isClientSide) {
+        if (getLevel().isClientSide) {
             return;
         }
         FluidStack current = getFluid();
-        int consumed = FoundryFluidCannonEffects.applyToEntity(level(), hit.getEntity(), current, getPower());
+        int consumed = FoundryFluidCannonEffects.applyToEntity(getLevel(), hit.getEntity(), current, getPower());
         if (consumed > 0) {
-            current = current.copyWithAmount(Math.max(0, current.getAmount() - consumed));
+            current = FoundryFluidUtil.copy(current, Math.max(0, current.getAmount() - consumed));
         }
         if (current.isEmpty()) {
             discard();
@@ -160,14 +156,14 @@ public final class FoundryFluidCannonProjectile extends Projectile {
     @Override
     protected void onHitBlock(BlockHitResult hit) {
         super.onHitBlock(hit);
-        if (level().isClientSide) {
+        if (getLevel().isClientSide) {
             return;
         }
         FluidStack current = getFluid();
-        int consumed = FoundryFluidCannonEffects.applyToBlock(level(), hit, current, getPower());
+        int consumed = FoundryFluidCannonEffects.applyToBlock(getLevel(), hit, current, getPower());
         if (consumed > 0) {
-            current = current.copyWithAmount(Math.max(0, current.getAmount() - consumed));
-            if (!current.isEmpty() && level().getBlockState(hit.getBlockPos()).isAir()) {
+            current = FoundryFluidUtil.copy(current, Math.max(0, current.getAmount() - consumed));
+            if (!current.isEmpty() && getLevel().getBlockState(hit.getBlockPos()).isAir()) {
                 // 目标被破坏后允许剩余流体继续飞行，保持原版的多次命中行为。
                 setFluid(current);
                 return;
@@ -178,11 +174,11 @@ public final class FoundryFluidCannonProjectile extends Projectile {
 
     /** 定义客户端显示流体所需的同步字段。 */
     @Override
-    protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        builder.define(FLUID_ID, "");
-        builder.define(FLUID_AMOUNT, 0);
-        builder.define(POWER, 1.0F);
-        builder.define(WATER_INERTIA, 0.6F);
+    protected void defineSynchedData() {
+        entityData.define(FLUID_ID, "");
+        entityData.define(FLUID_AMOUNT, 0);
+        entityData.define(POWER, 1.0F);
+        entityData.define(WATER_INERTIA, 0.6F);
     }
 
     /** 保存跨区块加载所需的流体和强度。 */
@@ -214,7 +210,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         double z = packet.getZa();
         for (int index = 0; index < 7; index++) {
             double scale = 0.4D + 0.1D * index;
-            level().addParticle(ParticleTypes.SPIT, getX(), getY(), getZ(), x * scale, y, z * scale);
+            getLevel().addParticle(ParticleTypes.SPIT, getX(), getY(), getZ(), x * scale, y, z * scale);
         }
         setDeltaMovement(x, y, z);
     }

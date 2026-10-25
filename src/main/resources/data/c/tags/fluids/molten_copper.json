@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "tinker_foundry:molten/copper",
+      "required": false
+    }
+  ],
+  "tinker_foundry": {
+    "color": "#FFF47B45",
+    "temperature": 800,
+    "names": {
+      "en_us": "Copper",
+      "zh_cn": "铜"
+    }
+  }
+}

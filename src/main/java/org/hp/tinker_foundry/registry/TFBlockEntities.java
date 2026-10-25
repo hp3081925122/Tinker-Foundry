@@ -1,14 +1,14 @@
 package org.hp.tinker_foundry.registry;
 
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.neoforge.registries.DeferredHolder;
+import net.minecraftforge.registries.RegistryObject;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 冶炼设备方块实体注册表。 */
 public final class TFBlockEntities {
     /** 所有冶炼设备共用一个数据类型，行为通过宿主方块区分。 */
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FoundryBlockEntity>> GENERIC = TinkerFoundry.BLOCK_ENTITY_TYPES.register("foundry_device", () -> BlockEntityType.Builder.of(
+    public static final RegistryObject<BlockEntityType<FoundryBlockEntity>> GENERIC = TinkerFoundry.BLOCK_ENTITY_TYPES.register("foundry_device", () -> BlockEntityType.Builder.of(
         FoundryBlockEntity::new,
         TFBlocks.SMELTERY_CONTROLLER.get(),
         TFBlocks.FOUNDRY_CONTROLLER.get(),

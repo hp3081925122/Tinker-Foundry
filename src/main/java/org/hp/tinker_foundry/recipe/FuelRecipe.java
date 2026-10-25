@@ -1,61 +1,65 @@
 package org.hp.tinker_foundry.recipe;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Optional;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import com.google.gson.JsonObject;
+import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 固体或流体燃料定义，统一描述持续时间、温度和消耗速率。 */
-public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient> fluidFuel, int duration, int temperature, int consumption, int rate) implements Recipe<net.minecraft.world.item.crafting.SingleRecipeInput> {
-    /** 燃料输入可以是物品标签或流体标签。 */
-    public static final MapCodec<FuelRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
-        Ingredient.CODEC.optionalFieldOf("item").forGetter(FuelRecipe::itemFuel),
-        FluidIngredient.CODEC.optionalFieldOf("fluid").forGetter(FuelRecipe::fluidFuel),
-        Codec.INT.fieldOf("duration").forGetter(FuelRecipe::duration),
-        Codec.INT.fieldOf("temperature").forGetter(FuelRecipe::temperature),
-        Codec.INT.fieldOf("consumption").orElse(1).forGetter(FuelRecipe::consumption),
-        Codec.intRange(1, Integer.MAX_VALUE).optionalFieldOf("rate", 10).forGetter(FuelRecipe::rate)
-    ).apply(instance, FuelRecipe::new));
+public record FuelRecipe(ResourceLocation id, Optional<Ingredient> itemFuel, Optional<FoundryFluidIngredient> fluidFuel,
+                         int duration, int temperature, int consumption, int rate) implements Recipe<Container> {
+    /** 返回 Forge 1.20.1 Recipe 接口要求的配方 ID。 */
+    @Override
+    public ResourceLocation getId() {
+        return id;
+    }
 
-    /** 客户端同步配方内容。 */
-    public static final StreamCodec<RegistryFriendlyByteBuf, FuelRecipe> STREAM_CODEC = StreamCodec.of(FuelRecipe::writeNetwork, FuelRecipe::readNetwork);
+    /** 从数据包读取固体或流体燃料。 */
+    public static FuelRecipe fromJson(ResourceLocation id, JsonObject json) {
+        Optional<Ingredient> item = json.has("item") ? Optional.of(Ingredient.fromJson(json.get("item"))) : Optional.empty();
+        Optional<FoundryFluidIngredient> fluid = json.has("fluid") ? Optional.of(FoundryFluidIngredient.fromJson(json.get("fluid"))) : Optional.empty();
+        return new FuelRecipe(id, item, fluid, json.get("duration").getAsInt(), json.get("temperature").getAsInt(),
+            json.has("consumption") ? json.get("consumption").getAsInt() : 1, json.has("rate") ? json.get("rate").getAsInt() : 10);
+    }
 
     /** 从网络读取燃料配方。 */
-    private static FuelRecipe readNetwork(RegistryFriendlyByteBuf buffer) {
-        return new FuelRecipe(
-            ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).decode(buffer),
-            ByteBufCodecs.optional(FluidIngredient.STREAM_CODEC).decode(buffer),
-            buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()
-        );
+    public static FuelRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
+        Optional<Ingredient> item = buffer.readBoolean() ? Optional.of(Ingredient.fromNetwork(buffer)) : Optional.empty();
+        Optional<FoundryFluidIngredient> fluid = buffer.readBoolean() ? Optional.of(FoundryFluidIngredient.fromNetwork(buffer)) : Optional.empty();
+        return new FuelRecipe(id, item, fluid, buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt());
     }
 
     /** 向网络写入燃料配方。 */
-    private static void writeNetwork(RegistryFriendlyByteBuf buffer, FuelRecipe recipe) {
-        ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).encode(buffer, recipe.itemFuel);
-        ByteBufCodecs.optional(FluidIngredient.STREAM_CODEC).encode(buffer, recipe.fluidFuel);
+    public static void toNetwork(FriendlyByteBuf buffer, FuelRecipe recipe) {
+        buffer.writeBoolean(recipe.itemFuel.isPresent());
+        recipe.itemFuel.ifPresent(value -> value.toNetwork(buffer));
+        buffer.writeBoolean(recipe.fluidFuel.isPresent());
+        recipe.fluidFuel.ifPresent(value -> value.toNetwork(buffer));
         buffer.writeVarInt(recipe.duration);
         buffer.writeVarInt(recipe.temperature);
         buffer.writeVarInt(recipe.consumption);
         buffer.writeVarInt(recipe.rate);
     }
 
+    /** 保留旧构造签名。 */
+    public FuelRecipe(Optional<Ingredient> itemFuel, Optional<FoundryFluidIngredient> fluidFuel, int duration, int temperature, int consumption, int rate) {
+        this(runtimeId(), itemFuel, fluidFuel, duration, temperature, consumption, rate);
+    }
+
     /** 匹配固体燃料。 */
     @Override
-    public boolean matches(net.minecraft.world.item.crafting.SingleRecipeInput input, Level level) {
-        return itemFuel.map(value -> value.test(input.item())).orElse(false);
+    public boolean matches(Container input, Level level) {
+        return input.getContainerSize() > 0 && itemFuel.map(value -> value.test(input.getItem(0))).orElse(false);
     }
 
     /** 匹配流体燃料。 */
@@ -65,7 +69,7 @@ public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient
 
     /** 燃料配方不产生物品。 */
     @Override
-    public ItemStack assemble(net.minecraft.world.item.crafting.SingleRecipeInput input, HolderLookup.Provider registries) {
+    public ItemStack assemble(Container input) {
         return ItemStack.EMPTY;
     }
 
@@ -77,11 +81,11 @@ public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient
 
     /** 返回空物品结果。 */
     @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
+    public ItemStack getResultItem() {
         return ItemStack.EMPTY;
     }
 
-    /** 燃料配方不进入原版配方书，交由设备逻辑或 JEI 展示。 */
+    /** 燃料配方不进入原版配方书。 */
     @Override
     public boolean isSpecial() {
         return true;
@@ -97,5 +101,10 @@ public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient
     @Override
     public RecipeType<?> getType() {
         return TFRecipes.FUEL.get();
+    }
+
+    /** 旧构造使用的稳定内部 ID。 */
+    private static ResourceLocation runtimeId() {
+        return new ResourceLocation(TinkerFoundry.MOD_ID, "fuel/runtime");
     }
 }

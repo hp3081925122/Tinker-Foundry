@@ -1,10 +1,11 @@
 package org.hp.tinker_foundry.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -23,6 +24,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.hp.tinker_foundry.TinkerFoundry;
+import org.hp.tinker_foundry.common.FoundryCapabilityUtil;
 
 import java.util.Map;
 import java.util.Locale;
@@ -30,7 +32,6 @@ import java.util.Locale;
 /** 匠魂式多面流体疏导孔，按相邻能力和连接状态生成中心与四侧模型。 */
 public final class FoundryChannelBlock extends FoundryEntityBlock {
     /** 疏导孔编解码器。 */
-    public static final MapCodec<FoundryChannelBlock> CODEC = simpleCodec(FoundryChannelBlock::new);
     /** 底部连接状态。 */
     public static final BooleanProperty DOWN = BlockStateProperties.DOWN;
     /** 红石供能状态。 */
@@ -128,12 +129,13 @@ public final class FoundryChannelBlock extends FoundryEntityBlock {
         return property;
     }
 
-    /** 检查相邻方块是否提供流体能力，使用当前 NeoForge 1.21.1 能力查询入口。 */
+    /** 检查相邻方块是否提供流体能力，Forge 1.20.1 通过方块实体查询能力。 */
     private static boolean isFluidHandler(LevelAccessor level, Direction side, BlockPos pos) {
         if (!(level instanceof Level actualLevel)) {
             return false;
         }
-        return actualLevel.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, side) != null;
+        return FoundryCapabilityUtil.get(actualLevel, pos,
+            net.minecraftforge.common.capabilities.ForgeCapabilities.FLUID_HANDLER, side).resolve().orElse(null) != null;
     }
 
     /** 检查指定侧面是否可以连接疏导孔或流体设备。 */
@@ -195,7 +197,7 @@ public final class FoundryChannelBlock extends FoundryEntityBlock {
 
     /** 邻居变化时同步红石状态和所有连接侧，保证放置方向变化立即同步客户端。 */
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
         super.neighborChanged(state, level, pos, block, fromPos, isMoving);
         if (level.isClientSide) {
             return;
@@ -208,9 +210,13 @@ public final class FoundryChannelBlock extends FoundryEntityBlock {
         }
     }
 
-    /** 空手点击侧面时循环切换无连接、输入和输出状态。 */
+    /** 空手点击侧面时循环切换无连接、输入和输出状态；持物时沿用设备基类交互。 */
     @Override
-    protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
+                                 InteractionHand hand, BlockHitResult hit) {
+        if (!player.getItemInHand(hand).isEmpty()) {
+            return super.use(state, level, pos, player, hand, hit);
+        }
         Direction side = hit.getDirection() == Direction.UP ? Direction.DOWN : hit.getDirection();
         if (player.isShiftKeyDown() && side != Direction.DOWN) {
             side = side.getOpposite();
@@ -223,12 +229,12 @@ public final class FoundryChannelBlock extends FoundryEntityBlock {
 
         BlockState newState = toggleConnection(state, level, pos, player, side);
         if (newState == null) {
-            return net.minecraft.world.InteractionResult.PASS;
+            return InteractionResult.PASS;
         }
         if (!level.isClientSide) {
             level.setBlock(pos, newState, Block.UPDATE_CLIENTS);
         }
-        return net.minecraft.world.InteractionResult.sidedSuccess(level.isClientSide);
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     /** 计算玩家点击后的下一种连接状态，禁止对非流体设备产生伪输出口。 */
@@ -315,8 +321,4 @@ public final class FoundryChannelBlock extends FoundryEntityBlock {
     }
 
     /** 返回导流槽自身编解码器。 */
-    @Override
-    protected MapCodec<? extends FoundryEntityBlock> codec() {
-        return CODEC;
-    }
 }

@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:stonecutting",
+  "count": 2,
+  "ingredient": {
+    "item": "tinker_foundry:seared_stone"
+  },
+  "result": "tinker_foundry:seared_stone_slab"
+}

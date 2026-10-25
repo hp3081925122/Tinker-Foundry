@@ -2,7 +2,7 @@ package org.hp.tinker_foundry.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
+import com.mojang.math.Vector3f;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -10,8 +10,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.level.block.LanternBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.FoundryDirectionalBlock;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
@@ -222,7 +222,7 @@ public final class FoundryDeviceRenderer {
             if (facing.getAxis().isHorizontal() && facing != Direction.SOUTH) {
                 poseStack.pushPose();
                 poseStack.translate(0.5F, 0.0F, 0.5F);
-                poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F * facing.get2DDataValue()));
+                poseStack.mulPose(Vector3f.YP.rotationDegrees(-90.0F * facing.get2DDataValue()));
                 poseStack.translate(-0.5F, 0.0F, -0.5F);
                 rotated = true;
             }
@@ -249,7 +249,7 @@ public final class FoundryDeviceRenderer {
         if (rotated) {
             poseStack.pushPose();
             poseStack.translate(0.5F, 0.0F, 0.5F);
-            poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F * facing.get2DDataValue()));
+            poseStack.mulPose(Vector3f.YP.rotationDegrees(-90.0F * facing.get2DDataValue()));
             poseStack.translate(-0.5F, 0.0F, -0.5F);
         }
         FoundryRenderItem.FLUID_CANNON.render(entity.getSpecialItem(), poseStack, buffer, packedLight);
@@ -297,7 +297,7 @@ public final class FoundryDeviceRenderer {
         if (rotated) {
             poseStack.pushPose();
             poseStack.translate(0.5F, 0.0F, 0.5F);
-            poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F * facing.get2DDataValue()));
+            poseStack.mulPose(Vector3f.YP.rotationDegrees(-90.0F * facing.get2DDataValue()));
             poseStack.translate(-0.5F, 0.0F, -0.5F);
         }
         if (facing.getAxis().isHorizontal()) {

@@ -1,8 +1,9 @@
 package org.hp.tinker_foundry.common;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.registry.TFBlocks;
@@ -58,11 +59,11 @@ public final class FoundryItemHandler implements IItemHandlerModifiable {
         if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) return entity.insertSpecialItem(stack, simulate);
         int index = mapped(entity, slot);
         ItemStack stored = entity.getItem(index);
-        if (!stored.isEmpty() && !ItemStack.isSameItemSameComponents(stored, stack)) return stack;
+        if (!stored.isEmpty() && !ItemStack.isSameItemSameTags(stored, stack)) return stack;
         int amount = Math.min(stack.getCount(), Math.min(getSlotLimit(slot), stack.getMaxStackSize()) - stored.getCount());
         if (amount <= 0) return stack;
-        if (!simulate) entity.setItem(index, stack.copyWithCount(stored.getCount() + amount));
-        return stack.copyWithCount(stack.getCount() - amount);
+        if (!simulate) entity.setItem(index, ItemHandlerHelper.copyStackWithSize(stack, stored.getCount() + amount));
+        return ItemHandlerHelper.copyStackWithSize(stack, stack.getCount() - amount);
     }
 
     /** 正常抽取真实槽内容，熔炼进度由容器写入方法同步清理。 */
@@ -75,8 +76,8 @@ public final class FoundryItemHandler implements IItemHandlerModifiable {
         if (!simulate && entity != null && (entity.isProxyTankBlock() || entity.isFluidCannonBlock())) {
             return entity.extractSpecialItem(taken, false);
         }
-        if (!simulate && entity != null) entity.setItem(mapped(entity, slot), stored.copyWithCount(stored.getCount() - taken));
-        return stored.copyWithCount(taken);
+        if (!simulate && entity != null) entity.setItem(mapped(entity, slot), ItemHandlerHelper.copyStackWithSize(stored, stored.getCount() - taken));
+        return ItemHandlerHelper.copyStackWithSize(stored, taken);
     }
 
     /** 支持菜单槽位和能力包装器的精确写入，仍沿用本能力的校验与特殊物品规则。 */
@@ -86,7 +87,7 @@ public final class FoundryItemHandler implements IItemHandlerModifiable {
         if (entity == null || slot < 0 || slot >= getSlots()) return;
         if (!stack.isEmpty() && !isItemValid(slot, stack)) return;
         int limit = Math.min(getSlotLimit(slot), stack.getMaxStackSize());
-        ItemStack replacement = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(Math.min(stack.getCount(), limit));
+        ItemStack replacement = stack.isEmpty() ? ItemStack.EMPTY : ItemHandlerHelper.copyStackWithSize(stack, Math.min(stack.getCount(), limit));
         // 菜单首次写入时记录归属，便于区分控制器代理和普通设备槽位。
         TinkerFoundry.LOGGER.debug("[item-handler] setStackInSlot owner={} target={} slot={} count={}",
             owner.getBlockPos(), entity.getBlockPos(), slot, replacement.getCount());

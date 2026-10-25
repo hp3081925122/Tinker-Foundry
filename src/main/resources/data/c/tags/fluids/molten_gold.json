@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "tinker_foundry:molten/gold",
+      "required": false
+    }
+  ],
+  "tinker_foundry": {
+    "color": "#FFFFD43B",
+    "temperature": 1000,
+    "names": {
+      "en_us": "Gold",
+      "zh_cn": "金"
+    }
+  }
+}

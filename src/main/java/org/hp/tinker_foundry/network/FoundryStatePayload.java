@@ -1,92 +1,136 @@
 package org.hp.tinker_foundry.network;
 
 import java.util.ArrayList;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.List;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.fluids.FluidStack;
-import org.hp.tinker_foundry.TinkerFoundry;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 向已打开界面的客户端发送流体、进度和结构状态快照。 */
 public record FoundryStatePayload(BlockPos pos, FluidStack fluid, FluidStack fuelFluid, List<FluidStack> alloyInputs, List<FluidStack> structureFluids,
-                                  int progress, int processTime, int castingFluidCapacity, int structureCapacity, boolean structureValid, int[] heat)
-    implements CustomPacketPayload {
-    /** 独立模组的客户端状态载荷类型。 */
-    public static final Type<FoundryStatePayload> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "foundry_state")
-    );
+                                  int progress, int processTime, int castingFluidCapacity, int structureCapacity, boolean structureValid, int[] heat) {
+    /** 单个流体堆栈附加 NBT 的网络大小上限，防止状态同步携带无界数据。 */
+    public static final int MAX_FLUID_TAG_BYTES = 16 * 1024;
 
-    /** 1.21.1 RegistryFriendlyByteBuf 使用的状态流编码器。 */
-    public static final StreamCodec<RegistryFriendlyByteBuf, FoundryStatePayload> STREAM_CODEC = StreamCodec.of(
-        FoundryStatePayload::write, FoundryStatePayload::read
-    );
-
-    /** 从网络读取一个设备状态快照。 */
-    private static FoundryStatePayload read(RegistryFriendlyByteBuf buffer) {
-        BlockPos pos = BlockPos.STREAM_CODEC.decode(buffer);
+    /** 从 Forge FriendlyByteBuf 读取状态快照，字段顺序是本模组内部协议的一部分。 */
+    public static FoundryStatePayload decode(FriendlyByteBuf buffer) {
+        BlockPos pos = buffer.readBlockPos();
         FluidStack fluid = readFluid(buffer);
         FluidStack fuelFluid = readFluid(buffer);
         int inputCount = buffer.readVarInt();
         if (inputCount < 0 || inputCount > FoundryBlockEntity.MAX_ALLOY_INPUTS) {
             throw new IllegalArgumentException("Invalid alloy input count: " + inputCount);
         }
-        List<FluidStack> alloyInputs = new ArrayList<>(Math.min(inputCount, FoundryBlockEntity.MAX_ALLOY_INPUTS));
+        List<FluidStack> alloyInputs = new ArrayList<>(inputCount);
         for (int index = 0; index < inputCount; index++) {
-            FluidStack input = readFluid(buffer);
-            if (index < FoundryBlockEntity.MAX_ALLOY_INPUTS) {
-                alloyInputs.add(input);
-            }
+            alloyInputs.add(readFluid(buffer));
         }
-        // 有序多流体列表使用独立有界载荷，不通过单个注册表编号重建而丢失组件。
         int layers = buffer.readVarInt();
-        if (layers < 0 || layers > org.hp.tinker_foundry.common.StructureFluidTank.MAX_LAYERS) throw new IllegalArgumentException("Invalid structure fluid count: " + layers);
+        if (layers < 0 || layers > org.hp.tinker_foundry.common.StructureFluidTank.MAX_LAYERS) {
+            throw new IllegalArgumentException("Invalid structure fluid count: " + layers);
+        }
         List<FluidStack> structureFluids = new ArrayList<>(layers);
-        for (int index = 0; index < layers; index++) structureFluids.add(readFluid(buffer));
-        int progress = buffer.readVarInt(), time = buffer.readVarInt(), castingCapacity = buffer.readVarInt(), capacity = buffer.readVarInt();
+        for (int index = 0; index < layers; index++) {
+            structureFluids.add(readFluid(buffer));
+        }
+        int progress = readNonNegative(buffer, "progress");
+        int time = readNonNegative(buffer, "process time");
+        int castingCapacity = readNonNegative(buffer, "casting capacity");
+        int capacity = readNonNegative(buffer, "structure capacity");
         boolean valid = buffer.readBoolean();
         int size = buffer.readVarInt();
         if (size < 0 || size > FoundryBlockEntity.MAX_STRUCTURE_INPUTS * 5 || size % 5 != 0) {
             throw new IllegalArgumentException("Invalid heat snapshot size: " + size);
         }
         int[] heat = new int[size];
-        for (int index = 0; index < size; index++) heat[index] = buffer.readVarInt();
-        return new FoundryStatePayload(pos, fluid, fuelFluid, alloyInputs, structureFluids, progress, time, castingCapacity, capacity, valid, heat);
+        for (int index = 0; index < size; index++) {
+            heat[index] = readNonNegative(buffer, "heat value");
+        }
+        return new FoundryStatePayload(pos, fluid, fuelFluid, alloyInputs, structureFluids, progress, time,
+            castingCapacity, capacity, valid, heat);
     }
 
-    /** 向网络写入一个设备状态快照。 */
-    private static void write(RegistryFriendlyByteBuf buffer, FoundryStatePayload payload) {
-        BlockPos.STREAM_CODEC.encode(buffer, payload.pos);
+    /** 向 Forge FriendlyByteBuf 写入状态快照。 */
+    public static void encode(FoundryStatePayload payload, FriendlyByteBuf buffer) {
+        buffer.writeBlockPos(payload.pos);
         writeFluid(buffer, payload.fluid);
         writeFluid(buffer, payload.fuelFluid);
+        if (payload.alloyInputs.size() > FoundryBlockEntity.MAX_ALLOY_INPUTS) {
+            throw new IllegalArgumentException("Too many alloy inputs: " + payload.alloyInputs.size());
+        }
         buffer.writeVarInt(payload.alloyInputs.size());
         payload.alloyInputs.forEach(input -> writeFluid(buffer, input));
+        if (payload.structureFluids.size() > org.hp.tinker_foundry.common.StructureFluidTank.MAX_LAYERS) {
+            throw new IllegalArgumentException("Too many structure fluids: " + payload.structureFluids.size());
+        }
         buffer.writeVarInt(payload.structureFluids.size());
         payload.structureFluids.forEach(input -> writeFluid(buffer, input));
-        buffer.writeVarInt(payload.progress);
-        buffer.writeVarInt(payload.processTime);
-        buffer.writeVarInt(payload.castingFluidCapacity);
-        buffer.writeVarInt(payload.structureCapacity);
+        writeNonNegative(buffer, payload.progress, "progress");
+        writeNonNegative(buffer, payload.processTime, "process time");
+        writeNonNegative(buffer, payload.castingFluidCapacity, "casting capacity");
+        writeNonNegative(buffer, payload.structureCapacity, "structure capacity");
         buffer.writeBoolean(payload.structureValid);
+        if (payload.heat.length > FoundryBlockEntity.MAX_STRUCTURE_INPUTS * 5 || payload.heat.length % 5 != 0) {
+            throw new IllegalArgumentException("Invalid heat snapshot size: " + payload.heat.length);
+        }
         buffer.writeVarInt(payload.heat.length);
-        for (int value : payload.heat) buffer.writeVarInt(value);
+        for (int value : payload.heat) {
+            writeNonNegative(buffer, value, "heat value");
+        }
     }
 
-    /** 1.21.1 的 FluidStack 流编码器不接受空栈，因此单独写入存在标记。 */
-    private static FluidStack readFluid(RegistryFriendlyByteBuf buffer) {
-        return buffer.readBoolean() ? FluidStack.STREAM_CODEC.decode(buffer) : FluidStack.EMPTY;
+    /** 1.20.1 Forge 的 FluidStack 允许直接使用 FriendlyByteBuf 读写。 */
+    private static FluidStack readFluid(FriendlyByteBuf buffer) {
+        if (!buffer.readBoolean()) return FluidStack.EMPTY;
+        FluidStack fluid = FluidStack.readFromPacket(buffer);
+        validateFluid(fluid);
+        return fluid;
     }
 
-    /** 1.21.1 的 FluidStack 流编码器不接受空栈，因此单独写入存在标记。 */
-    private static void writeFluid(RegistryFriendlyByteBuf buffer, FluidStack fluid) {
+    /** 1.20.1 Forge 的 FluidStack 允许直接使用 FriendlyByteBuf 读写。 */
+    private static void writeFluid(FriendlyByteBuf buffer, FluidStack fluid) {
         boolean present = fluid != null && !fluid.isEmpty();
         buffer.writeBoolean(present);
         if (present) {
-            FluidStack.STREAM_CODEC.encode(buffer, fluid);
+            validateFluid(fluid);
+            fluid.writeToPacket(buffer);
         }
+    }
+
+    /** 校验网络中的流体堆栈和附加 NBT 边界。 */
+    private static void validateFluid(FluidStack fluid) {
+        if (fluid == null || fluid.isEmpty() || fluid.getAmount() <= 0) {
+            throw new IllegalArgumentException("Invalid fluid stack in state payload");
+        }
+        CompoundTag tag = fluid.getTag();
+        if (tag != null) {
+            try (ByteArrayOutputStream output = new ByteArrayOutputStream(); DataOutputStream data = new DataOutputStream(output)) {
+                tag.write(data);
+                if (output.size() > MAX_FLUID_TAG_BYTES) {
+                    throw new IllegalArgumentException("Fluid stack tag is too large: " + output.size());
+                }
+            } catch (IOException exception) {
+                throw new IllegalArgumentException("Unable to measure fluid stack tag", exception);
+            }
+        }
+    }
+
+    /** 读取只允许非负值的 VarInt 字段。 */
+    private static int readNonNegative(FriendlyByteBuf buffer, String field) {
+        int value = buffer.readVarInt();
+        if (value < 0) throw new IllegalArgumentException("Negative " + field + ": " + value);
+        return value;
+    }
+
+    /** 写入只允许非负值的 VarInt 字段。 */
+    private static void writeNonNegative(FriendlyByteBuf buffer, int value, String field) {
+        if (value < 0) throw new IllegalArgumentException("Negative " + field + ": " + value);
+        buffer.writeVarInt(value);
     }
 
     /** 从服务端设备构造状态载荷。 */
@@ -100,11 +144,5 @@ public record FoundryStatePayload(BlockPos pos, FluidStack fluid, FluidStack fue
         FluidStack fuelFluid = entity.isHeater() ? fluid : FluidStack.EMPTY;
         return new FoundryStatePayload(entity.getBlockPos(), fluid, fuelFluid, alloyInputs, entity.structureFluidLayers(), entity.progress(),
             entity.processTime(), entity.castingFluidCapacity(), entity.structureCapacity(), entity.isStructureValid(), entity.heatSnapshot());
-    }
-
-    /** 返回独立网络载荷类型。 */
-    @Override
-    public Type<FoundryStatePayload> type() {
-        return TYPE;
     }
 }

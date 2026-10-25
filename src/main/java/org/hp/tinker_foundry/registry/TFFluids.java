@@ -2,11 +2,12 @@ package org.hp.tinker_foundry.registry;
 
 import java.util.HashMap;
 import java.util.Map;
-import net.neoforged.neoforge.fluids.BaseFlowingFluid;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.registries.DeferredBlock;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.minecraft.core.registries.BuiltInRegistries;
+import java.util.function.Consumer;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.ForgeFlowingFluid;
+import net.minecraftforge.fluids.FluidType;
+import net.minecraftforge.registries.RegistryObject;
+import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LiquidBlock;
@@ -19,112 +20,162 @@ import org.hp.tinker_foundry.TinkerFoundry;
 /** 注册基础熔融金属流体；所有流体都使用新的模组命名空间。 */
 public final class TFFluids {
     /** 记录每种熔融流体对应的液体方块，供桶放置和流体属性回调使用。 */
-    private static final Map<String, DeferredBlock<LiquidBlock>> FLUID_BLOCKS = new HashMap<>();
+    private static final Map<String, RegistryObject<LiquidBlock>> FLUID_BLOCKS = new HashMap<>();
 
-    /** 保留原有铁、金、铜熔融流体的颜色。 */
-    public static final Map<String, Integer> ORIGINAL_COLORS = Map.of(
-        "iron", 0xFFE1E1E1,
-        "gold", 0xFFFFD43B,
-        "copper", 0xFFF47B45
-    );
-
-    /** 保留原有铁、金、铜熔融流体类型，避免原版金属配方失效。 */
-    public static final DeferredHolder<FluidType, FluidType> IRON_TYPE = moltenType("iron", ORIGINAL_COLORS.get("iron"), 1100, 12);
-    public static final DeferredHolder<FluidType, FluidType> GOLD_TYPE = moltenType("gold", ORIGINAL_COLORS.get("gold"), 1000, 12);
-    public static final DeferredHolder<FluidType, FluidType> COPPER_TYPE = moltenType("copper", ORIGINAL_COLORS.get("copper"), 800, 12);
-
-    /** 保留原有铁、金、铜源流体。 */
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Source> IRON = source("iron", IRON_TYPE);
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Source> GOLD = source("gold", GOLD_TYPE);
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Source> COPPER = source("copper", COPPER_TYPE);
-
-    /** 保留原有铁、金、铜流动流体。 */
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Flowing> IRON_FLOWING = flowing("iron", IRON_TYPE);
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Flowing> GOLD_FLOWING = flowing("gold", GOLD_TYPE);
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Flowing> COPPER_FLOWING = flowing("copper", COPPER_TYPE);
-
-    /** 保留原有铁、金、铜液体方块。 */
-    public static final DeferredBlock<LiquidBlock> IRON_BLOCK = registerFluidBlock("iron", IRON);
-    public static final DeferredBlock<LiquidBlock> GOLD_BLOCK = registerFluidBlock("gold", GOLD);
-    public static final DeferredBlock<LiquidBlock> COPPER_BLOCK = registerFluidBlock("copper", COPPER);
-
-    /** 客户端和测试共用的原有金属流体注册表。 */
-    public static final Map<String, DeferredHolder<FluidType, FluidType>> ORIGINAL_TYPES = Map.of(
-        "iron", IRON_TYPE,
-        "gold", GOLD_TYPE,
-        "copper", COPPER_TYPE
-    );
-    public static final Map<String, DeferredHolder<Fluid, BaseFlowingFluid.Source>> ORIGINAL_SOURCES = Map.of(
-        "iron", IRON,
-        "gold", GOLD,
-        "copper", COPPER
-    );
-
-    /** 实体熔炼与矿物副产物所需的独立流体，不依赖匠魂本体注册表。 */
-    public static final Map<String, Integer> EXTRA_COLORS = Map.ofEntries(
-        Map.entry("cobalt", 0xFF3677BA),
-        Map.entry("liquid_soul", 0xFF89F4D8),
-        Map.entry("honey", 0xFFE6A42C),
-        Map.entry("blazing_blood", 0xFFFFA323),
-        Map.entry("molten_glass", 0xFFE4F0F0),
-        Map.entry("ender", 0xFF18776D),
-        Map.entry("seared_stone", 0xFF5C504E),
-        Map.entry("scorched_stone", 0xFF2B2423),
-        // 方块变种流程需要匠魂原版的熔融黏土基础流体。
-        Map.entry("molten_clay", 0xFF9B6045),
-        Map.entry("molten_emerald", 0xFF29D581),
-        // 1.20.1 匠魂存在熔融钻石，独立冶炼系统为其提供对应流体注册。
-        Map.entry("molten_diamond", 0xFF5DCEFF),
-        Map.entry("magma", 0xFFEE5C16),
-        Map.entry("meat_soup", 0xFFBC8F6A),
-        Map.entry("potion", 0xFF7654C4),
-        Map.entry("milk", 0xFFF5F5EC),
-        Map.entry("slime", 0xFF7EBD5F),
-        Map.entry("venom", 0xFF668C23)
-    );
-    public static final Map<String, DeferredHolder<FluidType, FluidType>> EXTRA_TYPES = new java.util.LinkedHashMap<>();
-    public static final Map<String, DeferredHolder<Fluid, BaseFlowingFluid.Source>> EXTRA_SOURCES = new java.util.LinkedHashMap<>();
+    public static final org.hp.tinker_foundry.common.AutomaticMaterialTags MATERIAL_TAGS = new org.hp.tinker_foundry.common.AutomaticMaterialTags(
+        net.minecraftforge.fml.ModList.get().getModFiles().stream().map(info -> info.getFile().findResource("data")).distinct().toList());
+    public static final Map<String, Integer> EXTRA_COLORS = new java.util.LinkedHashMap<>(Map.ofEntries(
+        Map.entry("liquid_soul", 0xFF89F4D8), Map.entry("honey", 0xFFE6A42C),
+        Map.entry("blazing_blood", 0xFFFFA323), Map.entry("molten_glass", 0xFFE4F0F0),
+        Map.entry("ender", 0xFF18776D), Map.entry("seared_stone", 0xFF5C504E),
+        Map.entry("scorched_stone", 0xFF2B2423), Map.entry("molten_clay", 0xFF9B6045),
+        Map.entry("molten_emerald", 0xFF29D581), Map.entry("molten_diamond", 0xFF5DCEFF),
+        Map.entry("magma", 0xFFEE5C16), Map.entry("meat_soup", 0xFFBC8F6A),
+        Map.entry("potion", 0xFF7654C4), Map.entry("milk", 0xFFF5F5EC),
+        Map.entry("slime", 0xFF7EBD5F), Map.entry("venom", 0xFF668C23)));
+    public static final Map<String, RegistryObject<FluidType>> EXTRA_TYPES = new java.util.LinkedHashMap<>();
+    public static final Map<String, RegistryObject<Fluid>> EXTRA_SOURCES = new java.util.LinkedHashMap<>();
     static {
-        // 统一建立源流体、流动流体和方块，桶通过延迟供应器解析。
+        MATERIAL_TAGS.materials().values().stream().filter(material -> material.fluids().isEmpty())
+            .forEach(material -> EXTRA_COLORS.put(material.registryName(), material.color()));
         for (String name : EXTRA_COLORS.keySet().stream().sorted().toList()) {
-            // 熔融黏土的温度和亮度采用上游数值，其余附加流体沿用本模组原有默认值。
-            int temperature = name.equals("molten_clay") ? 750 : 1000;
+            var material = MATERIAL_TAGS.materials().get(name.startsWith("molten/") ? name.substring(7) : "");
+            int temperature = material != null ? material.temperature() : name.equals("molten_clay") ? 750 : 1000;
             int lightLevel = name.equals("molten_clay") ? 3 : 8;
-            DeferredHolder<FluidType, FluidType> type = moltenType(name, EXTRA_COLORS.get(name), temperature, lightLevel);
+            var type = moltenType(name, EXTRA_COLORS.get(name), temperature, lightLevel);
             EXTRA_TYPES.put(name, type);
-            DeferredHolder<Fluid, BaseFlowingFluid.Source> source = source(name, type);
+            var source = source(name, type);
             EXTRA_SOURCES.put(name, source);
             flowing(name, type);
             registerFluidBlock(name, source);
         }
     }
 
+    public static Fluid metal(String name) {
+        var material = MATERIAL_TAGS.materials().get(name);
+        if (material == null) return Fluids.EMPTY;
+        java.util.Set<Fluid> found = new java.util.LinkedHashSet<>();
+        for (String id : material.fluids()) {
+            Fluid value = registered(id);
+            if (value != Fluids.EMPTY) found.add(value instanceof FlowingFluid flowing ? flowing.getSource() : value);
+        }
+        if (found.size() == 1) return found.iterator().next();
+        if (found.size() > 1) return material.declared()
+            ? found.stream().min(java.util.Comparator.comparing(fluid -> Registry.FLUID.getKey(fluid).toString())).orElse(Fluids.EMPTY) : Fluids.EMPTY;
+        return registered(material.generatedId());
+    }
+
+    public static boolean isMetal(Fluid fluid) {
+        return fluid != Fluids.EMPTY && MATERIAL_TAGS.materials().keySet().stream().filter(name -> !MATERIAL_TAGS.isGemstone(name)).anyMatch(name -> metal(name) == fluid);
+    }
+
+    private static Fluid registered(String id) {
+        return java.util.Optional.ofNullable(net.minecraftforge.registries.ForgeRegistries.FLUIDS.getValue(new ResourceLocation(id))).orElse(Fluids.EMPTY);
+    }
+
+    public static Map<ResourceLocation, byte[]> automaticResources(boolean client) {
+        Map<ResourceLocation, byte[]> resources = new java.util.LinkedHashMap<>();
+        if (client) {
+            com.google.gson.JsonObject english = new com.google.gson.JsonObject();
+            com.google.gson.JsonObject chinese = new com.google.gson.JsonObject();
+            for (var material : MATERIAL_TAGS.materials().values()) {
+                String name = material.registryName();
+                if (!EXTRA_SOURCES.containsKey(name)) continue;
+                putResource(resources, "tinker_foundry:models/item/" + name + "_bucket.json", "{\n  \"parent\": \"forge:item/default\",\n  \"loader\": \"forge:fluid_container\",\n  \"fluid\": \"minecraft:empty\",\n  \"textures\": {\n    \"base\": \"minecraft:item/bucket\",\n    \"fluid\": \"forge:item/mask/bucket_fluid\"\n  }\n}");
+                putResource(resources, "tinker_foundry:blockstates/" + name + "_fluid.json", "{\n  \"variants\": {\n    \"level=0\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=1\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=2\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=3\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=4\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=5\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=6\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=7\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=8\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=9\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=10\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=11\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=12\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=13\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=14\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=15\":{\"model\":\"tinker_foundry:block/molten_fluid\"}\n  }\n}");
+                if (MATERIAL_TAGS.isConfigured(material.name())) continue;
+                String fluidKey = "fluid_type.tinker_foundry." + name.replace('/', '.');
+                String bucketKey = "item.tinker_foundry." + name.replace('/', '.') + "_bucket";
+                english.addProperty(fluidKey, "Molten " + material.displayName("en_us"));
+                english.addProperty(bucketKey, "Molten " + material.displayName("en_us") + " Bucket");
+                chinese.addProperty(fluidKey, "熔融" + material.displayName("zh_cn"));
+                chinese.addProperty(bucketKey, "熔融" + material.displayName("zh_cn") + "桶");
+            }
+            putResource(resources, "tinker_foundry:lang/en_us.json", english.toString());
+            putResource(resources, "tinker_foundry:lang/zh_cn.json", chinese.toString());
+        } else {
+            for (var material : MATERIAL_TAGS.materials().values()) if (EXTRA_SOURCES.containsKey(material.registryName())) {
+                putResource(resources, "c:tags/fluids/molten_" + material.name() + ".json",
+                    "{\"replace\":false,\"values\":[\"" + material.generatedId() + "\"]}");
+            }
+        }
+        return resources;
+    }
+
+    public static com.google.gson.JsonObject remapRecipe(com.google.gson.JsonObject json) {
+        var copy = json.deepCopy();
+        rewriteFluids(copy);
+        return copy;
+    }
+
+    private static void rewriteFluids(com.google.gson.JsonElement json) {
+        if (json.isJsonObject()) {
+            var object = json.getAsJsonObject();
+            for (var entry : new java.util.ArrayList<>(object.entrySet())) {
+                var value = entry.getValue();
+                if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString() && value.getAsString().startsWith("tinker_foundry:molten/")) {
+                    Fluid fluid = metal(value.getAsString().substring(22));
+                    if (fluid != Fluids.EMPTY) object.addProperty(entry.getKey(), Registry.FLUID.getKey(fluid).toString());
+                } else rewriteFluids(value);
+            }
+        } else if (json.isJsonArray()) json.getAsJsonArray().forEach(TFFluids::rewriteFluids);
+    }
+
+    private static void putResource(Map<ResourceLocation, byte[]> resources, String id, String text) {
+        resources.put(new ResourceLocation(id), text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
     /** 注册流体类型，熔融金属不允许自然变成源流体。 */
-    private static DeferredHolder<FluidType, FluidType> moltenType(String name, int color, int temperature, int lightLevel) {
+    private static RegistryObject<FluidType> moltenType(String name, int color, int temperature, int lightLevel) {
         return TinkerFoundry.FLUID_TYPES.register(name, () -> new FluidType(FluidType.Properties.create()
-            .descriptionId("fluid_type.tinker_foundry.molten_" + name)
+            .descriptionId(name.startsWith("molten/") ? "fluid_type.tinker_foundry." + name.replace('/', '.') : "fluid_type.tinker_foundry.molten_" + name)
             .density(5000)
             .viscosity(1500)
             .temperature(temperature)
             .lightLevel(lightLevel)
-            .canConvertToSource(false)));
+            .canConvertToSource(false)) {
+                /** 在 Forge 1.20.1 的 FluidType 初始化入口提供客户端颜色和纹理。 */
+                @Override
+                public void initializeClient(Consumer<IClientFluidTypeExtensions> consumer) {
+                    consumer.accept(new IClientFluidTypeExtensions() {
+                        /** 返回本模组统一的静止熔融纹理。 */
+                        @Override
+                        public ResourceLocation getStillTexture() {
+                            return new ResourceLocation(TinkerFoundry.MOD_ID, "block/fluid/molten_still");
+                        }
+
+                        /** 返回本模组统一的流动熔融纹理。 */
+                        @Override
+                        public ResourceLocation getFlowingTexture() {
+                            return new ResourceLocation(TinkerFoundry.MOD_ID, "block/fluid/molten_flow");
+                        }
+
+                        /** 返回注册表条目对应的熔融颜色。 */
+                        @Override
+                        public int getTintColor() {
+                            return color;
+                        }
+                    });
+                }
+            });
     }
 
     /** 注册静止流体。 */
-    private static DeferredHolder<net.minecraft.world.level.material.Fluid, BaseFlowingFluid.Source> source(String name, DeferredHolder<FluidType, FluidType> type) {
-        return TinkerFoundry.FLUIDS.register(name, () -> new BaseFlowingFluid.Source(new BaseFlowingFluid.Properties(type, () -> fluid(name), () -> fluid(name + "_flowing"))
+    private static RegistryObject<Fluid> source(String name, RegistryObject<FluidType> type) {
+        return TinkerFoundry.FLUIDS.register(name, () -> new ForgeFlowingFluid.Source(new ForgeFlowingFluid.Properties(type, () -> fluid(name), () -> fluid(name + "_flowing"))
             .bucket(() -> TFItems.bucketFor(name)).block(() -> fluidBlock(name)).slopeFindDistance(2).levelDecreasePerBlock(2).tickRate(10)));
     }
 
     /** 注册流动流体。 */
-    private static DeferredHolder<net.minecraft.world.level.material.Fluid, BaseFlowingFluid.Flowing> flowing(String name, DeferredHolder<FluidType, FluidType> type) {
-        return TinkerFoundry.FLUIDS.register(name + "_flowing", () -> new BaseFlowingFluid.Flowing(new BaseFlowingFluid.Properties(type, () -> fluid(name), () -> fluid(name + "_flowing"))
+    private static RegistryObject<Fluid> flowing(String name, RegistryObject<FluidType> type) {
+        return TinkerFoundry.FLUIDS.register(name + "_flowing", () -> new ForgeFlowingFluid.Flowing(new ForgeFlowingFluid.Properties(type, () -> fluid(name), () -> fluid(name + "_flowing"))
             .bucket(() -> TFItems.bucketFor(name)).block(() -> fluidBlock(name)).slopeFindDistance(2).levelDecreasePerBlock(2).tickRate(10)));
     }
 
     /** 注册不可掉落的液体方块，确保熔融流体桶可以正常放置。 */
-    private static DeferredBlock<LiquidBlock> registerFluidBlock(String name, DeferredHolder<Fluid, ? extends FlowingFluid> source) {
-        DeferredBlock<LiquidBlock> block = TinkerFoundry.BLOCKS.register(name + "_fluid", () -> new LiquidBlock(source.get(), BlockBehaviour.Properties.ofFullCopy(Blocks.LAVA).noLootTable()));
+    private static RegistryObject<LiquidBlock> registerFluidBlock(String name, RegistryObject<Fluid> source) {
+        RegistryObject<LiquidBlock> block = TinkerFoundry.BLOCKS.register(name + "_fluid", () -> new LiquidBlock(
+            () -> (FlowingFluid) source.get(), BlockBehaviour.Properties.copy(Blocks.LAVA).noLootTable()));
         FLUID_BLOCKS.put(name, block);
         return block;
     }
@@ -139,7 +190,7 @@ public final class TFFluids {
         if (fluid == null || fluid == Fluids.EMPTY) {
             return false;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
+        ResourceLocation id = Registry.FLUID.getKey(fluid);
         return id != null && TinkerFoundry.MOD_ID.equals(id.getNamespace());
     }
 
@@ -150,7 +201,7 @@ public final class TFFluids {
 
     /** 延迟从当前注册表获取源流体或流动流体，避免静态初始化顺序依赖。 */
     private static net.minecraft.world.level.material.Fluid fluid(String name) {
-        return net.minecraft.core.registries.BuiltInRegistries.FLUID.get(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, name));
+        return Registry.FLUID.get(new ResourceLocation(TinkerFoundry.MOD_ID, name));
     }
 
     private TFFluids() {

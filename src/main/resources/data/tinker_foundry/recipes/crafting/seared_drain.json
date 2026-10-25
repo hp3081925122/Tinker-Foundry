@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "B B",
+    "C C",
+    "B B"
+  ],
+  "key": {
+    "B": {
+      "item": "tinker_foundry:seared_brick"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:seared_drain"
+  }
+}
