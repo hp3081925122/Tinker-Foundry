@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "tinker_foundry:tank",
+    "base": "tinker_foundry:item/scorched_ingot_tank",
+    "fluid_from": [0.08, 0.08, 0.08],
+    "fluid_to": [15.92, 15.92, 15.92],
+    "increments": 256
+  }
+}

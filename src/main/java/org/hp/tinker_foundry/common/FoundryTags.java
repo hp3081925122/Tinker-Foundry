@@ -1,7 +1,7 @@
 package org.hp.tinker_foundry.common;
 
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import org.hp.tinker_foundry.TinkerFoundry;
@@ -13,7 +13,7 @@ public final class FoundryTags {
 
     /** 创建当前模组命名空间下的物品标签。 */
     private static TagKey<Item> item(String path) {
-        return TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, path));
+        return TagKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, path));
     }
 
     private FoundryTags() { }

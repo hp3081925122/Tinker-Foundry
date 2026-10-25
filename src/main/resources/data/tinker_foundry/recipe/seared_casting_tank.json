@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "pattern": ["BGB", "BCB", "BGB"],
   "key": {
-    "B": {"item": "tinker_foundry:seared_brick"},
-    "G": {"tag": "c:glass_blocks"},
-    "C": {"tag": "c:ingots/copper"}
+    "B": "tinker_foundry:seared_brick",
+    "G": "#c:glass_blocks",
+    "C": "#c:ingots/copper"
   },
   "result": {"id": "tinker_foundry:seared_casting_tank", "count": 1}
 }

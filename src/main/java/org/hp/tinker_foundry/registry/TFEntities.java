@@ -2,6 +2,9 @@ package org.hp.tinker_foundry.registry;
 
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.entity.FoundryFluidCannonProjectile;
@@ -16,7 +19,7 @@ public final class TFEntities {
             .clientTrackingRange(4)
             .updateInterval(10)
             .setShouldReceiveVelocityUpdates(false)
-            .build("tinker_foundry:fluid_spit"));
+            .build(ResourceKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "fluid_spit"))));
 
     /** 防止把注册表误当作可实例化对象。 */
     private TFEntities() {

@@ -16,14 +16,16 @@ import org.hp.tinker_foundry.registry.TFEntities;
 import org.hp.tinker_foundry.registry.TFFluids;
 import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.registry.TFRecipes;
-import org.hp.tinker_foundry.item.PortableTankFluidHandler;
+import org.hp.tinker_foundry.item.PortableTankResourceHandler;
 import org.hp.tinker_foundry.item.FoundryTankItem;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import org.slf4j.Logger;
 import org.hp.tinker_foundry.common.FoundryWorldEvents;
 import org.hp.tinker_foundry.network.FoundryNetworking;
+import org.hp.tinker_foundry.debug.FoundryDebugCommand;
 
 /** 独立冶炼系统的模组入口。 */
 @Mod(TinkerFoundry.MOD_ID)
@@ -173,9 +175,6 @@ public final class TinkerFoundry {
         output.accept(TFItems.GEM_RED_SAND_CAST.get());
 
         // 输出熔融流体桶，基础桶沿用原版金属顺序，附加桶沿用注册表稳定顺序。
-        output.accept(TFItems.IRON_BUCKET.get());
-        output.accept(TFItems.GOLD_BUCKET.get());
-        output.accept(TFItems.COPPER_BUCKET.get());
         TFItems.EXTRA_BUCKETS.values().forEach(bucket -> output.accept(bucket.get()));
 
         // 输出本项目额外提供的铜粒，避免干扰前面的匠魂对照顺序。
@@ -196,6 +195,12 @@ public final class TinkerFoundry {
         modEventBus.addListener(FoundryNetworking::register);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         NeoForge.EVENT_BUS.register(FoundryWorldEvents.class);
+        NeoForge.EVENT_BUS.register(org.hp.tinker_foundry.recipe.AutomaticMeltingRecipes.class);
+        // 调试生成器只注册服务端命令，不启动客户端，也不改变普通玩家的游戏流程。
+        NeoForge.EVENT_BUS.addListener(FoundryDebugCommand::register);
+        // 请求 NeoForge 把自定义配方类型同步给客户端，供 JEI 和其他客户端浏览器读取。
+        NeoForge.EVENT_BUS.addListener(this::requestRecipeSync);
+        org.hp.tinker_foundry.common.AutomaticFluidResources.register(modEventBus);
         BLOCKS.register(modEventBus);
         org.hp.tinker_foundry.registry.TFDataComponents.REGISTER.register(modEventBus);
         ITEMS.register(modEventBus);
@@ -210,15 +215,31 @@ public final class TinkerFoundry {
 
     }
 
+    /** 请求当前项目的全部自定义配方类型进行客户端同步。 */
+    private void requestRecipeSync(OnDatapackSyncEvent event) {
+        event.sendRecipes(
+            TFRecipes.MELTING.get(),
+            TFRecipes.ORE_MELTING.get(),
+            TFRecipes.DAMAGEABLE_MELTING.get(),
+            TFRecipes.ENTITY_MELTING.get(),
+            TFRecipes.ALLOYING.get(),
+            TFRecipes.CASTING.get(),
+            TFRecipes.MOLDING.get(),
+            TFRecipes.FUEL.get()
+        );
+        LOGGER.debug("[recipes] Requested client sync for all Tinker Foundry recipe types");
+    }
+
     /** 注册设备和便携容器的流体能力。 */
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
+        event.registerBlockEntity(Capabilities.Fluid.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
             // 浇注口只通过背面输入和下方输出工作，不应作为普通流体储罐暴露给外部管道。
             if (entity.isFaucetBlock()) return null;
             // 疏导槽按当前连接状态只暴露顶部输入或水平输入面，输出面由服务端逐面推送。
             if (entity.getBlockState().is(TFBlocks.SEARED_CHANNEL.get())
                 || entity.getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get())) {
-                return org.hp.tinker_foundry.common.FoundryChannelFluidHandler.forSide(entity, side);
+                return org.hp.tinker_foundry.common.FoundryCapabilityCompat.fluidResource(
+                    org.hp.tinker_foundry.common.FoundryChannelFluidHandler.forSide(entity, side));
             }
             // 导入槽仅处理物品；排液口与导管始终通过有效控制器访问流体。
             if (entity.getBlockState().is(TFBlocks.SEARED_CHUTE.get())
@@ -226,29 +247,34 @@ public final class TinkerFoundry {
             if (entity.getBlockState().is(TFBlocks.SEARED_DRAIN.get())
                 || entity.getBlockState().is(TFBlocks.SCORCHED_DRAIN.get()) || entity.getBlockState().is(TFBlocks.SEARED_DUCT.get())
                 || entity.getBlockState().is(TFBlocks.SCORCHED_DUCT.get())) {
-                return new org.hp.tinker_foundry.common.FoundryPortFluidHandler(entity);
+                return org.hp.tinker_foundry.common.FoundryCapabilityCompat.fluidResource(
+                    new org.hp.tinker_foundry.common.FoundryPortFluidHandler(entity));
             }
             // 合金炉对外只暴露原版的单个输出罐，五个输入罐由自身的邻接模块读取。
             if (entity.isAlloyer()) {
-                return entity.alloyerOutputHandler();
+                return org.hp.tinker_foundry.common.FoundryCapabilityCompat.fluidResource(entity.alloyerOutputHandler());
             }
-            return entity;
+            return org.hp.tinker_foundry.common.FoundryCapabilityCompat.fluidResource(entity);
         });
-        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
+        event.registerBlockEntity(Capabilities.Item.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
             // 无物品功能的储罐、排液口和导管不暴露通用的隐藏容器。
             if (entity.isMeltingBlock() || entity.isHeater() || entity.isFuelTankBlock() || entity.isCastingBlock() || entity.isCastingTankBlock()
                 || entity.isProxyTankBlock() || entity.isFluidCannonBlock()
                 || entity.getBlockState().is(TFBlocks.SEARED_CHUTE.get()) || entity.getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())) {
-                return new org.hp.tinker_foundry.common.FoundryItemHandler(entity);
+                return org.hp.tinker_foundry.common.FoundryCapabilityCompat.itemResource(
+                    new org.hp.tinker_foundry.common.FoundryItemHandler(entity));
             }
             return null;
         });
-        event.registerItem(Capabilities.FluidHandler.ITEM, (stack, side) -> new PortableTankFluidHandler(stack, ((org.hp.tinker_foundry.item.PortableTankItem) stack.getItem()).capacity()), TFItems.COPPER_CANISTER.get());
-        event.registerItem(Capabilities.FluidHandler.ITEM, (stack, side) -> {
+        event.registerItem(Capabilities.Fluid.ITEM, (stack, access) -> new PortableTankResourceHandler(
+            access, ((org.hp.tinker_foundry.item.PortableTankItem) stack.getItem()).capacity()), TFItems.COPPER_CANISTER.get());
+        event.registerItem(Capabilities.Fluid.ITEM, (stack, access) -> {
             FoundryTankItem tank = (FoundryTankItem) stack.getItem();
-            return new PortableTankFluidHandler(stack, tank.capacity(), tank.allowsFuel());
+            return new PortableTankResourceHandler(access, tank.capacity(), tank.allowsFuel());
         }, TFItems.SEARED_INGOT_TANK.get(), TFItems.SCORCHED_INGOT_TANK.get(),
             TFItems.SEARED_FUEL_TANK.get(), TFItems.SCORCHED_FUEL_TANK.get(), TFItems.SEARED_CASTING_TANK.get(),
-            TFItems.SEARED_LANTERN.get(), TFItems.SCORCHED_LANTERN.get(), TFItems.SEARED_FLUID_CANNON.get());
+            TFItems.SEARED_LANTERN.get(), TFItems.SCORCHED_LANTERN.get(), TFItems.SEARED_FLUID_CANNON.get(),
+            TFItems.SEARED_INGOT_GAUGE.get(), TFItems.SCORCHED_INGOT_GAUGE.get(),
+            TFItems.SEARED_FUEL_GAUGE.get(), TFItems.SCORCHED_FUEL_GAUGE.get());
     }
 }

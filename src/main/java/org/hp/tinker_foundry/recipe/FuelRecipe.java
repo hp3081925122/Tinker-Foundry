@@ -10,7 +10,6 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
@@ -19,7 +18,7 @@ import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 固体或流体燃料定义，统一描述持续时间、温度和消耗速率。 */
-public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient> fluidFuel, int duration, int temperature, int consumption, int rate) implements Recipe<net.minecraft.world.item.crafting.SingleRecipeInput> {
+public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient> fluidFuel, int duration, int temperature, int consumption, int rate) implements FoundryRecipe<net.minecraft.world.item.crafting.SingleRecipeInput> {
     /** 燃料输入可以是物品标签或流体标签。 */
     public static final MapCodec<FuelRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
         Ingredient.CODEC.optionalFieldOf("item").forGetter(FuelRecipe::itemFuel),
@@ -65,18 +64,16 @@ public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient
 
     /** 燃料配方不产生物品。 */
     @Override
-    public ItemStack assemble(net.minecraft.world.item.crafting.SingleRecipeInput input, HolderLookup.Provider registries) {
+    public ItemStack assemble(net.minecraft.world.item.crafting.SingleRecipeInput input) {
         return ItemStack.EMPTY;
     }
 
     /** 燃料配方占用一个逻辑工作单元。 */
-    @Override
     public boolean canCraftInDimensions(int width, int height) {
         return width * height >= 1;
     }
 
     /** 返回空物品结果。 */
-    @Override
     public ItemStack getResultItem(HolderLookup.Provider registries) {
         return ItemStack.EMPTY;
     }
@@ -89,13 +86,13 @@ public record FuelRecipe(Optional<Ingredient> itemFuel, Optional<FluidIngredient
 
     /** 返回燃料配方序列化器。 */
     @Override
-    public RecipeSerializer<?> getSerializer() {
+    public RecipeSerializer<? extends FuelRecipe> getSerializer() {
         return TFRecipes.FUEL_SERIALIZER.get();
     }
 
     /** 返回独立 fuel 配方类型。 */
     @Override
-    public RecipeType<?> getType() {
+    public RecipeType<? extends FuelRecipe> getType() {
         return TFRecipes.FUEL.get();
     }
 }

@@ -1,7 +1,7 @@
 {
   "type": "tinker_foundry:casting",
-  "fluid": {"ingredient": {"fluid": "tinker_foundry:molten_clay"}, "amount": 500},
-  "mold": {"item": "minecraft:smooth_stone"},
+  "fluid": {"ingredient": "tinker_foundry:molten_clay", "amount": 500},
+  "mold": "minecraft:smooth_stone",
   "result": {"id": "tinker_foundry:seared_paver", "count": 1},
   "time": 113,
   "cast_consumed": true

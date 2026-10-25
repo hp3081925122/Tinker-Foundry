@@ -5,17 +5,18 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -69,7 +70,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
             entityData.set(FLUID_AMOUNT, 0);
             return;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
+        Identifier id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
         entityData.set(FLUID_ID, id == null ? "" : id.toString());
         entityData.set(FLUID_AMOUNT, Math.max(0, fluid.getAmount()));
     }
@@ -81,7 +82,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         if (id == null || id.isEmpty() || amount <= 0) {
             return FluidStack.EMPTY;
         }
-        ResourceLocation location = ResourceLocation.tryParse(id);
+        Identifier location = Identifier.tryParse(id);
         if (location == null) {
             return FluidStack.EMPTY;
         }
@@ -116,7 +117,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
             nextLocation = hit.getLocation().add(movement.normalize().scale(offset));
         }
         updateRotation();
-        if (tickCount > 80 || getY() > level().getMaxBuildHeight() + 64) {
+        if (tickCount > 80 || getY() > level().getMaxY() + 64) {
             discard();
             return;
         }
@@ -140,7 +141,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         if (knockback.lengthSqr() > 0.0D) {
             hit.getEntity().push(knockback.x, 0.1D, knockback.z);
         }
-        if (level().isClientSide) {
+        if (level().isClientSide()) {
             return;
         }
         FluidStack current = getFluid();
@@ -160,7 +161,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
     @Override
     protected void onHitBlock(BlockHitResult hit) {
         super.onHitBlock(hit);
-        if (level().isClientSide) {
+        if (level().isClientSide()) {
             return;
         }
         FluidStack current = getFluid();
@@ -187,31 +188,31 @@ public final class FoundryFluidCannonProjectile extends Projectile {
 
     /** 保存跨区块加载所需的流体和强度。 */
     @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {
-        super.addAdditionalSaveData(tag);
-        tag.putString("FluidId", entityData.get(FLUID_ID));
-        tag.putInt("FluidAmount", entityData.get(FLUID_AMOUNT));
-        tag.putFloat("Power", entityData.get(POWER));
-        tag.putFloat("WaterInertia", entityData.get(WATER_INERTIA));
+    protected void addAdditionalSaveData(ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        output.putString("FluidId", entityData.get(FLUID_ID));
+        output.putInt("FluidAmount", entityData.get(FLUID_AMOUNT));
+        output.putFloat("Power", entityData.get(POWER));
+        output.putFloat("WaterInertia", entityData.get(WATER_INERTIA));
     }
 
     /** 从存档恢复流体弹的同步数据。 */
     @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {
-        super.readAdditionalSaveData(tag);
-        entityData.set(FLUID_ID, tag.getString("FluidId"));
-        entityData.set(FLUID_AMOUNT, Math.max(0, tag.getInt("FluidAmount")));
-        entityData.set(POWER, tag.getFloat("Power"));
-        entityData.set(WATER_INERTIA, tag.getFloat("WaterInertia"));
+    protected void readAdditionalSaveData(ValueInput input) {
+        super.readAdditionalSaveData(input);
+        entityData.set(FLUID_ID, input.getStringOr("FluidId", ""));
+        entityData.set(FLUID_AMOUNT, Math.max(0, input.getIntOr("FluidAmount", 0)));
+        entityData.set(POWER, input.getFloatOr("Power", 1.0F));
+        entityData.set(WATER_INERTIA, input.getFloatOr("WaterInertia", 0.6F));
     }
 
     /** 客户端接收生成包时补充匠魂风格的喷射粒子和初速度。 */
     @Override
     public void recreateFromPacket(ClientboundAddEntityPacket packet) {
         super.recreateFromPacket(packet);
-        double x = packet.getXa();
-        double y = packet.getYa();
-        double z = packet.getZa();
+        double x = packet.getMovement().x();
+        double y = packet.getMovement().y();
+        double z = packet.getMovement().z();
         for (int index = 0; index < 7; index++) {
             double scale = 0.4D + 0.1D * index;
             level().addParticle(ParticleTypes.SPIT, getX(), getY(), getZ(), x * scale, y, z * scale);

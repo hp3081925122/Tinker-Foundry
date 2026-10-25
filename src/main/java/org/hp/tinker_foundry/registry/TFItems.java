@@ -114,36 +114,34 @@ public final class TFItems {
     /** 一次性宝石红砂模，使用四角红沙制作。 */
     public static final DeferredItem<Item> GEM_RED_SAND_CAST = simple("gem_red_sand_cast");
 
-    /** 保留原有熔融铁桶，供原版铁的熔炼和浇注配方使用。 */
-    public static final DeferredItem<BucketItem> IRON_BUCKET = bucket("iron", TFFluids.IRON);
-    /** 保留原有熔融金桶，供原版金的熔炼和浇注配方使用。 */
-    public static final DeferredItem<BucketItem> GOLD_BUCKET = bucket("gold", TFFluids.GOLD);
-    /** 保留原有熔融铜桶，供原版铜的熔炼和浇注配方使用。 */
-    public static final DeferredItem<BucketItem> COPPER_BUCKET = bucket("copper", TFFluids.COPPER);
 
     /** 铜制便携罐。 */
-    public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.register("copper_canister", () -> new PortableTankItem(FluidValues.INGOT, new Item.Properties()));
+    public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.registerItem(
+        "copper_canister", properties -> new PortableTankItem(FluidValues.INGOT, properties));
 
     /** 变种方块统一注册，避免为每个不参与逻辑判断的装饰方块复制一套 Java 字段。 */
     private static final Map<String, DeferredItem<Item>> VARIANT_BLOCK_ITEMS = registerVariantBlockItems();
     /** 注册方块物品。 */
     private static DeferredItem<Item> block(String name, net.neoforged.neoforge.registries.DeferredBlock<? extends net.minecraft.world.level.block.Block> block) {
-        return TinkerFoundry.ITEMS.register(name, () -> new FoundryTooltipBlockItem(block.get(), new Item.Properties()));
+        return TinkerFoundry.ITEMS.registerItem(name,
+            properties -> new FoundryTooltipBlockItem(block.get(), properties.useBlockDescriptionPrefix()));
     }
 
     /** 注册可以携带流体的专用储液罐方块物品。 */
     private static DeferredItem<FoundryTankItem> tank(String name, net.neoforged.neoforge.registries.DeferredBlock<? extends net.minecraft.world.level.block.Block> block, int capacity, boolean allowFuel) {
-        return TinkerFoundry.ITEMS.register(name, () -> new FoundryTankItem(block.get(), capacity, allowFuel, new Item.Properties()));
+        return TinkerFoundry.ITEMS.registerItem(name,
+            properties -> new FoundryTankItem(block.get(), capacity, allowFuel, properties));
     }
 
     /** 注册普通铸模物品。 */
     private static DeferredItem<Item> simple(String name) {
-        return TinkerFoundry.ITEMS.register(name, () -> new Item(new Item.Properties()));
+        return TinkerFoundry.ITEMS.registerItem(name, Item::new);
     }
 
     /** 注册流体桶。 */
     private static DeferredItem<BucketItem> bucket(String name, java.util.function.Supplier<? extends net.minecraft.world.level.material.Fluid> fluid) {
-        return TinkerFoundry.ITEMS.register(name + "_bucket", () -> new BucketItem(fluid.get(), new Item.Properties().stacksTo(1)));
+        return TinkerFoundry.ITEMS.registerItem(name + "_bucket",
+            properties -> new BucketItem(fluid.get(), properties.stacksTo(1)));
     }
 
     /** 按注册名取得批量注册的装饰方块物品，供创造标签页保持匠魂顺序。 */
@@ -208,12 +206,7 @@ public final class TFItems {
 
     /** 为流体基类提供对应桶的延迟查找。 */
     public static Item bucketFor(String name) {
-        return switch (name) {
-            case "iron" -> IRON_BUCKET.get();
-            case "gold" -> GOLD_BUCKET.get();
-            case "copper" -> COPPER_BUCKET.get();
-            default -> EXTRA_BUCKETS.get(name).get();
-        };
+        return EXTRA_BUCKETS.get(name).get();
     }
 
     private TFItems() {

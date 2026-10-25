@@ -2,8 +2,8 @@
   "type": "minecraft:crafting_shaped",
   "pattern": ["#G#", "#G#", "#G#"],
   "key": {
-    "#": {"item": "tinker_foundry:seared_brick"},
-    "G": {"item": "minecraft:glass"}
+    "#": "tinker_foundry:seared_brick",
+    "G": "minecraft:glass"
   },
   "result": {"id": "tinker_foundry:seared_ingot_tank", "count": 1}
 }

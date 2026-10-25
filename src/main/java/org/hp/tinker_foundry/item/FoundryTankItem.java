@@ -1,12 +1,13 @@
 package org.hp.tinker_foundry.item;
 
-import java.util.List;
+import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -51,16 +52,17 @@ public final class FoundryTankItem extends FoundryTooltipBlockItem {
 
     /** 显示罐内流体和当前储量，便于创造栏和普通物品栏识别填充状态。 */
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display,
+                                Consumer<Component> tooltip, TooltipFlag flag) {
         FluidStack fluid = getFluid(stack);
         if (fluid.isEmpty()) {
-            tooltip.add(Component.translatable("tooltip.tinker_foundry.empty_tank").withStyle(ChatFormatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.tinker_foundry.empty_tank").withStyle(ChatFormatting.GRAY));
         } else {
-            tooltip.add(fluid.getDisplayName().copy().withStyle(ChatFormatting.GRAY));
-            tooltip.add(Component.translatable("tooltip.tinker_foundry.tank_amount", fluid.getAmount(), capacity)
+            tooltip.accept(fluid.getHoverName().copy().withStyle(ChatFormatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.tinker_foundry.tank_amount", fluid.getAmount(), capacity)
                 .withStyle(ChatFormatting.GRAY));
         }
-        super.appendHoverText(stack, context, tooltip, flag);
+        super.appendHoverText(stack, context, display, tooltip, flag);
     }
 
 }

@@ -6,7 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
@@ -17,7 +17,7 @@ public record FoundryStatePayload(BlockPos pos, FluidStack fluid, FluidStack fue
     implements CustomPacketPayload {
     /** 独立模组的客户端状态载荷类型。 */
     public static final Type<FoundryStatePayload> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "foundry_state")
+        Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "foundry_state")
     );
 
     /** 1.21.1 RegistryFriendlyByteBuf 使用的状态流编码器。 */

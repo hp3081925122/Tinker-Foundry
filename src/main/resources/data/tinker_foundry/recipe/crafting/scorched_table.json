@@ -2,8 +2,8 @@
   "type": "minecraft:crafting_shaped",
   "pattern": ["BBB", "I I", "I I"],
   "key": {
-    "B": {"item": "tinker_foundry:scorched_brick"},
-    "I": {"item": "minecraft:iron_ingot"}
+    "B": "tinker_foundry:scorched_brick",
+    "I": "minecraft:iron_ingot"
   },
   "result": {"id": "tinker_foundry:scorched_table", "count": 1}
 }

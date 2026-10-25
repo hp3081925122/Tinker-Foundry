@@ -3,20 +3,21 @@ package org.hp.tinker_foundry.client;
 import java.util.List;
 import java.util.ArrayList;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
@@ -29,18 +30,18 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     /** 合金炉五个邻接输入罐在官方界面上的固定横坐标。 */
     private static final int[] ALLOY_INPUT_TANK_START_X = {54, 22, 38, 70, 6};
     /** Melter 和普通熔炼控制器的界面纹理。 */
-    private static final ResourceLocation MELTER_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/melter.png");
+    private static final Identifier MELTER_BACKGROUND = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/melter.png");
     /** 1.20.1 匠魂熔化炉燃料模块的内容区域。 */
     private static final int MELTER_FUEL_X = 153;
     private static final int MELTER_FUEL_Y = 32;
     private static final int MELTER_FUEL_WIDTH = 12;
     private static final int MELTER_FUEL_HEIGHT = 36;
     /** Alloyer 的界面纹理。 */
-    private static final ResourceLocation ALLOYER_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/alloyer.png");
+    private static final Identifier ALLOYER_BACKGROUND = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/alloyer.png");
     /** Heater 的界面纹理。 */
-    private static final ResourceLocation HEATER_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/heater.png");
+    private static final Identifier HEATER_BACKGROUND = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/heater.png");
     /** 冶炼炉和铸造炉控制器的多方块界面纹理。 */
-    private static final ResourceLocation STRUCTURE_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/heating_structure.png");
+    private static final Identifier STRUCTURE_BACKGROUND = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/heating_structure.png");
     /** 原版控制器界面左侧侧栏的宽度，右侧 176 像素保持使用匠魂布局。 */
     private final int STRUCTURE_SIDE_WIDTH;
     /** 按当前槽数决定可见行数，多余行由滚动条访问。 */
@@ -65,7 +66,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 创建与当前设备类型对应的原版风格冶炼界面。 */
     public FoundryScreen(FoundryMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
+        super(menu, inventory, title, screenWidth(menu), screenHeight(menu));
         // 菜单打开载荷已经给出真实槽数，首次定位就使用动态布局。
         STRUCTURE_SIDE_WIDTH = menu.sideWidth();
         STRUCTURE_SIDE_ROWS = menu.sideRows();
@@ -73,8 +74,6 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         STRUCTURE_FUEL_X = STRUCTURE_SIDE_WIDTH + 152;
         STRUCTURE_FIRE_X = STRUCTURE_SIDE_WIDTH + 153;
         STRUCTURE_MODE_X = STRUCTURE_SIDE_WIDTH + 125;
-        imageWidth = menu.screenKind() == 3 ? STRUCTURE_SIDE_WIDTH + 176 : 176;
-        imageHeight = menu.screenKind() == 2 ? 133 : menu.screenKind() == 3 ? 220 : 166;
         inventoryLabelY = menu.screenKind() == 2 ? 41 : menu.screenKind() == 3 ? 126 : 72;
         if (menu.screenKind() == 3) {
             // 标题和玩家物品栏标签都属于中央区域，不能落到左侧输入栏上。
@@ -92,28 +91,38 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 1.21.1 NeoForge 不会由 AbstractContainerScreen 自动调用 Tooltip，需要在主渲染尾部显式调用。 */
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
-        renderTooltip(graphics, mouseX, mouseY);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        drawBackground(graphics, partialTick, mouseX, mouseY);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        extractCustomTooltip(graphics, mouseX, mouseY);
         debugTooltipTarget(mouseX, mouseY);
         debugMenuSync();
     }
 
+    /** 根据菜单类型在调用父类构造器前确定固定 GUI 尺寸。 */
+    private static int screenWidth(FoundryMenu menu) {
+        return menu.screenKind() == 3 ? menu.sideWidth() + 176 : 176;
+    }
+
+    /** 根据菜单类型在调用父类构造器前确定固定 GUI 高度。 */
+    private static int screenHeight(FoundryMenu menu) {
+        return menu.screenKind() == 2 ? 133 : menu.screenKind() == 3 ? 220 : 166;
+    }
+
     /** 绘制官方基线界面背景、流体槽和处理进度。 */
-    @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        ResourceLocation background = background();
+    private void drawBackground(GuiGraphicsExtractor graphics, float partialTick, int mouseX, int mouseY) {
+        Identifier background = background();
         if (menu.screenKind() == 3) {
             drawStructureSidePanel(graphics);
-            graphics.blit(background, leftPos + STRUCTURE_SIDE_WIDTH, topPos, 0, 0, 176, imageHeight, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, background, leftPos + STRUCTURE_SIDE_WIDTH, topPos, 0, 0, 176, imageHeight, 256, 256);
         } else {
-            graphics.blit(background, leftPos, topPos, 0, 0, imageWidth, imageHeight, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, background, leftPos, topPos, 0, 0, imageWidth, imageHeight, 256, 256);
         }
         if (menu.screenKind() == 1) {
             // 先画五个输入罐背景，再画流体，复刻官方 GUI 的动态槽位数量。
             for (int tank = 0; tank < menu.alloyInputCount(); tank++) {
                 int x = ALLOY_INPUT_TANK_START_X[tank];
-                graphics.blit(background, leftPos + x - 1, topPos + 15, 100, 208, 52, 16, 54, 256, 256);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, background, leftPos + x - 1, topPos + 15, 208, 52, 16, 54, 256, 256);
             }
             for (int tank = 0; tank < menu.alloyInputCount(); tank++) {
                 int x = ALLOY_INPUT_TANK_START_X[tank];
@@ -121,11 +130,11 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             }
             drawFluid(graphics, menu.fluidStack(), menu.fluidAmount(), FoundryBlockEntity.ALLOYER_CAPACITY, 114, 16, 34, 52);
             if (menu.hasAlloyerFuelSlot()) {
-                graphics.blit(background, leftPos + 150, topPos + 31, 100, 176, 52, 18, 36, 256, 256);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, background, leftPos + 150, topPos + 31, 176, 52, 18, 36, 256, 256);
                 // 下方是加热器时显示原版火焰；加热器槽位存在时这里不能再叠画流体罐。
                 drawAlloyerFuel(graphics);
             } else {
-                graphics.blit(background, leftPos + 152, topPos + 31, 100, 194, 52, 14, 38, 256, 256);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, background, leftPos + 152, topPos + 31, 194, 52, 14, 38, 256, 256);
                 // 下方是燃料储罐时只绘制右侧液面，保持和原版 GuiFuelModule 的分支一致。
                 drawFluid(graphics, menu.fuelFluidStack(), menu.fuelAmount(), Math.max(1, menu.fuelCapacity()), 153, 32, 12, 36);
             }
@@ -136,7 +145,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             // 燃料模块悬停时整栏高亮，液面仍只代表储罐余量。
             if (fuelTankAt(mouseX - leftPos, mouseY - topPos) >= 0) {
                 graphics.fill(leftPos + STRUCTURE_FUEL_X, topPos + STRUCTURE_FUEL_Y,
-                    leftPos + STRUCTURE_FUEL_X + 16, topPos + STRUCTURE_FUEL_Y + 90, 109, 0x40ffffff);
+                    leftPos + STRUCTURE_FUEL_X + 16, topPos + STRUCTURE_FUEL_Y + 90, 0x40ffffff);
             }
             drawStructureFuel(graphics);
             drawTransferMode(graphics, mouseX, mouseY);
@@ -151,8 +160,8 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 绘制界面标题和普通设备流体容量文字。 */
     @Override
-    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        super.renderLabels(graphics, mouseX, mouseY);
+    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        super.extractLabels(graphics, mouseX, mouseY);
         if (menu.screenKind() == 1) {
             // 先绘制匠魂模块级悬停高亮，再绘制标尺，避免标尺刻度被半透明高亮覆盖。
             int checkX = mouseX - leftPos;
@@ -165,16 +174,15 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             }
             drawAlloyerFuelHighlight(graphics, checkX, checkY);
             // 原版标尺覆盖输出槽上半部，不能使用普通熔炼器的文字流体行。
-            graphics.blit(ALLOYER_BACKGROUND, 114, 16, 100, 176, 0, 34, 52, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ALLOYER_BACKGROUND, 114, 16, 176, 0, 34, 52, 256, 256);
         }
         if (menu.screenKind() == 3) {
             drawStructureHeatBars(graphics);
             // 高亮使用缓冲绘制而刻度使用即时纹理，先提交高亮，防止尾部批次反过来遮住刻度。
-            graphics.flush();
             // 原版刻度就在现有纹理的右上角，必须绘制在流体层之上。
-            graphics.blit(STRUCTURE_BACKGROUND, STRUCTURE_SIDE_WIDTH + 8, 16, 110, 176, 0, 80, 106, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, STRUCTURE_BACKGROUND, STRUCTURE_SIDE_WIDTH + 8, 16, 176, 0, 80, 106, 256, 256);
             if (menu.bucketContainer().getItem(0).isEmpty()) {
-                graphics.blit(STRUCTURE_BACKGROUND, STRUCTURE_SIDE_WIDTH + 125, 46, 110, 224, 186, 16, 16, 256, 256);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, STRUCTURE_BACKGROUND, STRUCTURE_SIDE_WIDTH + 125, 46, 224, 186, 16, 16, 256, 256);
             }
         }
         if (menu.screenKind() == 0) {
@@ -184,18 +192,16 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             drawTankHighlight(graphics, checkX, checkY, 90, 16, 52, 52,
                 menu.fluidAmount(), Math.max(1, menu.capacity()));
             drawMelterFuelHighlight(graphics, checkX, checkY);
-            graphics.flush();
-            graphics.blit(MELTER_BACKGROUND, 90, 16, 100, 176, 0, 52, 52, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, MELTER_BACKGROUND, 90, 16, 176, 0, 52, 52, 256, 256);
             drawMelterHeatBars(graphics);
         }
         if (menu.screenKind() == 2) {
-            graphics.drawString(font, "燃料：" + menu.fluidAmount() + " mB", 8, 59, 0xFFFFD43B, false);
+            graphics.text(font, "燃料：" + menu.fluidAmount() + " mB", 8, 59, 0xFFFFD43B, false);
         }
     }
 
     /** 为界面内的流体槽添加类型和数量提示。 */
-    @Override
-    protected void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void extractCustomTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         // 显式绘制当前槽位物品提示，避免自定义流体提示覆盖统一界面的物品提示入口。
         Slot slot = getSlotUnderMouse();
         if (menu.getCarried().isEmpty() && slot != null && slot.hasItem()) {
@@ -209,13 +215,13 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                     }
                 }
             }
-            graphics.renderTooltip(font, tooltip, slot.getItem().getTooltipImage(), slot.getItem(), mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, tooltip, slot.getItem().getTooltipImage(), slot.getItem(), mouseX, mouseY);
             return;
         }
         int x = mouseX - leftPos;
         int y = mouseY - topPos;
         if (menu.screenKind() == 3 && isInside(x, y, STRUCTURE_MODE_X - 1, STRUCTURE_MODE_Y - 1, 18, 18)) {
-            graphics.renderComponentTooltip(font, transferModeTooltip(), mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, transferModeTooltip(), mouseX, mouseY);
             return;
         }
         if (menu.screenKind() == 0 && renderMelterHeatTooltip(graphics, mouseX, mouseY)) {
@@ -259,7 +265,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     /** 只在客户端菜单同步值变化时记录燃料和结构状态，确认服务端数据是否到达界面。 */
     private void debugMenuSync() {
         FluidStack fuel = menu.fuelFluidStack();
-        ResourceLocation fluidId = fuel.isEmpty() ? null : BuiltInRegistries.FLUID.getKey(fuel.getFluid());
+        Identifier fluidId = fuel.isEmpty() ? null : BuiltInRegistries.FLUID.getKey(fuel.getFluid());
         String state = "screen=" + menu.screenKind()
             + " structureValid=" + menu.structureValid()
             + " hasFuelSource=" + menu.hasFuelSource()
@@ -275,7 +281,10 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 让界面左右键分别触发流体槽取液和倒液请求，具体修改由服务端菜单完成。 */
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         // 滚动条与物品区域分离，点击滑轨直接定位到相应行。
         if (menu.screenKind() == 3 && button == 0 && menu.maxScrollRow() > 0
             && isInside((int) mouseX - leftPos, (int) mouseY - topPos, STRUCTURE_SIDE_WIDTH - 9, 4, 6, STRUCTURE_SIDE_ROWS * 18)) {
@@ -329,7 +338,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     /** 滚轮按行移动输入区，界面外滚动交给原版或配方查看器处理。 */
@@ -345,22 +354,25 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 拖动时持续改变首行，避免重新创建槽位而破坏原版快捷操作状态。 */
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        double mouseY = event.y();
+        int button = event.button();
         if (scrolling && button == 0) {
             scrollFromMouse(mouseY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     /** 松开鼠标结束侧栏拖动。 */
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        int button = event.button();
         if (scrolling && button == 0) {
             scrolling = false;
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     /** 滑轨上下端分别对应首行和最后可见页。 */
@@ -370,7 +382,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     }
 
     /** 显示燃料栏缺少储罐、固体燃料或详细流体信息。 */
-    private void renderFuelTooltip(GuiGraphics graphics, int mouseX, int mouseY, int x, int y) {
+    private void renderFuelTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int x, int y) {
         // 有物品槽时，上半部分由原版槽位负责物品提示，下半部分才显示燃料模块提示。
         if ((menu.screenKind() == 1 && menu.hasAlloyerFuelSlot())
             || (menu.screenKind() == 0 && menu.hasMelterFuelSlot())) {
@@ -385,16 +397,16 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             } else {
                 tooltip.add(Component.translatable("gui.tinker_foundry.fuel.empty"));
             }
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
             return;
         }
         if (!menu.hasFuelSource()) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.tinker_foundry.fuel.no_tank")), mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, List.of(Component.translatable("gui.tinker_foundry.fuel.no_tank")), mouseX, mouseY);
             return;
         }
         FluidStack stack = menu.fuelFluidStack();
         if (stack.isEmpty()) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.tinker_foundry.fuel.empty")), mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, List.of(Component.translatable("gui.tinker_foundry.fuel.empty")), mouseX, mouseY);
             return;
         }
         List<Component> tooltip = fluidTooltip(stack, false);
@@ -403,11 +415,11 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             ? Component.translatable("gui.tinker_foundry.fuel.temperature", menu.fuelTemperature())
                 .withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)
             : Component.translatable("gui.tinker_foundry.fuel.invalid").withStyle(net.minecraft.ChatFormatting.RED));
-        graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+        graphics.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
     }
 
     /** 按匠魂 GuiTankModule 规则显示流体详情或空余容量，空区不再误报毫桶数量。 */
-    private void renderFluidTooltip(GuiGraphics graphics, int mouseX, int mouseY, int tank) {
+    private void renderFluidTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int tank) {
         int x = mouseX - leftPos;
         int y = mouseY - topPos;
         FluidStack stack = hoveredFluid(x, y);
@@ -432,14 +444,14 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                 tooltip.add(Component.empty());
                 tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
             }
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
             return;
         }
         int capacity = menu.screenKind() == 1 && tank == FoundryBlockEntity.ALLOY_OUTPUT_TANK
             ? FoundryBlockEntity.ALLOYER_CAPACITY : menu.screenKind() == 1 ? menu.alloyCapacity(tank) : Math.max(1, menu.capacity());
         int amount = stack.isEmpty() ? 0 : stack.getAmount();
         if (!stack.isEmpty() && fluidContentHovered(x, y, tank, stack, capacity)) {
-            graphics.renderComponentTooltip(font, fluidTooltip(stack, menu.screenKind() == 1 || menu.screenKind() == 3), mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, fluidTooltip(stack, menu.screenKind() == 1 || menu.screenKind() == 3), mouseX, mouseY);
             return;
         }
         List<Component> tooltip = new ArrayList<>();
@@ -453,18 +465,18 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             tooltip.add(Component.empty());
             tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
         }
-        graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+        graphics.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
     }
 
     /** 生成 Mantle FluidTooltipHandler 等价的流体名称、ID、单位和模组名。 */
     private List<Component> fluidTooltip(FluidStack stack, boolean alloyerUnits) {
         List<Component> tooltip = new ArrayList<>();
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(stack.getFluid());
+        Identifier id = BuiltInRegistries.FLUID.getKey(stack.getFluid());
         PotionContents potion = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
         Component fluidName = stack.getHoverName();
         if (potion.potion().isPresent()) {
             // 使用原版药水命名键，让药水流体的名称和匠魂一致。
-            fluidName = Component.translatable(Potion.getName(potion.potion(), "item.minecraft.potion.effect."));
+            fluidName = potion.getName("item.minecraft.potion.effect.");
         }
         tooltip.add(fluidName);
         if (id != null && Minecraft.getInstance().options.advancedItemTooltips) {
@@ -472,7 +484,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         }
         // 合金炉和多方块熔铸炉的 Mantle 配置重定向到 ingots，其余燃料流体使用自身单位配置。
         tooltip.add(alloyerUnits ? formatVolume(stack.getAmount()) : formatFluidVolume(stack));
-        if ((alloyerUnits || usesSpecificFluidUnits(stack)) && !Screen.hasShiftDown()) {
+        if ((alloyerUnits || usesSpecificFluidUnits(stack)) && !minecraft.hasShiftDown()) {
             tooltip.add(Component.empty());
             tooltip.add(Component.translatable("gui.tinker_foundry.tank.shift_hint"));
         }
@@ -519,7 +531,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     /** 判断流体是否拥有匠魂专用的材料单位，因此需要附加 Shift 提示。 */
     private boolean usesSpecificFluidUnits(FluidStack stack) {
         return !stack.isEmpty()
-            && (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())
+            && (TFFluids.isMetal(stack.getFluid())
                 || stack.get(DataComponents.POTION_CONTENTS) != null);
     }
 
@@ -539,25 +551,26 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     }
 
     /** 绘制结构燃料栏上方的原版火焰图标。 */
-    private void drawStructureFuel(GuiGraphics graphics) {
+    private void drawStructureFuel(GuiGraphicsExtractor graphics) {
         if (menu.burnTime() > 0 && menu.fuelBurnDuration() > 0) {
             // 与上游相同从底部向上裁出剩余燃烧比例，而非始终绘制完整火焰。
             int height = Math.min(14, (int) (14L * menu.burnTime() / menu.fuelBurnDuration()));
             if (height > 0) {
-                graphics.blit(STRUCTURE_BACKGROUND, leftPos + STRUCTURE_FIRE_X, topPos + STRUCTURE_FIRE_Y + 14 - height,
-                    100, 176, 150 - height, 14, height, 256, 256);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, STRUCTURE_BACKGROUND,
+                    leftPos + STRUCTURE_FIRE_X, topPos + STRUCTURE_FIRE_Y + 14 - height,
+                    176, 150 - height, 14, height, 256, 256);
             }
         }
     }
 
     /** 按 1.20.1 匠魂 GuiFuelModule 绘制熔化炉燃料边框、液面和火焰。 */
-    private void drawMelterFuel(GuiGraphics graphics) {
+    private void drawMelterFuel(GuiGraphicsExtractor graphics) {
         if (menu.hasMelterFuelSlot()) {
             // 下方是加热器时，官方只显示固体燃料槽，不叠画液体燃料内容。
-            graphics.blit(MELTER_BACKGROUND, leftPos + 150, topPos + 31, 100, 176, 52, 18, 36, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, MELTER_BACKGROUND, leftPos + 150, topPos + 31, 176, 52, 18, 36, 256, 256);
         } else {
             // 下方是燃料罐时，官方显示窄液体燃料框和其中的燃料液面。
-            graphics.blit(MELTER_BACKGROUND, leftPos + 152, topPos + 31, 100, 194, 52, 14, 38, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, MELTER_BACKGROUND, leftPos + 152, topPos + 31, 194, 52, 14, 38, 256, 256);
             drawFluid(graphics, menu.fuelFluidStack(), menu.fuelAmount(), Math.max(1, menu.fuelCapacity()),
                 MELTER_FUEL_X, MELTER_FUEL_Y, MELTER_FUEL_WIDTH, MELTER_FUEL_HEIGHT);
         }
@@ -565,27 +578,27 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         if (menu.burnTime() > 0 && menu.fuelBurnDuration() > 0) {
             int height = Math.min(14, (int) (14L * menu.burnTime() / menu.fuelBurnDuration()));
             if (height > 0) {
-                graphics.blit(MELTER_BACKGROUND, leftPos + 152, topPos + 15 + 14 - height,
-                    100, 176, 136 + 14 - height, 14, height, 256, 256);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, MELTER_BACKGROUND, leftPos + 152, topPos + 15 + 14 - height,
+                    176, 136 + 14 - height, 14, height, 256, 256);
             }
         }
     }
 
     /** 绘制合金炉右侧物品燃料槽的原版火焰，液体燃料分支不绘制此图标。 */
-    private void drawAlloyerFuel(GuiGraphics graphics) {
+    private void drawAlloyerFuel(GuiGraphicsExtractor graphics) {
         if (menu.burnTime() <= 0 || menu.fuelBurnDuration() <= 0) {
             return;
         }
         int height = Math.min(14, (int) (14L * menu.burnTime() / menu.fuelBurnDuration()));
         if (height > 0) {
             // 火焰素材位于 alloyer 贴图的 176,136，按剩余高度从底部向上裁剪。
-            graphics.blit(ALLOYER_BACKGROUND, leftPos + 152, topPos + 15 + 14 - height,
-                100, 176, 136 + 14 - height, 14, height, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ALLOYER_BACKGROUND, leftPos + 152, topPos + 15 + 14 - height,
+                176, 136 + 14 - height, 14, height, 256, 256);
         }
     }
 
     /** 按匠魂 GuiTankModule 规则高亮流体罐内的液体或空余容量。 */
-    private void drawTankHighlight(GuiGraphics graphics, int checkX, int checkY,
+    private void drawTankHighlight(GuiGraphicsExtractor graphics, int checkX, int checkY,
                                    int x, int y, int width, int height, int amount, int capacity) {
         // 模块的悬停范围比内容区域外扩一像素，覆盖原版罐体边框。
         if (!isInside(checkX, checkY, x - 1, y - 1, width + 2, height + 2)) {
@@ -596,15 +609,15 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         int middle = y + height - fluidHeight;
         if (checkY > middle) {
             // 鼠标位于液面以下时只高亮实际流体。
-            graphics.fill(x, middle, x + width, y + height, 100, 0x80FFFFFF);
+            graphics.fill(x, middle, x + width, y + height, 0x80FFFFFF);
         } else {
             // 鼠标位于液面以上时只高亮可用空余容量。
-            graphics.fill(x, y, x + width, middle, 100, 0x80FFFFFF);
+            graphics.fill(x, y, x + width, middle, 0x80FFFFFF);
         }
     }
 
     /** 按匠魂 GuiFuelModule 规则高亮合金炉右侧燃料模块。 */
-    private void drawAlloyerFuelHighlight(GuiGraphics graphics, int checkX, int checkY) {
+    private void drawAlloyerFuelHighlight(GuiGraphicsExtractor graphics, int checkX, int checkY) {
         // 燃料模块的悬停范围包含背景外框，但高亮只覆盖内部内容区域。
         if (!isInside(checkX, checkY, 152, 31, 14, 38)) {
             return;
@@ -612,38 +625,38 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         if (menu.hasAlloyerFuelSlot()) {
             // 固体燃料模式上半部属于物品槽，只高亮下方燃料模块区域。
             if (checkY > 50) {
-                graphics.fill(153, 50, 165, 68, 100, 0x80FFFFFF);
+                graphics.fill(153, 50, 165, 68, 0x80FFFFFF);
             }
         } else {
             // 液体燃料模式整块内容区域都属于流体模块。
-            graphics.fill(153, 32, 165, 68, 100, 0x80FFFFFF);
+            graphics.fill(153, 32, 165, 68, 0x80FFFFFF);
         }
     }
 
     /** 按 1.20.1 匠魂 GuiFuelModule 的外扩命中框绘制熔化炉燃料高亮。 */
-    private void drawMelterFuelHighlight(GuiGraphics graphics, int checkX, int checkY) {
+    private void drawMelterFuelHighlight(GuiGraphicsExtractor graphics, int checkX, int checkY) {
         if (!isInside(checkX, checkY, 152, 31, 14, 38)) {
             return;
         }
         if (menu.hasMelterFuelSlot()) {
             // 固体燃料槽上半部分由物品槽自己处理，只高亮下半部分燃料模块。
             if (checkY > 50) {
-                graphics.fill(153, 50, 165, 68, 100, 0x80FFFFFF);
+                graphics.fill(153, 50, 165, 68, 0x80FFFFFF);
             }
         } else {
             // 液体燃料模式整块内容区域都属于燃料模块。
-            graphics.fill(153, 32, 165, 68, 100, 0x80FFFFFF);
+            graphics.fill(153, 32, 165, 68, 0x80FFFFFF);
         }
     }
 
     /** 绘制自动、倒空和装满三种流体传输模式图标及悬停边框。 */
-    private void drawTransferMode(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void drawTransferMode(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         int x = leftPos + STRUCTURE_MODE_X;
         int y = topPos + STRUCTURE_MODE_Y;
         if (isInside(mouseX - leftPos, mouseY - topPos, STRUCTURE_MODE_X - 1, STRUCTURE_MODE_Y - 1, 18, 18)) {
-            graphics.blit(STRUCTURE_BACKGROUND, x - 1, y - 1, 100, 176, 202, 18, 18, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, STRUCTURE_BACKGROUND, x - 1, y - 1, 176, 202, 18, 18, 256, 256);
         }
-        graphics.blit(STRUCTURE_BACKGROUND, x, y, 101, 176 + menu.transferDirection().ordinal() * 16, 186, 16, 16, 256, 256);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, STRUCTURE_BACKGROUND, x, y, 176 + menu.transferDirection().ordinal() * 16, 186, 16, 16, 256, 256);
     }
 
     /** 判断相对界面坐标是否落在指定矩形内。 */
@@ -652,48 +665,47 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     }
 
     /** 按真实流体纹理和比例绘制竖向流体槽。 */
-    private void drawFluid(GuiGraphics graphics, FluidStack stack, int amount, int capacity, int x, int y, int width, int height) {
+    private void drawFluid(GuiGraphicsExtractor graphics, FluidStack stack, int amount, int capacity, int x, int y, int width, int height) {
         if (stack.isEmpty() || amount <= 0 || capacity <= 0 || width <= 0 || height <= 0) {
             return;
         }
         int fluidHeight = Math.min(height, Math.max(1, height * amount / capacity));
         TextureAtlasSprite sprite = fluidSprite(stack);
-        int tint = IClientFluidTypeExtensions.of(stack.getFluid()).getTintColor(stack);
-        graphics.setColor(((tint >> 16) & 255) / 255.0F, ((tint >> 8) & 255) / 255.0F, (tint & 255) / 255.0F, ((tint >>> 24) & 255) / 255.0F);
+        int tint = FoundryFluidClient.tint(stack);
         // 按原生十六像素平铺并裁剪边缘，避免整张流体贴图被拉成长条。
         int fluidTop = topPos + y + height - fluidHeight;
         graphics.enableScissor(leftPos + x, fluidTop, leftPos + x + width, fluidTop + fluidHeight);
         try {
             for (int tileX = 0; tileX < width; tileX += 16) {
                 for (int tileY = 0; tileY < fluidHeight; tileY += 16) {
-                    graphics.blit(leftPos + x + tileX, fluidTop + tileY, 100, 16, 16, sprite);
+                    graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, leftPos + x + tileX, fluidTop + tileY,
+                        Math.min(16, width - tileX), Math.min(16, fluidHeight - tileY), tint);
                 }
             }
         } finally {
             graphics.disableScissor();
-            graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 
-    /** 从方块图集取得当前流体的静止纹理。 */
+    /** 从 26.1.2 流体模型取得当前流体的静止纹理。 */
     private TextureAtlasSprite fluidSprite(FluidStack stack) {
-        ResourceLocation texture = IClientFluidTypeExtensions.of(stack.getFluid()).getStillTexture(stack);
-        return Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(texture);
+        return FoundryFluidClient.stillSprite(stack);
     }
 
     /** 绘制来自界面纹理的处理进度指示条。 */
-    private void drawProgress(GuiGraphics graphics, ResourceLocation background) {
+    private void drawProgress(GuiGraphicsExtractor graphics, Identifier background) {
         if (menu.screenKind() == 0 || menu.screenKind() == 1 || menu.screenKind() == 3 || menu.processTime() <= 0) {
             return;
         }
         int height = Math.min(16, Math.max(0, menu.progress() * 16 / menu.processTime()));
         if (height > 0) {
-            graphics.blit(background, leftPos + 13, topPos + 33 + 16 - height, 100, 176, 150 + 16 - height, 3, height, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, background, leftPos + 13, topPos + 33 + 16 - height,
+                176, 150 + 16 - height, 3, height, 256, 256);
         }
     }
 
     /** 按官方 GuiMeltingModule 为熔化炉三个输入槽绘制独立热量条。 */
-    private void drawMelterHeatBars(GuiGraphics graphics) {
+    private void drawMelterHeatBars(GuiGraphicsExtractor graphics) {
         for (int index = 0; index < menu.inputSlotCount(); index++) {
             Slot slot = menu.slots.get(index);
             if (!slot.isActive() || !slot.hasItem()) {
@@ -714,13 +726,13 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                 case FoundryBlockEntity.INPUT_STATUS_UNMELTABLE -> 185;
                 default -> 176;
             };
-            graphics.blit(MELTER_BACKGROUND, slot.x - 4, slot.y + 16 - height, 100,
+            graphics.blit(RenderPipelines.GUI_TEXTURED, MELTER_BACKGROUND, slot.x - 4, slot.y + 16 - height,
                 textureU, 150 + 16 - height, 3, height, 256, 256);
         }
     }
 
     /** 按官方 GuiMeltingModule 的四像素命中宽度显示熔化状态提示。 */
-    private boolean renderMelterHeatTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private boolean renderMelterHeatTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         int checkX = mouseX - leftPos;
         int checkY = mouseY - topPos;
         for (int index = 0; index < menu.inputSlotCount(); index++) {
@@ -731,7 +743,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             }
             Component tooltip = structureInputTooltip(menu.inputStatus(index));
             if (tooltip != null) {
-                graphics.renderTooltip(font, tooltip, mouseX, mouseY);
+                graphics.setTooltipForNextFrame(font, tooltip, mouseX, mouseY);
                 return true;
             }
         }
@@ -739,7 +751,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     }
 
     /** 绘制控制器左侧每个输入槽的独立热量和熔炼进度条。 */
-    private void drawStructureHeatBars(GuiGraphics graphics) {
+    private void drawStructureHeatBars(GuiGraphicsExtractor graphics) {
         for (int index = 0; index < menu.inputSlotCount(); index++) {
             Slot slot = menu.slots.get(index);
             if (!slot.isActive() || !slot.hasItem()) {
@@ -760,7 +772,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
                 case FoundryBlockEntity.INPUT_STATUS_UNMELTABLE -> 185;
                 default -> 176;
             };
-            graphics.blit(STRUCTURE_BACKGROUND, slot.x - 4, slot.y + 16 - height, 100,
+            graphics.blit(RenderPipelines.GUI_TEXTURED, STRUCTURE_BACKGROUND, slot.x - 4, slot.y + 16 - height,
                 textureU, 150 + 16 - height, 3, height, 256, 256);
         }
     }
@@ -776,7 +788,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     }
 
     /** 按实际规模绘制侧栏，末行不存在的格子使用上游无槽贴图。 */
-    private void drawStructureSidePanel(GuiGraphics graphics) {
+    private void drawStructureSidePanel(GuiGraphicsExtractor graphics) {
         int x = leftPos;
         int y = topPos;
         graphics.fill(x, y, x + STRUCTURE_SIDE_WIDTH, y + STRUCTURE_SIDE_HEIGHT, 0xffc6c6c6);
@@ -788,7 +800,8 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         for (int row = 0; row < STRUCTURE_SIDE_ROWS; row++) {
             for (int column = 0; column < menu.sideColumns(); column++) {
                 int index = (menu.scrollRow() + row) * menu.sideColumns() + column;
-                graphics.blit(STRUCTURE_BACKGROUND, x + 4 + column * FoundryMenu.STRUCTURE_COLUMN_WIDTH, y + 4 + row * 18,
+                graphics.blit(RenderPipelines.GUI_TEXTURED, STRUCTURE_BACKGROUND,
+                    x + 4 + column * FoundryMenu.STRUCTURE_COLUMN_WIDTH, y + 4 + row * 18,
                     index < menu.inputSlotCount() ? 0 : 22, 238, 22, 18, 256, 256);
             }
         }
@@ -804,7 +817,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     }
 
     /** 根据服务端设备类型选择对应界面纹理。 */
-    private ResourceLocation background() {
+    private Identifier background() {
         return switch (menu.screenKind()) {
             case 1 -> ALLOYER_BACKGROUND;
             case 2 -> HEATER_BACKGROUND;
@@ -874,12 +887,12 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 金属默认显示锭、粒和毫桶，按 Shift 显示桶和毫桶，不截断小数造成数量丢失。 */
     private Component formatVolume(int amount) {
-        int unit = Screen.hasShiftDown() ? FluidValues.BUCKET : FluidValues.INGOT;
-        String key = Screen.hasShiftDown() ? "bucket" : "ingot";
+        int unit = minecraft.hasShiftDown() ? FluidValues.BUCKET : FluidValues.INGOT;
+        String key = minecraft.hasShiftDown() ? "bucket" : "ingot";
         var text = Component.empty();
         if (amount >= unit) text.append(Component.translatable("gui.tinker_foundry.unit." + key, amount / unit));
         int remainder = amount % unit;
-        if (!Screen.hasShiftDown() && remainder >= FluidValues.NUGGET) {
+        if (!minecraft.hasShiftDown() && remainder >= FluidValues.NUGGET) {
             if (!text.getString().isEmpty()) text.append(" ");
             text.append(Component.translatable("gui.tinker_foundry.unit.nugget", remainder / FluidValues.NUGGET));
             remainder %= FluidValues.NUGGET;
@@ -893,7 +906,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 参照匠魂的流体标签规则显示数量：金属用锭粒，药水用瓶和液滴，其余流体使用桶。 */
     private Component formatFluidVolume(FluidStack stack) {
-        if (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())) {
+        if (TFFluids.isMetal(stack.getFluid())) {
             return formatVolume(stack.getAmount());
         }
         if (stack.get(DataComponents.POTION_CONTENTS) != null) {
@@ -904,7 +917,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 药水按 250 mB 一瓶、50 mB 一液滴显示，和 1.20.1 Forge 匠魂的 bottle 提示规则一致。 */
     private Component formatPotionVolume(int amount) {
-        if (Screen.hasShiftDown()) {
+        if (minecraft.hasShiftDown()) {
             return formatBucketVolume(amount);
         }
         var text = Component.empty();
@@ -977,7 +990,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     }
 
     /** 按列表自下而上绘制多流体，并高亮当前悬停的流体或空余区域。 */
-    private void drawStructureFluids(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void drawStructureFluids(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         List<FluidStack> layers = menu.structureFluids();
         int[] heights = structureLayerHeights();
         int bottom = 122;
@@ -987,9 +1000,9 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
             bottom -= heights[index];
             drawFluid(graphics, layers.get(index), 1, 1, STRUCTURE_SIDE_WIDTH + 8, bottom, 106, heights[index]);
             if (inside && hovered == index) graphics.fill(leftPos + STRUCTURE_SIDE_WIDTH + 8, topPos + bottom,
-                leftPos + STRUCTURE_SIDE_WIDTH + 114, topPos + bottom + heights[index], 109, 0x40ffffff);
+                leftPos + STRUCTURE_SIDE_WIDTH + 114, topPos + bottom + heights[index], 0x40ffffff);
         }
         if (inside && hovered < 0) graphics.fill(leftPos + STRUCTURE_SIDE_WIDTH + 8, topPos + 16,
-            leftPos + STRUCTURE_SIDE_WIDTH + 114, topPos + bottom, 109, 0x40ffffff);
+            leftPos + STRUCTURE_SIDE_WIDTH + 114, topPos + bottom, 0x40ffffff);
     }
 }

@@ -28,9 +28,3 @@ versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies."${mod_id}"]]
-modId = "jei"
-type = "optional"
-versionRange = "${jei_version_range}"
-ordering = "AFTER"
-side = "CLIENT"

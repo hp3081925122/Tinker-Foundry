@@ -1,14 +1,10 @@
 {
   "type": "tinker_foundry:casting",
   "fluid": {
-    "ingredient": {
-      "fluid": "tinker_foundry:copper"
-    },
+    "ingredient": "tinker_foundry:molten/copper",
     "amount": 10
   },
-  "mold": {
-    "item": "tinker_foundry:nugget_cast"
-  },
+  "mold": "tinker_foundry:nugget_cast",
   "result": {
     "id": "tinker_foundry:copper_nugget",
     "count": 1

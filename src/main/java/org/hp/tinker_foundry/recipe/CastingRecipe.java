@@ -10,8 +10,8 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
@@ -20,8 +20,19 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 流体经过可选模具冷却后产出物品。 */
-public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time,
-                            boolean castConsumed, boolean switchSlots, boolean copyPotionContents) implements Recipe<FluidRecipeInput> {
+public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStackTemplate resultTemplate, int time,
+                            boolean castConsumed, boolean switchSlots, boolean copyPotionContents) implements FoundryRecipe<FluidRecipeInput> {
+    /** 保留运行时构造方式，并在进入配方记录时转换为未绑定组件模板。 */
+    public CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time,
+                         boolean castConsumed, boolean switchSlots, boolean copyPotionContents) {
+        this(fluid, mold, ItemStackTemplate.fromNonEmptyStack(result), time, castConsumed, switchSlots, copyPotionContents);
+    }
+
+    /** 在注册表已经绑定的运行时创建浇注物品结果。 */
+    public ItemStack result() {
+        return resultTemplate.create();
+    }
+
     /** 保留旧构造签名，默认使用可重复铸模且不切换槽位。 */
     public CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mold, ItemStack result, int time) {
         this(fluid, mold, result, time, false, false, false);
@@ -29,9 +40,9 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
 
     /** 浇注配方支持可选模具和冷却时间。 */
     public static final MapCodec<CastingRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
-        SizedFluidIngredient.NESTED_CODEC.fieldOf("fluid").forGetter(CastingRecipe::fluid),
+        SizedFluidIngredient.CODEC.fieldOf("fluid").forGetter(CastingRecipe::fluid),
         Ingredient.CODEC.optionalFieldOf("mold").forGetter(CastingRecipe::mold),
-        ItemStack.CODEC.fieldOf("result").forGetter(CastingRecipe::result),
+        ItemStackTemplate.CODEC.fieldOf("result").forGetter(CastingRecipe::resultTemplate),
         Codec.INT.fieldOf("time").orElse(60).forGetter(CastingRecipe::time),
         Codec.BOOL.optionalFieldOf("cast_consumed", false).forGetter(CastingRecipe::castConsumed),
         Codec.BOOL.optionalFieldOf("switch_slots", false).forGetter(CastingRecipe::switchSlots),
@@ -46,7 +57,7 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
         return new CastingRecipe(
             SizedFluidIngredient.STREAM_CODEC.decode(buffer),
             ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).decode(buffer),
-            ItemStack.STREAM_CODEC.decode(buffer),
+            ItemStackTemplate.STREAM_CODEC.decode(buffer),
             buffer.readVarInt(),
             buffer.readBoolean(),
             buffer.readBoolean(),
@@ -58,7 +69,7 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
     private static void writeNetwork(RegistryFriendlyByteBuf buffer, CastingRecipe recipe) {
         SizedFluidIngredient.STREAM_CODEC.encode(buffer, recipe.fluid);
         ByteBufCodecs.optional(Ingredient.CONTENTS_STREAM_CODEC).encode(buffer, recipe.mold);
-        ItemStack.STREAM_CODEC.encode(buffer, recipe.result);
+        ItemStackTemplate.STREAM_CODEC.encode(buffer, recipe.resultTemplate);
         buffer.writeVarInt(recipe.time);
         buffer.writeBoolean(recipe.castConsumed);
         buffer.writeBoolean(recipe.switchSlots);
@@ -79,9 +90,9 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
 
     /** 返回浇注物品副本。 */
     @Override
-    public ItemStack assemble(FluidRecipeInput input, HolderLookup.Provider registries) {
+    public ItemStack assemble(FluidRecipeInput input) {
         // 药水浇注需要把流体携带的药水内容复制到瓶子，普通浇注仍只返回固定结果。
-        ItemStack assembled = result.copy();
+        ItemStack assembled = result();
         if (copyPotionContents && !input.fluids().isEmpty()) {
             var potionContents = input.fluids().get(0).get(DataComponents.POTION_CONTENTS);
             if (potionContents != null) {
@@ -92,15 +103,13 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
     }
 
     /** 浇注使用一个工作单元。 */
-    @Override
     public boolean canCraftInDimensions(int width, int height) {
         return width * height >= 1;
     }
 
     /** 返回浇注结果。 */
-    @Override
     public ItemStack getResultItem(HolderLookup.Provider registries) {
-        return result.copy();
+        return result();
     }
 
     /** 浇注配方不进入原版配方书，交由冶炼界面或 JEI 展示。 */
@@ -111,13 +120,13 @@ public record CastingRecipe(SizedFluidIngredient fluid, Optional<Ingredient> mol
 
     /** 返回浇注配方序列化器。 */
     @Override
-    public RecipeSerializer<?> getSerializer() {
+    public RecipeSerializer<? extends CastingRecipe> getSerializer() {
         return TFRecipes.CASTING_SERIALIZER.get();
     }
 
     /** 返回独立 casting 配方类型。 */
     @Override
-    public RecipeType<?> getType() {
+    public RecipeType<? extends CastingRecipe> getType() {
         return TFRecipes.CASTING.get();
     }
 }

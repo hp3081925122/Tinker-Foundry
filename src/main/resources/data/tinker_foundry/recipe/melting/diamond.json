@@ -1,6 +1,6 @@
 {
   "type": "tinker_foundry:melting",
-  "ingredient": {"tag": "c:gems/diamond"},
+  "ingredient": "#c:gems/diamond",
   "result": {"id": "tinker_foundry:molten_diamond", "amount": 100},
   "temperature": 1450,
   "time": 79

@@ -7,6 +7,7 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -14,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.util.RandomSource;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 1.20.1 对应的贴壁流体计，只占据贴附面上的薄片碰撞箱。 */
@@ -73,8 +75,8 @@ public final class FoundryGaugeBlock extends FoundryEntityBlock {
 
     /** 相邻设备被移除时，自动移除失去支撑的流体计。 */
     @Override
-    public BlockState updateShape(BlockState state, Direction facing, BlockState facingState,
-                                  LevelAccessor level, BlockPos currentPos, BlockPos facingPos) {
+    protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess ticks, BlockPos currentPos,
+                                     Direction facing, BlockPos facingPos, BlockState facingState, RandomSource random) {
         return facing.getOpposite() == state.getValue(FoundryDirectionalBlock.FACING)
             && !state.canSurvive(level, currentPos)
             ? Blocks.AIR.defaultBlockState() : state;

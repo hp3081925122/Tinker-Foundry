@@ -8,7 +8,7 @@ import net.minecraft.world.level.block.state.BlockState;
 /** 冶炼炉控制器方块，方向指向炉体外侧，炉体内部位于反方向。 */
 public final class FoundryControllerBlock extends FoundryEntityBlock {
     /** 控制器朝向。 */
-    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
+    public static final net.minecraft.world.level.block.state.properties.EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
 
     /** 创建控制器方块。 */
     public FoundryControllerBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties properties) {

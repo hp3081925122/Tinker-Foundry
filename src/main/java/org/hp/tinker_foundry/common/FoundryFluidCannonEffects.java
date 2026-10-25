@@ -10,6 +10,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -131,12 +132,12 @@ public final class FoundryFluidCannonEffects {
             changed = spawnCloud(level, hit.getLocation(), new MobEffectInstance(MobEffects.REGENERATION, 120, 2));
         } else if (path.equals("cobalt")) {
             changed = spawnCloud(level, hit.getLocation(),
-                new MobEffectInstance(MobEffects.DIG_SPEED, 140, 1),
-                new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 140, 1));
+                new MobEffectInstance(MobEffects.HASTE, 140, 1),
+                new MobEffectInstance(MobEffects.SPEED, 140, 1));
         } else if (path.equals("venom")) {
             changed = spawnCloud(level, hit.getLocation(),
                 new MobEffectInstance(MobEffects.POISON, 100, 1),
-                new MobEffectInstance(MobEffects.DAMAGE_BOOST, 200, 1));
+                new MobEffectInstance(MobEffects.STRENGTH, 200, 1));
         } else if (path.equals("potion")) {
             // 本项目的 potion 流体没有携带原版药水 NBT，沿用本地已有的再生效果作为默认效果。
             changed = spawnCloud(level, hit.getLocation(), new MobEffectInstance(MobEffects.REGENERATION, 60, 0));
@@ -191,7 +192,8 @@ public final class FoundryFluidCannonEffects {
                 default -> 2.0F;
             } * Math.max(1.0F, power);
             if (damage > 0.0F && (!living.fireImmune() || !path.equals("molten_emerald"))) {
-                changed = living.hurt(level.damageSources().inFire(), damage);
+                changed = level instanceof ServerLevel serverLevel
+                    && living.hurtServer(serverLevel, serverLevel.damageSources().inFire(), damage);
             }
             if (path.equals("copper")) {
                 living.setAirSupply(Math.min(living.getMaxAirSupply(), living.getAirSupply() + Math.round(90.0F * power)));
@@ -205,8 +207,8 @@ public final class FoundryFluidCannonEffects {
                 case "iron" -> living.addEffect(new MobEffectInstance(MobEffects.GLOWING, 100, 1));
                 case "gold" -> living.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 120, 2));
                 case "cobalt" -> {
-                    living.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 140, 1));
-                    living.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 140, 1));
+                    living.addEffect(new MobEffectInstance(MobEffects.HASTE, 140, 1));
+                    living.addEffect(new MobEffectInstance(MobEffects.SPEED, 140, 1));
                 }
                 case "blazing_blood" -> living.addEffect(new MobEffectInstance(MobEffects.GLOWING, 100, 1));
                 case "molten_clay", "seared_stone", "scorched_stone" -> {
@@ -216,12 +218,12 @@ public final class FoundryFluidCannonEffects {
                 }
                 case "potion" -> living.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 60, 0));
                 case "slime" -> {
-                    living.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 1));
+                    living.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 100, 1));
                     living.push(0.0D, 0.35D * power, 0.0D);
                 }
                 case "venom" -> {
                     living.addEffect(new MobEffectInstance(MobEffects.POISON, 100, 1));
-                    living.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 200, 1));
+                    living.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 200, 1));
                 }
                 default -> {
                     // 未迁移的 Mantle 专属词条不伪造新注册内容，但仍保留通用流体命中效果。

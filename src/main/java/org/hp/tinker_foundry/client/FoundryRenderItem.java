@@ -3,53 +3,47 @@ package org.hp.tinker_foundry.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import org.hp.tinker_foundry.TinkerFoundry;
 import org.joml.Vector3f;
+import org.jspecify.annotations.Nullable;
 
-/** Mantle RenderItem 的本地等价实现，用于设备内部物品的中心、缩放和姿态变换。 */
+/** 26.1.2 提交式渲染中的匠魂设备内部物品变换。 */
 public record FoundryRenderItem(Vector3f center, float size, float xRotation, float yRotation,
                                 ItemDisplayContext displayContext) {
-    /** 代理储罐内部物品的原版匠魂位置参数：中心为 8,9,8 像素，尺寸为 12 像素。 */
+    /** 避免缺失世界的诊断在每帧渲染时重复刷屏。 */
+    private static boolean missingLevelLogged;
+
+    /** 代理储罐内部物品位置。 */
     public static final FoundryRenderItem PROXY_TANK = new FoundryRenderItem(
         new Vector3f(8.0F, 9.0F, 8.0F), 12.0F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
-
-    /** 熔化炉内部物品的原版匠魂位置参数：中心为 8,12,12 像素，尺寸为 7.5 像素。 */
+    /** 熔化炉内部输入物品位置。 */
     public static final FoundryRenderItem MELTER_INPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 12.0F, 12.0F), 7.5F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
-
-    /** 水平流体炮下半部内部物品的原版匠魂位置参数。 */
+    /** 流体炮水平状态下的内部物品位置。 */
     public static final FoundryRenderItem FLUID_CANNON = new FoundryRenderItem(
         new Vector3f(8.0F, 4.0F, 16.0F), 7.5F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
-
-    /** 朝上流体炮内部物品的原版匠魂位置参数。 */
-    public static final FoundryRenderItem FLUID_CANNON_UP = new FoundryRenderItem(
-        new Vector3f(8.0F, 16.0F, 8.0F), 7.5F, 270.0F, 0.0F, ItemDisplayContext.FIXED);
-
-    /** 朝下流体炮内部物品的原版匠魂位置参数。 */
-    public static final FoundryRenderItem FLUID_CANNON_DOWN = new FoundryRenderItem(
-        new Vector3f(8.0F, 0.0F, 8.0F), 7.5F, 90.0F, 0.0F, ItemDisplayContext.FIXED);
-
-    /** 浇注台输入物品的原版匠魂中心、缩放和姿态。 */
+    /** 浇注台输入物品位置。 */
     public static final FoundryRenderItem CASTING_TABLE_INPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 15.5F, 8.0F), 14.0F, 270.0F, 180.0F, ItemDisplayContext.FIXED);
-
-    /** 浇注台输出物品的原版匠魂中心、缩放和姿态。 */
+    /** 浇注台输出物品位置。 */
     public static final FoundryRenderItem CASTING_TABLE_OUTPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 15.5F, 8.0F), 14.1F, 270.0F, 180.0F, ItemDisplayContext.FIXED);
-
-    /** 浇注盆输入物品的原版匠魂中心、缩放和无额外姿态变换。 */
+    /** 浇注盆输入物品位置。 */
     public static final FoundryRenderItem CASTING_BASIN_INPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 10.0F, 8.0F), 11.95F, 0.0F, 0.0F, ItemDisplayContext.NONE);
-
-    /** 浇注盆输出物品的原版匠魂中心、缩放和无额外姿态变换。 */
+    /** 浇注盆输出物品位置。 */
     public static final FoundryRenderItem CASTING_BASIN_OUTPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 10.0F, 8.0F), 12.0F, 0.0F, 0.0F, ItemDisplayContext.NONE);
 
-    /** 在当前方块实体姿态下绘制一个内部物品，不修改调用者的矩阵栈。 */
-    public void render(ItemStack stack, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
+    /** 按匠魂设备的中心、缩放和姿态提交物品。 */
+    public void submit(ItemStack stack, @Nullable Level level, int seed, PoseStack poseStack,
+                       SubmitNodeCollector collector, int packedLight) {
         if (stack.isEmpty() || size <= 0.0F) {
             return;
         }
@@ -62,13 +56,14 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
         if (yRotation != 0.0F) {
             poseStack.mulPose(Axis.YP.rotationDegrees(yRotation));
         }
-        renderInPlace(stack, displayContext, poseStack, buffer, packedLight);
+        submitInPlace(stack, displayContext, level, seed, poseStack, collector, packedLight);
         poseStack.popPose();
     }
 
-    /** 按指定缩放和旋转绘制一个设备内部物品，供多方块炉腔复用。 */
-    public static void renderAt(ItemStack stack, PoseStack poseStack, MultiBufferSource buffer, int packedLight,
-                                float scale, float xRotation, float yRotation, ItemDisplayContext displayContext) {
+    /** 在调用方已经完成定位和缩放后提交物品。 */
+    public static void submitAt(ItemStack stack, @Nullable Level level, int seed, PoseStack poseStack,
+                                SubmitNodeCollector collector, int packedLight, float scale,
+                                float xRotation, float yRotation, ItemDisplayContext displayContext) {
         if (stack.isEmpty() || scale <= 0.0F) {
             return;
         }
@@ -80,14 +75,22 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
         if (yRotation != 0.0F) {
             poseStack.mulPose(Axis.YP.rotationDegrees(yRotation));
         }
-        renderInPlace(stack, displayContext, poseStack, buffer, packedLight);
+        submitInPlace(stack, displayContext, level, seed, poseStack, collector, packedLight);
         poseStack.popPose();
     }
 
-    /** 在调用方已经完成定位和缩放后写入物品顶点。 */
-    private static void renderInPlace(ItemStack stack, ItemDisplayContext displayContext, PoseStack poseStack,
-                                      MultiBufferSource buffer, int packedLight) {
-        Minecraft.getInstance().getItemRenderer().renderStatic(stack, displayContext, packedLight,
-            OverlayTexture.NO_OVERLAY, poseStack, buffer, Minecraft.getInstance().level, 0);
+    /** 使用 26.1.2 的物品状态提取器代替已移除的 ItemRenderer.renderStatic。 */
+    private static void submitInPlace(ItemStack stack, ItemDisplayContext displayContext,
+                                      @Nullable Level level, int seed, PoseStack poseStack,
+                                      SubmitNodeCollector collector, int packedLight) {
+        ItemStackRenderState renderState = new ItemStackRenderState();
+        if (level == null && !missingLevelLogged) {
+            missingLevelLogged = true;
+            TinkerFoundry.LOGGER.debug("[item-render] Rendering foundry block item without a client level item={} context={}",
+                stack.getItem(), displayContext);
+        }
+        Minecraft.getInstance().getItemModelResolver()
+            .updateForTopItem(renderState, stack, displayContext, level, null, seed);
+        renderState.submit(poseStack, collector, packedLight, OverlayTexture.NO_OVERLAY, 0);
     }
 }

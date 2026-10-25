@@ -1,6 +1,6 @@
 {
   "type": "tinker_foundry:fuel",
-  "item": {"tag": "minecraft:coals"},
+  "item": "#minecraft:coals",
   "duration": 1600,
   "temperature": 800,
   "consumption": 1,

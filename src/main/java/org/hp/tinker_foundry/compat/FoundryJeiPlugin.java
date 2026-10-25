@@ -12,23 +12,26 @@ import mezz.jei.api.gui.widgets.IRecipeExtrasBuilder;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.gui.placement.HorizontalAlignment;
 import mezz.jei.api.recipe.IFocusGroup;
+import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.AbstractRecipeCategory;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
+import mezz.jei.api.runtime.IJeiRuntime;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import com.mojang.datafixers.util.Either;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
@@ -39,18 +42,22 @@ import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.level.ItemLike;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.hp.tinker_foundry.TinkerFoundry;
+import org.hp.tinker_foundry.client.FoundryRecipeSyncClient;
 import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.recipe.AlloyingRecipe;
 import org.hp.tinker_foundry.recipe.CastingRecipe;
+import org.hp.tinker_foundry.recipe.DamageableMeltingRecipe;
 import org.hp.tinker_foundry.recipe.EntityMeltingRecipe;
 import org.hp.tinker_foundry.recipe.FuelRecipe;
 import org.hp.tinker_foundry.recipe.MeltingRecipe;
 import org.hp.tinker_foundry.recipe.MoldingRecipe;
+import org.hp.tinker_foundry.recipe.OreMeltingRecipe;
 import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
@@ -58,7 +65,7 @@ import org.hp.tinker_foundry.registry.TFRecipes;
 @JeiPlugin
 public final class FoundryJeiPlugin implements IModPlugin {
     /** JEI 插件自身的稳定标识。 */
-    private static final ResourceLocation PLUGIN_ID = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "jei_plugin");
+    private static final Identifier PLUGIN_ID = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "jei_plugin");
     /** JEI 熔炼分类类型。 */
     private static final RecipeType<MeltingRecipe> MELTING_TYPE = RecipeType.create(TinkerFoundry.MOD_ID, "melting", MeltingRecipe.class);
     /** JEI 合金分类类型。 */
@@ -74,21 +81,25 @@ public final class FoundryJeiPlugin implements IModPlugin {
     /** JEI 生物熔炼分类类型。 */
     private static final RecipeType<EntityMeltingRecipe> ENTITY_MELTING_TYPE = RecipeType.create(TinkerFoundry.MOD_ID, "entity_melting", EntityMeltingRecipe.class);
     /** 官方冶炼链 JEI 分类的独立背景图集。 */
-    private static final ResourceLocation CASTING_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/jei/casting.png");
+    private static final Identifier CASTING_BACKGROUND = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/jei/casting.png");
     /** 官方合金分类的独立背景图集。 */
-    private static final ResourceLocation ALLOY_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/jei/alloy.png");
+    private static final Identifier ALLOY_BACKGROUND = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/jei/alloy.png");
     /** 官方熔炼和燃料分类的独立背景图集。 */
-    private static final ResourceLocation MELTING_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/jei/melting.png");
+    private static final Identifier MELTING_BACKGROUND = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/jei/melting.png");
     /** 当前客户端同步到的固体燃料展示栈。 */
     private static List<ItemStack> JEI_SOLID_FUELS = List.of();
     /** 当前客户端同步到的流体燃料展示栈。 */
     private static List<FluidStack> JEI_FLUID_FUELS = List.of();
     /** 当前客户端同步到的最高固体燃料温度。 */
     private static int JEI_SOLID_FUEL_TEMPERATURE;
+    /** 当前 JEI runtime，只有 JEI 存在时才会被填充。 */
+    private static IJeiRuntime JEI_RUNTIME;
+    /** 防止服务端同步事件重复把同一批配方追加到 JEI。 */
+    private static boolean JEI_RECIPES_REGISTERED;
 
     /** 返回 JEI 插件的唯一标识。 */
     @Override
-    public ResourceLocation getPluginUid() {
+    public Identifier getPluginUid() {
         return PLUGIN_ID;
     }
 
@@ -122,42 +133,154 @@ public final class FoundryJeiPlugin implements IModPlugin {
     /** 从客户端配方管理器注册服务端同步下来的全部冶炼配方。 */
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
-        Minecraft minecraft = Minecraft.getInstance();
-        var connection = minecraft.getConnection();
-        var recipeManager = connection != null ? connection.getRecipeManager() : minecraft.level == null ? null : minecraft.level.getRecipeManager();
-        if (recipeManager == null) {
-            // JEI 可能在没有客户端连接的纯菜单初始化阶段回调，不能用空管理器伪造配方。
-            TinkerFoundry.LOGGER.warn("[jei] Client recipe manager is unavailable while registering recipes");
+        // 26.1.2 的服务端配方通过 NeoForge 同步到客户端，JEI 使用同步后的 RecipeMap。
+        LoadedRecipes recipes = loadFoundryRecipes();
+        registration.addRecipes(MELTING_TYPE, recipes.melting());
+        registration.addRecipes(ALLOYING_TYPE, recipes.alloying());
+        registration.addRecipes(CASTING_BASIN_TYPE, recipes.castingBasin());
+        registration.addRecipes(CASTING_TABLE_TYPE, recipes.castingTable());
+        registration.addRecipes(MOLDING_TYPE, recipes.molding());
+        registration.addRecipes(FUEL_TYPE, recipes.fuel());
+        registration.addRecipes(ENTITY_MELTING_TYPE, recipes.entityMelting());
+        JEI_SOLID_FUELS = recipes.solidFuels();
+        JEI_FLUID_FUELS = recipes.fluidFuels();
+        JEI_SOLID_FUEL_TEMPERATURE = recipes.solidFuelTemperature();
+        JEI_RECIPES_REGISTERED = !recipes.isEmpty();
+        TinkerFoundry.LOGGER.info("[jei] Loaded foundry recipes: melting={}, alloying={}, basin={}, table={}, molding={}, fuel={}, entity_melting={}",
+            recipes.melting().size(), recipes.alloying().size(), recipes.castingBasin().size(), recipes.castingTable().size(),
+            recipes.molding().size(), recipes.fuel().size(), recipes.entityMelting().size());
+    }
+
+    /** 读取服务端同步到当前客户端的本模组配方，并按 JEI 分类拆分。 */
+    private static LoadedRecipes loadFoundryRecipes() {
+        LoadedRecipes loaded = new LoadedRecipes();
+        RecipeMap recipeMap = FoundryRecipeSyncClient.recipeMap();
+        int foundryCount = 0;
+        for (RecipeHolder<?> holder : recipeMap.values()) {
+            Identifier id = holder.id().identifier();
+            if (!TinkerFoundry.MOD_ID.equals(id.getNamespace())) continue;
+            foundryCount++;
+            loaded.add(id, holder.value());
+        }
+        TinkerFoundry.LOGGER.debug("[jei] Read synchronized recipes: total={}, foundry={}", recipeMap.values().size(), foundryCount);
+        return loaded;
+    }
+
+    /** JEI runtime 可用后接入同步回调，覆盖配方先于服务端登录到达的情况。 */
+    @Override
+    public void onRuntimeAvailable(IJeiRuntime runtime) {
+        JEI_RUNTIME = runtime;
+        FoundryRecipeSyncClient.setRecipeMapListener(FoundryJeiPlugin::onRecipeMapChanged);
+    }
+
+    /** JEI runtime 失效时解除可选依赖状态。 */
+    @Override
+    public void onRuntimeUnavailable() {
+        JEI_RUNTIME = null;
+        JEI_RECIPES_REGISTERED = false;
+        FoundryRecipeSyncClient.setRecipeMapListener(null);
+    }
+
+    /** 服务端配方到达后，把此前因空缓存跳过的配方追加到 JEI。 */
+    private static void onRecipeMapChanged(RecipeMap recipeMap) {
+        if (recipeMap.values().isEmpty()) {
+            JEI_RECIPES_REGISTERED = false;
             return;
         }
-        // 客户端连接中的配方管理器包含服务端同步的数据，保证单机和专用服务器使用同一份配方。
-        registration.addRecipes(MELTING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.MELTING.get()).stream().map(RecipeHolder::value).toList());
-        registration.addRecipes(ALLOYING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ALLOYING.get()).stream().map(RecipeHolder::value).toList());
-        var castingRecipes = recipeManager.getAllRecipesFor(TFRecipes.CASTING.get()).stream().map(RecipeHolder::value).toList();
-        registration.addRecipes(CASTING_BASIN_TYPE, castingRecipes.stream().filter(recipe -> recipe.mold().isEmpty()).toList());
-        registration.addRecipes(CASTING_TABLE_TYPE, castingRecipes.stream().filter(recipe -> recipe.mold().isPresent()).toList());
-        registration.addRecipes(MOLDING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.MOLDING.get()).stream().map(RecipeHolder::value).toList());
-        // 先把同步到客户端的燃料配方转换成 JEI 展示栈，熔炼和实体熔炼分类共用这份数据。
-        var fuelRecipes = recipeManager.getAllRecipesFor(TFRecipes.FUEL.get()).stream().map(RecipeHolder::value).toList();
-        List<ItemStack> solidFuels = new ArrayList<>();
-        List<FluidStack> fluidFuels = new ArrayList<>();
-        int solidFuelTemperature = 0;
-        for (FuelRecipe fuelRecipe : fuelRecipes) {
-            if (fuelRecipe.itemFuel().isPresent()) {
-                Ingredient ingredient = fuelRecipe.itemFuel().get();
-                for (ItemStack stack : ingredient.getItems()) solidFuels.add(stack.copy());
-                solidFuelTemperature = Math.max(solidFuelTemperature, fuelRecipe.temperature());
-            }
-            if (fuelRecipe.fluidFuel().isPresent()) {
-                for (FluidStack stack : fuelRecipe.fluidFuel().get().getStacks()) fluidFuels.add(stack.copyWithAmount(1));
+        if (JEI_RUNTIME == null || JEI_RECIPES_REGISTERED) return;
+        LoadedRecipes recipes = loadFoundryRecipes();
+        addRuntimeRecipes(JEI_RUNTIME.getRecipeManager(), recipes);
+        JEI_SOLID_FUELS = recipes.solidFuels();
+        JEI_FLUID_FUELS = recipes.fluidFuels();
+        JEI_SOLID_FUEL_TEMPERATURE = recipes.solidFuelTemperature();
+        JEI_RECIPES_REGISTERED = !recipes.isEmpty();
+        TinkerFoundry.LOGGER.info("[jei] Added synchronized foundry recipes: melting={}, alloying={}, basin={}, table={}, molding={}, fuel={}, entity_melting={}",
+            recipes.melting().size(), recipes.alloying().size(), recipes.castingBasin().size(), recipes.castingTable().size(),
+            recipes.molding().size(), recipes.fuel().size(), recipes.entityMelting().size());
+    }
+
+    /** 使用 JEI runtime 管理器追加所有自定义分类配方。 */
+    private static void addRuntimeRecipes(IRecipeManager manager, LoadedRecipes recipes) {
+        manager.addRecipes(MELTING_TYPE, recipes.melting());
+        manager.addRecipes(ALLOYING_TYPE, recipes.alloying());
+        manager.addRecipes(CASTING_BASIN_TYPE, recipes.castingBasin());
+        manager.addRecipes(CASTING_TABLE_TYPE, recipes.castingTable());
+        manager.addRecipes(MOLDING_TYPE, recipes.molding());
+        manager.addRecipes(FUEL_TYPE, recipes.fuel());
+        manager.addRecipes(ENTITY_MELTING_TYPE, recipes.entityMelting());
+    }
+
+    /** 暂存资源包配方及燃料展示信息，最后以不可变列表交给 JEI。 */
+    private static final class LoadedRecipes {
+        private final List<MeltingRecipe> melting = new ArrayList<>();
+        private final List<AlloyingRecipe> alloying = new ArrayList<>();
+        private final List<CastingRecipe> castingBasin = new ArrayList<>();
+        private final List<CastingRecipe> castingTable = new ArrayList<>();
+        private final List<MoldingRecipe> molding = new ArrayList<>();
+        private final List<FuelRecipe> fuel = new ArrayList<>();
+        private final List<EntityMeltingRecipe> entityMelting = new ArrayList<>();
+        private final Map<Identifier, ItemStack> solidFuels = new LinkedHashMap<>();
+        private final Map<Identifier, FluidStack> fluidFuels = new LinkedHashMap<>();
+        private int solidFuelTemperature;
+
+        /** 判断当前同步表是否没有任何本模组配方。 */
+        private boolean isEmpty() {
+            return melting.isEmpty() && alloying.isEmpty() && castingBasin.isEmpty() && castingTable.isEmpty()
+                && molding.isEmpty() && fuel.isEmpty() && entityMelting.isEmpty();
+        }
+
+        /** 将解码出的自定义配方放入对应 JEI 分类，矿石和耐久配方复用熔炼布局展示。 */
+        private void add(Identifier id, net.minecraft.world.item.crafting.Recipe<?> recipe) {
+            if (recipe instanceof MeltingRecipe value) {
+                melting.add(value);
+            } else if (recipe instanceof OreMeltingRecipe value) {
+                melting.add(new MeltingRecipe(value.ingredient(), value.result(), value.temperature(), value.time(), value.rate(), value.byproducts()));
+            } else if (recipe instanceof DamageableMeltingRecipe value) {
+                melting.add(new MeltingRecipe(value.ingredient(), value.result(), value.temperature(), value.time(), "none", value.byproducts()));
+            } else if (recipe instanceof AlloyingRecipe value) {
+                alloying.add(value);
+            } else if (recipe instanceof CastingRecipe value) {
+                (value.mold().isPresent() ? castingTable : castingBasin).add(value);
+            } else if (recipe instanceof MoldingRecipe value) {
+                molding.add(value);
+            } else if (recipe instanceof FuelRecipe value) {
+                fuel.add(value);
+                value.itemFuel().ifPresent(ingredient -> ingredient.items().forEach(holder -> {
+                    ItemStack stack = new ItemStack(holder.value());
+                    solidFuels.putIfAbsent(BuiltInRegistries.ITEM.getKey(holder.value()), stack);
+                }));
+                value.fluidFuel().ifPresent(ingredient -> ingredient.fluids().forEach(holder -> {
+                    FluidStack stack = new FluidStack(holder, 1);
+                    fluidFuels.putIfAbsent(BuiltInRegistries.FLUID.getKey(holder.value()), stack);
+                }));
+                solidFuelTemperature = Math.max(solidFuelTemperature, value.temperature());
+            } else if (recipe instanceof EntityMeltingRecipe value) {
+                entityMelting.add(value);
+            } else {
+                TinkerFoundry.LOGGER.debug("[jei] Ignored unsupported foundry recipe {} of type {}", id, recipe.getClass().getName());
             }
         }
-        JEI_SOLID_FUELS = List.copyOf(solidFuels);
-        JEI_FLUID_FUELS = List.copyOf(fluidFuels);
-        JEI_SOLID_FUEL_TEMPERATURE = solidFuelTemperature;
-        registration.addRecipes(FUEL_TYPE, fuelRecipes);
-        registration.addRecipes(ENTITY_MELTING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ENTITY_MELTING.get()).stream().map(RecipeHolder::value).toList());
-        TinkerFoundry.LOGGER.info("[jei] Registered foundry recipe categories");
+
+        /** 返回熔炼分类配方。 */
+        private List<MeltingRecipe> melting() { return List.copyOf(melting); }
+        /** 返回合金分类配方。 */
+        private List<AlloyingRecipe> alloying() { return List.copyOf(alloying); }
+        /** 返回铸造盆分类配方。 */
+        private List<CastingRecipe> castingBasin() { return List.copyOf(castingBasin); }
+        /** 返回铸件台分类配方。 */
+        private List<CastingRecipe> castingTable() { return List.copyOf(castingTable); }
+        /** 返回压模分类配方。 */
+        private List<MoldingRecipe> molding() { return List.copyOf(molding); }
+        /** 返回燃料分类配方。 */
+        private List<FuelRecipe> fuel() { return List.copyOf(fuel); }
+        /** 返回实体熔炼分类配方。 */
+        private List<EntityMeltingRecipe> entityMelting() { return List.copyOf(entityMelting); }
+        /** 返回固体燃料展示栈。 */
+        private List<ItemStack> solidFuels() { return List.copyOf(solidFuels.values()); }
+        /** 返回流体燃料展示栈。 */
+        private List<FluidStack> fluidFuels() { return List.copyOf(fluidFuels.values()); }
+        /** 返回可覆盖普通熔炼配方的最高固体燃料温度。 */
+        private int solidFuelTemperature() { return solidFuelTemperature; }
     }
 
     /** 为一个物品 Ingredient 创建带标准背景的 JEI 输入槽。 */
@@ -168,8 +291,8 @@ public final class FoundryJeiPlugin implements IModPlugin {
     /** 为一个 SizedFluidIngredient 创建带官方流体背景的 JEI 输入槽。 */
     private static IRecipeSlotBuilder addFluidInput(IRecipeLayoutBuilder builder, SizedFluidIngredient ingredient, int x, int y, int width, int height) {
         IRecipeSlotBuilder slot = builder.addInputSlot(x, y).setFluidRenderer(FluidValues.BLOCK, false, width, height);
-        for (FluidStack stack : ingredient.getFluids()) {
-            slot.addFluidStack(stack.getFluid(), ingredient.amount());
+        for (Holder<net.minecraft.world.level.material.Fluid> holder : ingredient.ingredient().fluids()) {
+            slot.addFluidStack(holder.value(), ingredient.amount());
         }
         return slot;
     }
@@ -177,8 +300,8 @@ public final class FoundryJeiPlugin implements IModPlugin {
     /** 为一个 FluidIngredient 创建可循环显示的 JEI 流体输入槽。 */
     private static IRecipeSlotBuilder addFluidIngredient(IRecipeLayoutBuilder builder, FluidIngredient ingredient, int x, int y, int width, int height) {
         IRecipeSlotBuilder slot = builder.addInputSlot(x, y).setFluidRenderer(FluidValues.BUCKET, true, width, height);
-        for (FluidStack stack : ingredient.getStacks()) {
-            slot.addFluidStack(stack.getFluid(), stack.getAmount());
+        for (Holder<net.minecraft.world.level.material.Fluid> holder : ingredient.fluids()) {
+            slot.addFluidStack(holder.value(), 1);
         }
         return slot;
     }
@@ -207,14 +330,13 @@ public final class FoundryJeiPlugin implements IModPlugin {
         }
 
         /** 返回官方背景图集中的当前分类区域。 */
-        @Override
         public IDrawable getBackground() {
             return background;
         }
 
         /** 绘制分类背景，避免把普通设备 GUI 当成 JEI 背景。 */
         @Override
-        public void draw(T recipe, IRecipeSlotsView recipeSlots, GuiGraphics graphics, double mouseX, double mouseY) {
+        public void draw(T recipe, IRecipeSlotsView recipeSlots, GuiGraphicsExtractor graphics, double mouseX, double mouseY) {
             background.draw(graphics);
         }
     }
@@ -243,7 +365,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, MeltingRecipe recipe, IFocusGroup focuses) {
             addItemInput(builder, recipe.ingredient(), 24, 18).setSlotName("ingredient");
-            addFluidOutput(builder, recipe.result(), 96, 4, 32, 32)
+            addFluidOutput(builder, recipe.output(false), 96, 4, 32, 32)
                 .setOverlay(tankOverlay, 0, 0)
                 .setSlotName("result");
             // 按上游页面把可用固体燃料绘制在左下角，避免温度文字覆盖燃料栏。
@@ -264,7 +386,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
         @Override
         public void createRecipeExtras(IRecipeExtrasBuilder builder, MeltingRecipe recipe, IFocusGroup focuses) {
             // 箭头动画表达冷却时间；上游页面不再额外绘制“几秒”，避免压住燃料栏。
-            builder.addAnimatedRecipeArrowWidget(Math.max(1, recipe.time() * 5)).setPosition(56, 18);
+            builder.addAnimatedRecipeArrow(Math.max(1, recipe.time() * 5)).setPosition(56, 18);
             // 温度居中绘制在燃料栏和产物槽之间，保持 1.20.1 的文字层级和宽度。
             builder.addText(Component.translatable("jei.tinker_foundry.temperature", recipe.temperature()), 113, 9)
                 .setPosition(0, 3)
@@ -316,7 +438,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
         /** 显示合金箭头和所需温度。 */
         @Override
         public void createRecipeExtras(IRecipeExtrasBuilder builder, AlloyingRecipe recipe, IFocusGroup focuses) {
-            builder.addDrawableWidget(alloyArrow).setPosition(90, 21);
+            builder.addDrawable(alloyArrow).setPosition(90, 21);
             // 温度文字放在输入槽右侧的空白区，避免覆盖上排流体槽和产物槽。
             builder.addText(Component.translatable("jei.tinker_foundry.temperature", recipe.temperature()), 72, 9).setPosition(65, 5);
         }
@@ -349,7 +471,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
         /** 显示流体输入、可选可复用铸模和物品输出。 */
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, CastingRecipe recipe, IFocusGroup focuses) {
-            recipe.mold().ifPresent(mold -> builder.addSlot(RecipeIngredientRole.CATALYST, 38, 19)
+            recipe.mold().ifPresent(mold -> builder.addSlot(RecipeIngredientRole.CRAFTING_STATION, 38, 19)
                 .addIngredients(mold)
                 .setStandardSlotBackground()
                 .setSlotName("mold"));
@@ -362,16 +484,14 @@ public final class FoundryJeiPlugin implements IModPlugin {
         /** 显示设备图标、浇注动画和铸模不消耗语义。 */
         @Override
         public void createRecipeExtras(IRecipeExtrasBuilder builder, CastingRecipe recipe, IFocusGroup focuses) {
-            builder.addDrawableWidget(castingDevice).setPosition(38, 35);
+            builder.addDrawable(castingDevice).setPosition(38, 35);
             IDrawable arrow = guiHelper.drawableBuilder(CASTING_BACKGROUND, 117, 32, 24, 17)
                 .buildAnimated(Math.max(1, recipe.time()), StartDirection.LEFT, false);
-            builder.addDrawableWidget(arrow).setPosition(58, 18);
+            builder.addDrawable(arrow).setPosition(58, 18);
             if (recipe.mold().isPresent()) {
                 IDrawable castState = guiHelper.createDrawable(CASTING_BACKGROUND, 141, 43, 13, 11);
-                builder.addDrawableWidget(castState)
-                    .setPosition(63, 39)
-                    .setTooltip(Component.translatable(recipe.castConsumed()
-                        ? "jei.tinker_foundry.casting.cast_consumed" : "jei.tinker_foundry.casting.cast_kept"));
+                builder.addDrawable(castState)
+                    .setPosition(63, 39);
             }
         }
     }
@@ -411,7 +531,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, MoldingRecipe recipe, IFocusGroup focuses) {
             // 模具消耗时作为输入，不消耗时作为催化剂，保持 JEI 查询语义与实际配方一致。
-            RecipeIngredientRole moldRole = recipe.patternConsumed() ? RecipeIngredientRole.INPUT : RecipeIngredientRole.CATALYST;
+            RecipeIngredientRole moldRole = recipe.patternConsumed() ? RecipeIngredientRole.INPUT : RecipeIngredientRole.CRAFTING_STATION;
             IRecipeSlotBuilder mold = builder.addSlot(moldRole, 38, 19)
                 .addIngredients(recipe.mold())
                 .setSlotName("mold");
@@ -437,14 +557,12 @@ public final class FoundryJeiPlugin implements IModPlugin {
             // 箭头使用官方铸造背景中的 24x17 动画切片。
             IDrawable arrow = guiHelper.drawableBuilder(CASTING_BACKGROUND, 117, 32, 24, 17)
                 .buildAnimated(Math.max(1, recipe.time()), StartDirection.LEFT, false);
-            builder.addDrawableWidget(arrow).setPosition(58, 18);
+            builder.addDrawable(arrow).setPosition(58, 18);
             // 使用单个居中的铸件台图标，使模具槽正对设备，匹配匠魂铸造卡片。
-            builder.addDrawableWidget(castingTable).setPosition(38, 35);
-            // 用官方状态图标表达模具是否消耗，并保留可悬停的中文说明。
-            builder.addDrawableWidget(recipe.patternConsumed() ? castConsumed : castKept)
-                .setPosition(63, 39)
-                .setTooltip(Component.translatable(recipe.patternConsumed()
-                    ? "jei.tinker_foundry.molding.pattern_consumed" : "jei.tinker_foundry.molding.pattern_kept"));
+            builder.addDrawable(castingTable).setPosition(38, 35);
+            // 用官方状态图标表达模具是否消耗。
+            builder.addDrawable(recipe.patternConsumed() ? castConsumed : castKept)
+                .setPosition(63, 39);
         }
     }
 
@@ -487,7 +605,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 .addRichTooltipCallback((slot, tooltip) -> {
                     PotionContents potionContents = recipe.result().getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
                     if (potionContents.potion().isPresent()) {
-                        Component potionName = Component.translatable(Potion.getName(potionContents.potion(), "item.minecraft.potion.effect."));
+                        Component potionName = potionContents.getName("item.minecraft.potion.effect.");
                         List<Either<net.minecraft.network.chat.FormattedText, net.minecraft.world.inventory.tooltip.TooltipComponent>> lines = tooltip.getLines();
                         if (!lines.isEmpty()) {
                             lines.set(0, Either.left(potionName));
@@ -498,7 +616,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 })
                 .setSlotName("result");
             // 下方显示当前同步燃料配方中的流体燃料，不把燃料逻辑硬编码到 JEI 分类。
-            builder.addSlot(RecipeIngredientRole.CATALYST, 75, 43)
+            builder.addSlot(RecipeIngredientRole.CRAFTING_STATION, 75, 43)
                 .setFluidRenderer(1, false, 16, 16)
                 .setOverlay(fuelTank, 0, 0)
                 .addIngredients(NeoForgeTypes.FLUID_STACK, JEI_FLUID_FUELS)
@@ -508,7 +626,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
         /** 显示实体熔炼箭头和每两点伤害对应的一颗心。 */
         @Override
         public void createRecipeExtras(IRecipeExtrasBuilder builder, EntityMeltingRecipe recipe, IFocusGroup focuses) {
-            builder.addDrawableWidget(arrow).setPosition(71, 21);
+            builder.addDrawable(arrow).setPosition(71, 21);
             builder.addText(Component.literal(Float.toString(recipe.damage() / 2.0F)), 84, 9)
                 .setPosition(0, 8)
                 .setColor(Color.RED.getRGB())
@@ -519,10 +637,10 @@ public final class FoundryJeiPlugin implements IModPlugin {
         private static List<ItemStack> entityDisplayStacks(EntityMeltingRecipe recipe) {
             List<ItemStack> stacks = new ArrayList<>();
             for (String entityId : recipe.entities()) {
-                addEntitySpawnEgg(stacks, ResourceLocation.tryParse(entityId));
+                addEntitySpawnEgg(stacks, Identifier.tryParse(entityId));
             }
             if (!recipe.entityTag().isEmpty()) {
-                ResourceLocation tagId = ResourceLocation.tryParse(recipe.entityTag());
+                Identifier tagId = Identifier.tryParse(recipe.entityTag());
                 if (tagId != null) {
                     TagKey<EntityType<?>> tag = TagKey.create(Registries.ENTITY_TYPE, tagId);
                     for (Holder<EntityType<?>> holder : BuiltInRegistries.ENTITY_TYPE.getTagOrEmpty(tag)) {
@@ -534,12 +652,11 @@ public final class FoundryJeiPlugin implements IModPlugin {
         }
 
         /** 将注册表中的实体类型转换为刷怪蛋，无法转换时跳过而不伪造图标。 */
-        private static void addEntitySpawnEgg(List<ItemStack> stacks, ResourceLocation entityId) {
+        private static void addEntitySpawnEgg(List<ItemStack> stacks, Identifier entityId) {
             if (entityId == null) return;
             EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getOptional(entityId).orElse(null);
             if (type == null) return;
-            Item egg = SpawnEggItem.byId(type);
-            if (egg != null) stacks.add(new ItemStack(egg));
+            SpawnEggItem.byId(type).ifPresent(holder -> stacks.add(new ItemStack(holder.value())));
         }
     }
 

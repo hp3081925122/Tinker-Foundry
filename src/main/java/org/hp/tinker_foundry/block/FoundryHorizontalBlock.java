@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 /** 为排液口、输导孔和导流槽提供与匠魂一致的四向水平朝向。 */
 public class FoundryHorizontalBlock extends FoundryEntityBlock {
     /** 水平端口朝向。 */
-    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
+    public static final net.minecraft.world.level.block.state.properties.EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
 
     /** 创建默认朝北的水平设备。 */
     public FoundryHorizontalBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties properties) {

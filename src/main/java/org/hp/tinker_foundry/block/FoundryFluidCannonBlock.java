@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
@@ -76,18 +77,18 @@ public final class FoundryFluidCannonBlock extends FoundryDirectionalBlock {
 
     /** 复刻匠魂流体炮的上半部流体区和下半部物品区点击分区。 */
     @Override
-    protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
+    protected net.minecraft.world.InteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
                                                                    BlockPos pos, net.minecraft.world.entity.player.Player player,
                                                                    InteractionHand hand, BlockHitResult hit) {
         if (!(level.getBlockEntity(pos) instanceof FoundryBlockEntity entity)) {
-            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return net.minecraft.world.InteractionResult.PASS;
         }
         boolean clickedTank = clickedTankArea(state, pos, hit);
-        if (level.isClientSide) {
-            return net.minecraft.world.ItemInteractionResult.sidedSuccess(true);
+        if (level.isClientSide()) {
+            return net.minecraft.world.InteractionResult.SUCCESS;
         }
         entity.interactFluidCannon(player, hand, clickedTank, hit.getDirection());
-        return net.minecraft.world.ItemInteractionResult.SUCCESS;
+        return net.minecraft.world.InteractionResult.SUCCESS;
     }
 
     /** 空手点击时沿用流体炮分区，避免基类把上半部误当成内部物品槽。 */
@@ -99,8 +100,8 @@ public final class FoundryFluidCannonBlock extends FoundryDirectionalBlock {
             return net.minecraft.world.InteractionResult.PASS;
         }
         boolean clickedTank = clickedTankArea(state, pos, hit);
-        if (level.isClientSide) {
-            return net.minecraft.world.InteractionResult.sidedSuccess(true);
+        if (level.isClientSide()) {
+            return net.minecraft.world.InteractionResult.SUCCESS;
         }
         entity.interactFluidCannon(player, InteractionHand.MAIN_HAND, clickedTank, hit.getDirection());
         return net.minecraft.world.InteractionResult.SUCCESS;
@@ -120,7 +121,7 @@ public final class FoundryFluidCannonBlock extends FoundryDirectionalBlock {
 
     /** 红石信号上升沿安排一次服务端开火，避免保持信号时每 tick 重复消耗流体。 */
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, Orientation orientation, boolean movedByPiston) {
         boolean powered = level.hasNeighborSignal(pos) || level.hasNeighborSignal(pos.above());
         boolean triggered = state.getValue(TRIGGERED);
         if (powered && !triggered) {

@@ -6,9 +6,7 @@
     "XXX"
   ],
   "key": {
-    "X": {
-      "item": "tinker_foundry:copper_nugget"
-    }
+    "X": "tinker_foundry:copper_nugget"
   },
   "result": {
     "id": "minecraft:copper_ingot",

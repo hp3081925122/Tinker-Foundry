@@ -9,20 +9,30 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStackTemplate;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 两种或多种流体按配方消耗后生成合金流体。 */
-public record AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStack result, int temperature) implements Recipe<FluidRecipeInput> {
+public record AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStackTemplate resultTemplate, int temperature) implements FoundryRecipe<FluidRecipeInput> {
+    /** 保留运行时构造方式，并在进入配方记录时转换为未绑定组件模板。 */
+    public AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStack result, int temperature) {
+        this(ingredients, FluidStackTemplate.fromNonEmptyStack(result), temperature);
+    }
+
+    /** 在注册表已经绑定的运行时创建合金产物流体栈。 */
+    public FluidStack result() {
+        return resultTemplate.create();
+    }
+
     /** 支持流体精确注册名、流体标签，以及不消耗的催化流体输入。 */
     public static final MapCodec<AlloyingRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
         AlloyIngredient.CODEC.codec().listOf().fieldOf("ingredients").forGetter(AlloyingRecipe::ingredients),
-        FluidStack.CODEC.fieldOf("result").forGetter(AlloyingRecipe::result),
+        FluidStackTemplate.CODEC.fieldOf("result").forGetter(AlloyingRecipe::resultTemplate),
         Codec.INT.fieldOf("temperature").forGetter(AlloyingRecipe::temperature)
     ).apply(instance, AlloyingRecipe::new));
 
@@ -36,7 +46,7 @@ public record AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStack resul
         for (int index = 0; index < size; index++) {
             inputs.add(AlloyIngredient.STREAM_CODEC.decode(buffer));
         }
-        FluidStack result = FluidStack.STREAM_CODEC.decode(buffer);
+        FluidStackTemplate result = FluidStackTemplate.STREAM_CODEC.decode(buffer);
         int temperature = buffer.readVarInt();
         return new AlloyingRecipe(inputs, result, temperature);
     }
@@ -45,7 +55,7 @@ public record AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStack resul
     private static void writeNetwork(RegistryFriendlyByteBuf buffer, AlloyingRecipe recipe) {
         buffer.writeVarInt(recipe.ingredients.size());
         recipe.ingredients.forEach(input -> AlloyIngredient.STREAM_CODEC.encode(buffer, input));
-        FluidStack.STREAM_CODEC.encode(buffer, recipe.result);
+        FluidStackTemplate.STREAM_CODEC.encode(buffer, recipe.resultTemplate);
         buffer.writeVarInt(recipe.temperature);
     }
 
@@ -79,18 +89,16 @@ public record AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStack resul
 
     /** 合金配方没有物品输出。 */
     @Override
-    public ItemStack assemble(FluidRecipeInput input, HolderLookup.Provider registries) {
+    public ItemStack assemble(FluidRecipeInput input) {
         return ItemStack.EMPTY;
     }
 
     /** 流体配方占用一个逻辑工作单元。 */
-    @Override
     public boolean canCraftInDimensions(int width, int height) {
         return width * height >= 1;
     }
 
     /** 返回空物品结果。 */
-    @Override
     public ItemStack getResultItem(HolderLookup.Provider registries) {
         return ItemStack.EMPTY;
     }
@@ -103,13 +111,13 @@ public record AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStack resul
 
     /** 返回合金配方序列化器。 */
     @Override
-    public RecipeSerializer<?> getSerializer() {
+    public RecipeSerializer<? extends AlloyingRecipe> getSerializer() {
         return TFRecipes.ALLOYING_SERIALIZER.get();
     }
 
     /** 返回独立 alloying 配方类型。 */
     @Override
-    public RecipeType<?> getType() {
+    public RecipeType<? extends AlloyingRecipe> getType() {
         return TFRecipes.ALLOYING.get();
     }
 
@@ -117,7 +125,7 @@ public record AlloyingRecipe(List<AlloyIngredient> ingredients, FluidStack resul
     public record AlloyIngredient(SizedFluidIngredient ingredient, boolean catalyst) {
         /** 合金输入 JSON，催化标记缺省为 false，保持普通配方简洁。 */
         public static final MapCodec<AlloyIngredient> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
-            net.neoforged.neoforge.fluids.crafting.FluidIngredient.CODEC_NON_EMPTY.fieldOf("ingredient")
+            net.neoforged.neoforge.fluids.crafting.FluidIngredient.CODEC.fieldOf("ingredient")
                 .forGetter(input -> input.ingredient().ingredient()),
             Codec.INT.fieldOf("amount").forGetter(input -> input.ingredient().amount()),
             Codec.BOOL.optionalFieldOf("catalyst", false).forGetter(AlloyIngredient::catalyst)

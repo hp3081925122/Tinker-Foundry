@@ -1,10 +1,8 @@
 {
   "type": "tinker_foundry:melting",
-  "ingredient": {
-    "tag": "c:nuggets/copper"
-  },
+  "ingredient": "#c:nuggets/copper",
   "result": {
-    "id": "tinker_foundry:copper",
+    "id": "tinker_foundry:molten/copper",
     "amount": 10
   },
   "temperature": 500,

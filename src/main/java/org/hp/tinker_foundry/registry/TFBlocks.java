@@ -88,11 +88,11 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SEARED_GLASS_PANE = pane("seared_glass_pane", MapColor.COLOR_LIGHT_GRAY);
     public static final DeferredBlock<Block> SEARED_TINTED_GLASS = tintedGlass("seared_tinted_glass", MapColor.COLOR_GRAY);
     public static final DeferredBlock<Block> SEARED_SOUL_GLASS = soulGlass("seared_soul_glass", MapColor.COLOR_LIGHT_GRAY);
-    public static final DeferredBlock<Block> SEARED_SOUL_GLASS_PANE = pane("seared_soul_glass_pane", MapColor.COLOR_LIGHT_GRAY);
+    public static final DeferredBlock<Block> SEARED_SOUL_GLASS_PANE = soulGlassPane("seared_soul_glass_pane", MapColor.COLOR_LIGHT_GRAY);
     public static final DeferredBlock<Block> SCORCHED_GLASS_PANE = pane("scorched_glass_pane", MapColor.COLOR_BLACK);
     public static final DeferredBlock<Block> SCORCHED_TINTED_GLASS = tintedGlass("scorched_tinted_glass", MapColor.COLOR_BLACK);
     public static final DeferredBlock<Block> SCORCHED_SOUL_GLASS = soulGlass("scorched_soul_glass", MapColor.COLOR_BLACK);
-    public static final DeferredBlock<Block> SCORCHED_SOUL_GLASS_PANE = pane("scorched_soul_glass_pane", MapColor.COLOR_BLACK);
+    public static final DeferredBlock<Block> SCORCHED_SOUL_GLASS_PANE = soulGlassPane("scorched_soul_glass_pane", MapColor.COLOR_BLACK);
 
     /** 冶炼炉控制器。 */
     public static final DeferredBlock<Block> SMELTERY_CONTROLLER = controller("smeltery_controller");
@@ -146,130 +146,158 @@ public final class TFBlocks {
 
     /** 创建普通冶炼方块。 */
     private static DeferredBlock<Block> simple(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.registerSimpleBlock(name, BlockBehaviour.Properties.of().mapColor(color).strength(2.0f, 6.0f));
+        return TinkerFoundry.BLOCKS.registerSimpleBlock(name, () -> BlockBehaviour.Properties.of().mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册具有原版方块硬度的楼梯变种，并让楼梯继承对应基础方块的默认状态。 */
     private static DeferredBlock<Block> stairs(String name, java.util.function.Supplier<? extends Block> base, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new StairBlock(base.get().defaultBlockState(), BlockBehaviour.Properties.ofFullCopy(Blocks.STONE_STAIRS)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, properties -> new StairBlock(base.get().defaultBlockState(), properties),
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.STONE_STAIRS).mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册台阶变种。 */
     private static DeferredBlock<Block> slab(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new SlabBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.STONE_SLAB)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, SlabBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.STONE_SLAB).mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册围栏变种。 */
     private static DeferredBlock<Block> fence(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FenceBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.NETHER_BRICK_FENCE)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, FenceBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.NETHER_BRICK_FENCE).mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册轴向纹理砖，供焦黑石柱类变种使用。 */
     private static DeferredBlock<Block> pillar(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new RotatedPillarBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BASALT)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, RotatedPillarBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.BASALT).mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册可连接的玻璃面板。 */
     private static DeferredBlock<Block> pane(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new IronBarsBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS_PANE)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, IronBarsBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS_PANE).mapColor(color).strength(2.0f, 6.0f));
+    }
+
+    private static DeferredBlock<Block> soulGlassPane(String name, MapColor color) {
+        return register(name, IronBarsBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS_PANE).mapColor(color).strength(2.0f, 6.0f)
+                .noCollision().speedFactor(0.1f));
     }
 
     /** 注册具有染色玻璃遮挡性质的冶炼玻璃。 */
     private static DeferredBlock<Block> tintedGlass(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new TintedGlassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.TINTED_GLASS)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, TintedGlassBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.TINTED_GLASS).mapColor(color).strength(2.0f, 6.0f));
     }
 
-    /** 注册低碰撞、减速并阻挡视线的灵魂玻璃基础方块。 */
+    /** 注册允许穿行、减速并阻挡视线的灵魂玻璃基础方块。 */
     private static DeferredBlock<Block> soulGlass(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new TransparentBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS)
-            .mapColor(color).strength(2.0f, 6.0f).noOcclusion().speedFactor(0.1f)));
+        return register(name, TransparentBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).mapColor(color).strength(2.0f, 6.0f)
+                .noCollision().noOcclusion().speedFactor(0.1f));
     }
 
     /** 注册只提供光照的结构灯。 */
     private static DeferredBlock<Block> lightBlock(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.GLOWSTONE)
-            .mapColor(color).strength(2.0f, 6.0f).lightLevel(state -> 15)));
+        return register(name, Block::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(Blocks.GLOWSTONE).mapColor(color).strength(2.0f, 6.0f)
+                .lightLevel(state -> 15));
     }
 
     /** 注册可透光但保持完整碰撞箱的冶炼玻璃。 */
     private static DeferredBlock<Block> glass(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new TransparentBlock(BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.GLASS)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, TransparentBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.GLASS)
+                .mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册带光照和悬挂状态的冶炼灯。 */
     private static DeferredBlock<Block> lantern(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryLanternBlock(BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.LANTERN)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, FoundryLanternBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.LANTERN)
+                .mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册可攀爬并依附墙面的冶炼梯子。 */
     private static DeferredBlock<Block> ladder(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new LadderBlock(BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.LADDER)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, LadderBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.LADDER)
+                .mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 注册会根据相邻方块连接的冶炼墙。 */
     private static DeferredBlock<Block> wall(String name, MapColor color) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new WallBlock(BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.COBBLESTONE_WALL)
-            .mapColor(color).strength(2.0f, 6.0f)));
+        return register(name, WallBlock::new,
+            () -> BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.COBBLESTONE_WALL)
+                .mapColor(color).strength(2.0f, 6.0f));
     }
 
     /** 创建需要持久化数据的设备方块。 */
     private static DeferredBlock<Block> entity(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryEntityBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
+        return register(name, FoundryEntityBlock::new,
+            () -> nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f));
     }
 
     /** 注册使用官方正面模型的水平朝向设备。 */
     private static DeferredBlock<Block> machine(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryMachineBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
+        return register(name, FoundryMachineBlock::new,
+            () -> nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f));
     }
 
     /** 注册带五向输入缓存和下方燃料结构状态的合金炉控制器。 */
     private static DeferredBlock<Block> alloyer(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryAlloyerBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
+        return register(name, FoundryAlloyerBlock::new,
+            () -> nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f));
     }
 
     /** 注册带水平朝向的多方块控制器。 */
     private static DeferredBlock<Block> controller(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryControllerBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(2.0f, 6.0f)));
+        return register(name, FoundryControllerBlock::new,
+            () -> BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(2.0f, 6.0f));
     }
 
     /** 注册带六向朝向的流体输入输出设备。 */
     private static DeferredBlock<Block> directional(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryDirectionalBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(2.0f, 6.0f)));
+        return register(name, FoundryDirectionalBlock::new,
+            () -> BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(2.0f, 6.0f));
     }
 
     /** 注册与上游一致、只能沿水平面放置的排液附件。 */
     private static DeferredBlock<Block> horizontal(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryHorizontalBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(2.0f, 6.0f)));
+        return register(name, FoundryHorizontalBlock::new,
+            () -> BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(2.0f, 6.0f));
     }
 
     /** 注册具备多面传输逻辑的导流槽。 */
     private static DeferredBlock<Block> channel(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryChannelBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
+        return register(name, FoundryChannelBlock::new,
+            () -> nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f));
     }
 
     /** 注册带红石触发状态和独立弹射参数的流体炮。 */
     private static DeferredBlock<Block> fluidCannon(String name, float power, float velocity, float inaccuracy) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryFluidCannonBlock(
-            nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f), power, velocity, inaccuracy));
+        return register(name, properties -> new FoundryFluidCannonBlock(properties, power, velocity, inaccuracy),
+            () -> nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f));
     }
 
     /** 注册具有特殊连接面放置规则的浇注口。 */
     private static DeferredBlock<Block> faucet(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryFaucetBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f)));
+        return register(name, FoundryFaucetBlock::new,
+            () -> nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f));
     }
 
     /** 注册只占据贴附面薄片空间的流体计。 */
     private static DeferredBlock<Block> gauge(String name) {
-        return TinkerFoundry.BLOCKS.register(name, () -> new FoundryGaugeBlock(nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f).noCollission()));
+        return register(name, FoundryGaugeBlock::new,
+            () -> nonSolidDeviceProperties(MapColor.COLOR_GRAY, 2.0f, 6.0f).noCollision());
+    }
+
+    /** 通过 NeoForge 26.1.2 的注册工厂为每个方块属性绑定对应的资源键。 */
+    private static <B extends Block> DeferredBlock<B> register(String name,
+                                                                java.util.function.Function<BlockBehaviour.Properties, ? extends B> factory,
+                                                                java.util.function.Supplier<BlockBehaviour.Properties> properties) {
+        return TinkerFoundry.BLOCKS.registerBlock(name, factory, properties);
     }
 
     /** 构造匠魂非实体设备使用的遮挡属性，避免透明模型面被方块渲染器裁掉。 */

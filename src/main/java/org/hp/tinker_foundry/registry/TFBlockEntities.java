@@ -8,7 +8,7 @@ import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 /** 冶炼设备方块实体注册表。 */
 public final class TFBlockEntities {
     /** 所有冶炼设备共用一个数据类型，行为通过宿主方块区分。 */
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FoundryBlockEntity>> GENERIC = TinkerFoundry.BLOCK_ENTITY_TYPES.register("foundry_device", () -> BlockEntityType.Builder.of(
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FoundryBlockEntity>> GENERIC = TinkerFoundry.BLOCK_ENTITY_TYPES.register("foundry_device", () -> new BlockEntityType<>(
         FoundryBlockEntity::new,
         TFBlocks.SMELTERY_CONTROLLER.get(),
         TFBlocks.FOUNDRY_CONTROLLER.get(),
@@ -44,7 +44,7 @@ public final class TFBlockEntities {
         TFBlocks.SCORCHED_LANTERN.get(),
         TFBlocks.SEARED_INGOT_TANK.get(),
         TFBlocks.SCORCHED_INGOT_TANK.get()
-    ).build(null));
+    ));
 
     private TFBlockEntities() {
     }

@@ -1,7 +1,7 @@
 {
   "type": "tinker_foundry:ore_melting",
-  "ingredient": {"item": "minecraft:copper_ore"},
-  "result": {"id": "tinker_foundry:copper", "amount": 90},
+  "ingredient": "minecraft:copper_ore",
+  "result": {"id": "tinker_foundry:molten/copper", "amount": 90},
   "rate": "metal",
   "temperature": 500,
   "time": 75

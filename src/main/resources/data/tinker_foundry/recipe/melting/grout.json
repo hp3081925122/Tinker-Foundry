@@ -1,6 +1,6 @@
 {
   "type": "tinker_foundry:melting",
-  "ingredient": {"item": "tinker_foundry:grout"},
+  "ingredient": "tinker_foundry:grout",
   "result": {"id": "tinker_foundry:seared_stone", "amount": 500},
   "temperature": 600,
   "time": 80

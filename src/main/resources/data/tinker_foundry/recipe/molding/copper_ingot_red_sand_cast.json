@@ -1,12 +1,8 @@
 {
   "type": "tinker_foundry:molding",
-  "mold": {
-    "item": "tinker_foundry:ingot_red_sand_cast"
-  },
+  "mold": "tinker_foundry:ingot_red_sand_cast",
   "fluid": {
-    "ingredient": {
-      "fluid": "tinker_foundry:copper"
-    },
+    "ingredient": "tinker_foundry:molten/copper",
     "amount": 90
   },
   "result": {

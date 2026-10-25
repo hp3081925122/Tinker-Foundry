@@ -1,6 +1,6 @@
 {
   "type": "tinker_foundry:fuel",
-  "fluid": {"fluid": "tinker_foundry:blazing_blood"},
+  "fluid": "tinker_foundry:blazing_blood",
   "duration": 150,
   "temperature": 1800,
   "consumption": 50,

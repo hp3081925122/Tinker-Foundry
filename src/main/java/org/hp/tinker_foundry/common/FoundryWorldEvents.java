@@ -7,6 +7,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.multiblock.StructureTags;
@@ -17,15 +18,15 @@ public final class FoundryWorldEvents {
     /** 放置炉壁、设备或替换方块后，只标记可能受影响的已加载控制器。 */
     @SubscribeEvent
     public static void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
-        if (event.getLevel() instanceof Level level && !level.isClientSide) {
+        if (event.getLevel() instanceof Level level && !level.isClientSide()) {
             markNearbyControllers(level, event.getPos());
         }
     }
 
     /** 玩家破坏结构方块后，立即让附近控制器重新检查。 */
     @SubscribeEvent
-    public static void onBlockBreak(BlockEvent.BreakEvent event) {
-        if (event.getLevel() instanceof Level level && !level.isClientSide) {
+    public static void onBlockBreak(BreakBlockEvent event) {
+        if (event.getLevel() instanceof Level level && !level.isClientSide()) {
             markNearbyControllers(level, event.getPos());
         }
     }
@@ -33,7 +34,7 @@ public final class FoundryWorldEvents {
     /** 命令、活塞或方块物理更新触发邻居通知时，复用同一局部标记逻辑。 */
     @SubscribeEvent
     public static void onNeighborNotify(BlockEvent.NeighborNotifyEvent event) {
-        if (event.getLevel() instanceof Level level && !level.isClientSide) {
+        if (event.getLevel() instanceof Level level && !level.isClientSide()) {
             // 流体同步和普通机器更新也会触发邻居通知，只有可能参与多方块的方块才需要标记结构。
             if (!isStructureRelevant(event.getState())) {
                 return;
@@ -76,7 +77,7 @@ public final class FoundryWorldEvents {
     /** 区块载入时只标记该区块中的控制器，设备 tick 会在区块真正可用后验证。 */
     @SubscribeEvent
     public static void onChunkLoad(ChunkEvent.Load event) {
-        if (event.getLevel() instanceof Level level && !level.isClientSide && event.getChunk() instanceof LevelChunk chunk) {
+        if (event.getLevel() instanceof Level level && !level.isClientSide() && event.getChunk() instanceof LevelChunk chunk) {
             for (var blockEntity : chunk.getBlockEntities().values()) {
                 if (blockEntity instanceof FoundryBlockEntity foundry) {
                     foundry.markStructureDirty();

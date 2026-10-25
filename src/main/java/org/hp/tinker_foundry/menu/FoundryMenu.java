@@ -21,6 +21,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
 import net.neoforged.neoforge.items.SlotItemHandler;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
+import org.hp.tinker_foundry.common.FoundryCapabilityCompat;
 import org.hp.tinker_foundry.item.PortableTankFluidHandler;
 import org.hp.tinker_foundry.item.FoundryTankItem;
 import org.hp.tinker_foundry.item.PortableTankItem;
@@ -135,7 +136,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         this.bucketContainer = bucketContainer;
         this.data = data;
         this.menuInputs = menuInputs;
-        this.clientSide = inventory.player.level().isClientSide;
+        this.clientSide = inventory.player.level().isClientSide();
         // 槽位布局和屏幕尺寸共同读取打开载荷中的类型，不受状态包到达顺序影响。
         this.screenKind = screenKind;
         this.alloyerFuelSlot = screenKind == 1 && container instanceof FoundryBlockEntity entity
@@ -275,7 +276,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         @Override
         public void setByPlayer(ItemStack stack, ItemStack oldStack) {
             super.setByPlayer(stack, oldStack);
-            if (FoundryMenu.this.container instanceof FoundryBlockEntity entity && entity.getLevel() != null && !entity.getLevel().isClientSide) {
+            if (FoundryMenu.this.container instanceof FoundryBlockEntity entity && entity.getLevel() != null && !entity.getLevel().isClientSide()) {
                 processBucketInput(entity);
             }
         }
@@ -579,7 +580,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
     @Override
     public void removed(Player player) {
         super.removed(player);
-        if (!player.level().isClientSide) clearContainer(player, bucketContainer);
+        if (!player.level().isClientSide()) clearContainer(player, bucketContainer);
     }
 
     /** 接收客户端按钮请求，覆盖结构控制器、合金炉和普通设备的流体交互。 */
@@ -591,7 +592,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (screenKind() == 3) {
             // 选层请求只在服务端校验并执行，空手点击不会凭客户端预测改变排液顺序。
             if (id >= 16 && id < 16 + org.hp.tinker_foundry.common.StructureFluidTank.MAX_LAYERS) {
-                if (player.level().isClientSide) return true;
+                if (player.level().isClientSide()) return true;
                 if (!(container instanceof FoundryBlockEntity entity) || !entity.isStructureValid()) return false;
                 boolean changed = getCarried().isEmpty() ? entity.selectStructureFluid(id - 16)
                     : transferHeldFluid(player, entity, getCarried(), id - 16, TransferDirection.FILL_ITEM);
@@ -601,7 +602,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
             }
             if (id == 0) {
                 transferDirection = transferDirection.next();
-                if (!player.level().isClientSide) {
+                if (!player.level().isClientSide()) {
                     TinkerFoundry.LOGGER.debug("[menu] structure transfer mode changed to {}", transferDirection);
                     if (container instanceof FoundryBlockEntity entity) processBucketInput(entity);
                 }
@@ -610,7 +611,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
             if (id < 1 || id > 3) {
                 return false;
             }
-            if (player.level().isClientSide) {
+            if (player.level().isClientSide()) {
                 return true;
             }
             if (!(container instanceof FoundryBlockEntity entity) || getCarried().isEmpty()) {
@@ -630,7 +631,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
             if (id < 0 || id >= 4 + FoundryBlockEntity.MAX_ALLOY_INPUTS * 2) {
                 return false;
             }
-            if (player.level().isClientSide) {
+            if (player.level().isClientSide()) {
                 return true;
             }
             if (!(container instanceof FoundryBlockEntity entity) || getCarried().isEmpty()) {
@@ -647,7 +648,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
             return transferHeldFluid(player, entity, getCarried(), tank, direction);
         }
         if (screenKind() == 0 && id >= 2 && id <= 3) {
-            if (player.level().isClientSide) {
+            if (player.level().isClientSide()) {
                 return true;
             }
             if (!(container instanceof FoundryBlockEntity entity) || getCarried().isEmpty()) {
@@ -658,7 +659,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (id < 0 || id >= fluidTankCount() * 2) {
             return false;
         }
-        if (player.level().isClientSide) {
+        if (player.level().isClientSide()) {
             return true;
         }
         if (!(container instanceof FoundryBlockEntity entity) || getCarried().isEmpty()) {
@@ -684,8 +685,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (entity.getLevel() == null) {
             return false;
         }
-        var handler = entity.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            entity.getBlockPos().below(), null);
+        var handler = FoundryCapabilityCompat.fluid(entity.getLevel(), entity.getBlockPos().below(), null);
         if (handler == null) {
             return false;
         }
@@ -705,8 +705,7 @@ public final class FoundryMenu extends AbstractContainerMenu {
         if (entity.getLevel() == null) {
             return false;
         }
-        var handler = entity.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            entity.getBlockPos().below(), null);
+        var handler = FoundryCapabilityCompat.fluid(entity.getLevel(), entity.getBlockPos().below(), null);
         if (handler == null) {
             return false;
         }

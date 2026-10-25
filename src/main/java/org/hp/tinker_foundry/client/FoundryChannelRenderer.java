@@ -3,93 +3,108 @@ package org.hp.tinker_foundry.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import net.minecraft.core.BlockPos;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Direction;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
-import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.FoundryChannelBlock;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
-/** 导流槽专用渲染器，对应匠魂的中心液体、侧向连接和底部输出。 */
+/** 26.1.2 导流槽专用提交式渲染器，复刻 1.21.1 的中心液体和侧向液流。 */
 public final class FoundryChannelRenderer {
-    /** 防止同一客户端会话重复输出导流槽几何诊断。 */
-    private static boolean diagnosticLogged;
-
-    /** 绘制客户端同步到的导流槽流体，调用方保证方块确实是导流槽。 */
-    public static void render(FoundryBlockEntity entity, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
+    /** 提交导流槽中心液体、四个水平连接面和底部液柱。 */
+    public static void submit(FoundryBlockEntity entity, PoseStack poseStack,
+                              SubmitNodeCollector collector, int packedLight) {
         FluidStack fluid = entity.getDisplayFluid();
         if (fluid.isEmpty() || entity.getLevel() == null) {
             return;
         }
-        IClientFluidTypeExtensions extensions = IClientFluidTypeExtensions.of(fluid.getFluid());
-        TextureAtlasSprite still = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
-            .apply(extensions.getStillTexture(fluid));
-        TextureAtlasSprite flowing = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
-            .apply(extensions.getFlowingTexture(fluid));
-        int tint = extensions.getTintColor(fluid);
+        TextureAtlasSprite still = FoundryFluidClient.stillSprite(fluid);
+        if (still == null) {
+            return;
+        }
+        TextureAtlasSprite flowing = FoundryFluidClient.flowingSprite(fluid);
+        if (flowing == null) {
+            flowing = still;
+        }
+        int tint = FoundryFluidClient.tint(fluid);
         int brightness = Math.max(packedLight & 65535, fluid.getFluid().getFluidType().getLightLevel(fluid) << 4)
             | packedLight & 0xFFFF0000;
-        VertexConsumer consumer = FoundryFluidRenderer.solidConsumer(buffer);
-        var state = entity.getBlockState();
-        if (!diagnosticLogged) {
-            TinkerFoundry.LOGGER.debug("[client-render] channel fluid={} down={} north={} south={} west={} east={}",
-                fluid.getFluid(), state.getValue(FoundryChannelBlock.DOWN),
-                state.getValue(FoundryChannelBlock.NORTH), state.getValue(FoundryChannelBlock.SOUTH),
-                state.getValue(FoundryChannelBlock.WEST), state.getValue(FoundryChannelBlock.EAST));
-            diagnosticLogged = true;
-        }
-
-        // Mantle 先根据唯一输出方向决定中心液体是否使用流动纹理。
+        BlockState state = entity.getBlockState();
+        Direction[] sides = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+        boolean[] flowingSides = new boolean[sides.length];
+        boolean[] sameChannelSides = new boolean[sides.length];
         Direction centerFlow = Direction.UP;
-        for (Direction direction : Direction.Plane.HORIZONTAL) {
-            FoundryChannelBlock.ChannelConnection connection = state.getValue(
-                FoundryChannelBlock.DIRECTION_MAP.get(direction));
-            if (connection == FoundryChannelBlock.ChannelConnection.OUT && entity.isChannelFlowing(direction)) {
+        for (int index = 0; index < sides.length; index++) {
+            Direction side = sides[index];
+            FoundryChannelBlock.ChannelConnection connection = state.getValue(FoundryChannelBlock.DIRECTION_MAP.get(side));
+            flowingSides[index] = connection.canFlow() && entity.isChannelFlowing(side);
+            sameChannelSides[index] = entity.getLevel().getBlockState(entity.getBlockPos().relative(side))
+                .is(state.getBlock());
+            if (connection == FoundryChannelBlock.ChannelConnection.OUT && flowingSides[index]) {
                 if (centerFlow == Direction.UP) {
-                    centerFlow = direction;
-                } else if (centerFlow != direction) {
+                    centerFlow = side;
+                } else if (centerFlow != side) {
                     centerFlow = Direction.DOWN;
                 }
             }
         }
+        boolean flowingDown = state.getValue(FoundryChannelBlock.DOWN)
+            && entity.isChannelFlowing(Direction.DOWN);
+        BlockState belowState = entity.getLevel().getBlockState(entity.getBlockPos().below());
+        Direction renderedCenterFlow = centerFlow;
+        BlockState renderedBelowState = belowState;
+        TextureAtlasSprite renderedStill = still;
+        TextureAtlasSprite renderedFlowing = flowing;
+        collector.submitCustomGeometry(poseStack, RenderTypes.translucentMovingBlock(), (entry, vertices) -> {
+            // 提交回调复制当前姿态，避免导流槽的水平旋转污染其他方块实体。
+            PoseStack localPose = new PoseStack();
+            localPose.last().set(entry);
+            renderChannel(localPose, vertices, state, sides, flowingSides, sameChannelSides, flowingDown,
+                renderedCenterFlow, renderedBelowState, renderedStill, renderedFlowing, tint, brightness);
+        });
+    }
+
+    /** 按 1.21.1 的 Mantle 几何绘制导流槽液体。 */
+    private static void renderChannel(PoseStack poseStack, VertexConsumer vertices, BlockState state,
+                                      Direction[] sides, boolean[] flowingSides, boolean[] sameChannelSides,
+                                      boolean flowingDown, Direction centerFlow, BlockState belowState,
+                                      TextureAtlasSprite still, TextureAtlasSprite flowing,
+                                      int tint, int brightness) {
         boolean centerRotated = centerFlow.getAxis().isHorizontal() && pushHorizontalRotation(poseStack, centerFlow);
-        FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer,
+        FoundryFluidRenderer.renderCuboid(poseStack.last(), vertices,
             centerFlow.getAxis().isHorizontal() ? flowing : still,
             0.375F, 0.375F, 0.375F, 0.625F, 0.5F, 0.625F, tint, brightness, 3);
         if (centerRotated) {
             poseStack.popPose();
         }
 
-        for (Direction direction : Direction.Plane.HORIZONTAL) {
-            FoundryChannelBlock.ChannelConnection connection = state.getValue(
-                FoundryChannelBlock.DIRECTION_MAP.get(direction));
+        for (int index = 0; index < sides.length; index++) {
+            Direction side = sides[index];
+            FoundryChannelBlock.ChannelConnection connection = state.getValue(FoundryChannelBlock.DIRECTION_MAP.get(side));
             if (!connection.canFlow()) {
                 continue;
             }
-            renderSide(entity, poseStack, consumer, still, flowing, direction, connection,
-                entity.isChannelFlowing(direction), tint, brightness);
+            renderSide(poseStack, vertices, side, connection, flowingSides[index], sameChannelSides[index],
+                tint, brightness, still, flowing);
         }
-        if (state.getValue(FoundryChannelBlock.DOWN) && entity.isChannelFlowing(Direction.DOWN)) {
-            // 底部输出只绘制四个侧面，并把液体继续绘制到相邻浇注设备的内部。
-            FoundryFluidRenderer.renderCuboid(poseStack.last(), consumer, flowing,
+        if (state.getValue(FoundryChannelBlock.DOWN) && flowingDown) {
+            // 底部出口只绘制细液柱，并把液体继续接入下方设备的内部液面。
+            FoundryFluidRenderer.renderCuboid(poseStack.last(), vertices, flowing,
                 0.375F, 0.0F, 0.375F, 0.625F, 0.375F, 0.625F, tint, brightness, 60);
-            BlockPos belowPos = entity.getBlockPos().below();
-            FoundryDeviceRenderer.renderFluidIntoBelow(poseStack, consumer, flowing,
-                Direction.DOWN, entity.getLevel().getBlockState(belowPos), tint, brightness);
+            FoundryDeviceRenderer.renderFluidIntoBelow(poseStack, vertices, flowing,
+                Direction.DOWN, belowState, tint, brightness);
         }
     }
 
-    /** 绘制一个按 Mantle 数据拆分的水平连接面和非导流边缘。 */
-    private static void renderSide(FoundryBlockEntity entity, PoseStack poseStack, VertexConsumer consumer,
-                                   TextureAtlasSprite still, TextureAtlasSprite flowing, Direction direction,
+    /** 绘制一个水平连接面及其未连接时的静止边界。 */
+    private static void renderSide(PoseStack poseStack, VertexConsumer vertices, Direction side,
                                    FoundryChannelBlock.ChannelConnection connection, boolean isFlowing,
-                                   int tint, int brightness) {
-        boolean rotated = pushHorizontalRotation(poseStack, direction);
+                                   boolean sameChannel, int tint, int brightness,
+                                   TextureAtlasSprite still, TextureAtlasSprite flowing) {
+        boolean rotated = pushHorizontalRotation(poseStack, side);
         TextureAtlasSprite sprite = isFlowing ? flowing : still;
         float u0 = sprite.getU0();
         float u1 = sprite.getU1();
@@ -104,36 +119,49 @@ public final class FoundryChannelRenderer {
             v1 = swapV;
         }
         if (isFlowing) {
-            // 输入和输出的流动面都位于导流槽顶部，输入方向翻转纹理方向。
-            FoundryFluidRenderer.renderDoubleSidedQuad(consumer, poseStack.last(),
+            // 输入和输出的流动面位于导流槽顶部，输入侧翻转纹理方向。
+            renderTintedQuad(vertices, poseStack.last(),
                 0.375F, 0.5F, 0.625F, 0.625F, 0.5F, 0.625F,
                 0.625F, 0.5F, 1.0F, 0.375F, 0.5F, 1.0F,
-                u0, v0, u1, v1, (tint >> 16) & 255, (tint >> 8) & 255, tint & 255,
-                tint >>> 24 == 0 ? 255 : tint >>> 24, brightness, 0, 1, 0);
-            BlockPos adjacentPos = entity.getBlockPos().relative(direction);
-            if (!entity.getLevel().getBlockState(adjacentPos).is(entity.getBlockState().getBlock())) {
-                // 相邻方块不是导流槽时补绘末端边缘，避免视角偏移看到断口。
-                FoundryFluidRenderer.renderDoubleSidedQuad(consumer, poseStack.last(),
+                u0, v0, u1, v1, tint, brightness, 0, 1, 0);
+            if (!sameChannel) {
+                // 末端不是同材质导流槽时补绘端面，避免视角偏移看到断口。
+                renderTintedQuad(vertices, poseStack.last(),
                     0.375F, 0.375F, 1.0F, 0.625F, 0.375F, 1.0F,
                     0.625F, 0.5F, 1.0F, 0.375F, 0.5F, 1.0F,
-                    u0, v1, u1, v0, (tint >> 16) & 255, (tint >> 8) & 255, tint & 255,
-                    tint >>> 24 == 0 ? 255 : tint >>> 24, brightness, 0, 0, 1);
+                    u0, v1, u1, v0, tint, brightness, 0, 0, 1);
             }
         } else {
-            // 未发生流动时只保留中心边界的静止液面，不绘制一整段伪液柱。
-            FoundryFluidRenderer.renderDoubleSidedQuad(consumer, poseStack.last(),
+            // 未流动时只保留中心边界的静止液面，不绘制整段粗液柱。
+            renderTintedQuad(vertices, poseStack.last(),
                 0.375F, 0.375F, 0.625F, 0.625F, 0.375F, 0.625F,
                 0.625F, 0.5F, 0.625F, 0.375F, 0.5F, 0.625F,
-                still.getU0(), still.getV1(), still.getU1(), still.getV0(),
-                (tint >> 16) & 255, (tint >> 8) & 255, tint & 255,
-                tint >>> 24 == 0 ? 255 : tint >>> 24, brightness, 0, 0, 1);
+                still.getU0(), still.getV1(), still.getU1(), still.getV0(), tint, brightness, 0, 0, 1);
         }
         if (rotated) {
             poseStack.popPose();
         }
     }
 
-    /** 按 Mantle 的水平朝向把局部南侧模型旋转到实际连接方向。 */
+    /** 绘制双面的带色液体面片，保持自定义流体渲染器的透明面规则。 */
+    private static void renderTintedQuad(VertexConsumer vertices, PoseStack.Pose pose,
+                                         float ax, float ay, float az, float bx, float by, float bz,
+                                         float cx, float cy, float cz, float dx, float dy, float dz,
+                                         float u0, float v0, float u1, float v1,
+                                         int tint, int brightness, float normalX, float normalY, float normalZ) {
+        int red = (tint >> 16) & 255;
+        int green = (tint >> 8) & 255;
+        int blue = tint & 255;
+        int alpha = (tint >>> 24) & 255;
+        if (alpha == 0) {
+            alpha = 255;
+        }
+        FoundryFluidRenderer.renderDoubleSidedQuad(vertices, pose,
+            ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz,
+            u0, v0, u1, v1, red, green, blue, alpha, brightness, normalX, normalY, normalZ);
+    }
+
+    /** 将局部南侧几何旋转到实际的水平连接方向。 */
     private static boolean pushHorizontalRotation(PoseStack poseStack, Direction direction) {
         if (direction.getAxis().isHorizontal() && direction != Direction.SOUTH) {
             poseStack.pushPose();
@@ -145,7 +173,6 @@ public final class FoundryChannelRenderer {
         return false;
     }
 
-    /** 防止把专用导流槽渲染器误当作可实例化状态对象。 */
     private FoundryChannelRenderer() {
     }
 }

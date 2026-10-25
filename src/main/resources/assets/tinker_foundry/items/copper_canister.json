@@ -1,0 +1,10 @@
+{
+  "model": {
+    "type": "neoforge:fluid_container",
+    "fluid": "minecraft:empty",
+    "textures": {
+      "base": "tinker_foundry:item/copper_can",
+      "fluid": "neoforge:item/mask/bucket_fluid"
+    }
+  }
+}

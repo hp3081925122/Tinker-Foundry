@@ -1,12 +1,8 @@
 {
   "type": "tinker_foundry:molding",
-  "mold": {
-    "item": "tinker_foundry:nugget_red_sand_cast"
-  },
+  "mold": "tinker_foundry:nugget_red_sand_cast",
   "fluid": {
-    "ingredient": {
-      "fluid": "tinker_foundry:gold"
-    },
+    "ingredient": "tinker_foundry:molten/gold",
     "amount": 10
   },
   "result": {

@@ -6,10 +6,14 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.redstone.Orientation;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.multiblock.StructureTags;
 
@@ -42,9 +46,8 @@ public final class FoundryAlloyerBlock extends FoundryMachineBlock {
 
     /** 下方燃料来源变化时同步形成状态，拆除燃料来源还要立即关闭 active。 */
     @Override
-    @Deprecated
-    public BlockState updateShape(BlockState state, Direction direction, BlockState neighbor, LevelAccessor level,
-                                  BlockPos pos, BlockPos neighborPos) {
+    protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess ticks, BlockPos pos,
+                                     Direction direction, BlockPos neighborPos, BlockState neighbor, RandomSource random) {
         if (direction == Direction.DOWN) {
             boolean formed = isFuelSource(neighbor);
             state = state.setValue(IN_STRUCTURE, formed);
@@ -57,9 +60,9 @@ public final class FoundryAlloyerBlock extends FoundryMachineBlock {
 
     /** 任意非下方邻居变化都会使输入储罐缓存失效，下方变化还会触发结构重检。 */
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
-        super.neighborChanged(state, level, pos, block, fromPos, isMoving);
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof FoundryBlockEntity entity) {
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, Orientation orientation, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, block, orientation, movedByPiston);
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof FoundryBlockEntity entity) {
             entity.markAlloyerNeighborDirty();
         }
     }

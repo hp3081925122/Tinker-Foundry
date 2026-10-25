@@ -1,16 +1,19 @@
 package org.hp.tinker_foundry.client;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
-import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
-import net.neoforged.neoforge.client.model.DynamicFluidContainerModel;
+import net.neoforged.neoforge.client.event.RegisterFluidModelsEvent;
+import net.neoforged.neoforge.client.event.RegisterItemModelsEvent;
+import net.neoforged.neoforge.client.fluid.FluidTintSources;
+import net.minecraft.client.renderer.block.FluidModel;
+import net.minecraft.client.resources.model.sprite.Material;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.material.Fluid;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.registry.TFMenus;
 import org.hp.tinker_foundry.registry.TFFluids;
@@ -19,9 +22,10 @@ import org.hp.tinker_foundry.registry.TFBlockEntities;
 import org.hp.tinker_foundry.registry.TFEntities;
 import org.hp.tinker_foundry.client.model.TankModel;
 import org.hp.tinker_foundry.client.model.ConnectedGlassModel;
+import org.hp.tinker_foundry.client.model.FoundryTankItemModel;
 
 /** 注册熔融流体的客户端颜色和流体表面纹理。 */
-@EventBusSubscriber(modid = TinkerFoundry.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = TinkerFoundry.MOD_ID, value = Dist.CLIENT)
 public final class FoundryClientEvents {
     /** 注册所有冶炼设备共用的菜单界面。 */
     @SubscribeEvent
@@ -38,48 +42,36 @@ public final class FoundryClientEvents {
 
     /** 注册匠魂兼容的储液罐几何加载器，负责物品栏动态流体和 GUI 简化模型。 */
     @SubscribeEvent
-    public static void registerModelLoaders(ModelEvent.RegisterGeometryLoaders event) {
-        event.register(ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "tank"), TankModel.LOADER);
-        event.register(ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "connected"), ConnectedGlassModel.LOADER);
+    public static void registerModelLoaders(ModelEvent.RegisterLoaders event) {
+        event.register(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "tank"), TankModel.LOADER);
+        event.register(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "connected"), ConnectedGlassModel.LOADER);
     }
 
-    /** 为所有熔融流体注册独立颜色和本模组命名空间的流体动画纹理。 */
+    /** 注册读取物品流体组件并按容量生成液面的新版物品模型。 */
     @SubscribeEvent
-    public static void registerFluidExtensions(RegisterClientExtensionsEvent event) {
-        TFFluids.ORIGINAL_TYPES.forEach((name, type) -> event.registerFluidType(new MoltenFluidExtensions(TFFluids.ORIGINAL_COLORS.get(name)), type.get()));
-        TFFluids.EXTRA_TYPES.forEach((name, type) -> event.registerFluidType(new MoltenFluidExtensions(TFFluids.EXTRA_COLORS.get(name)), type.get()));
+    public static void registerItemModels(RegisterItemModelsEvent event) {
+        event.register(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "tank"), FoundryTankItemModel.MAP_CODEC);
+        TinkerFoundry.LOGGER.debug("[item-model] Registered dynamic foundry tank item model");
     }
 
-    /** 注册动态流体容器的流体色，保证创造栏和手持容器显示真实熔融颜色。 */
+    /** 为所有熔融流体注册静止纹理、流动纹理和新版流体颜色源。 */
     @SubscribeEvent
-    public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
-        DynamicFluidContainerModel.Colors colors = new DynamicFluidContainerModel.Colors();
-        event.register(colors, TFItems.IRON_BUCKET.get(), TFItems.GOLD_BUCKET.get(), TFItems.COPPER_BUCKET.get());
-        TFItems.EXTRA_BUCKETS.values().forEach(bucket -> event.register(colors, bucket.get()));
-        event.register(colors, TFItems.COPPER_CANISTER.get());
-        // 原版没有铜粒，独立铜粒沿用统一灰度物品模型和铜色着色器。
-        event.register((stack, tintIndex) -> tintIndex == 0 ? 0xFFF47B45 : -1, TFItems.COPPER_NUGGET.get());
+    public static void registerFluidModels(RegisterFluidModelsEvent event) {
+        TFFluids.EXTRA_SOURCES.forEach((name, source) -> registerFluidModel(event, name, source.get(), TFFluids.EXTRA_COLORS.get(name)));
     }
 
-    /** 保存一种熔融流体的颜色并提供原版流体动画资源。 */
-    private record MoltenFluidExtensions(int tintColor) implements IClientFluidTypeExtensions {
-        /** 返回本模组自己的静止熔融纹理。 */
-        @Override
-        public ResourceLocation getStillTexture() {
-            return ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "block/fluid/molten_still");
+    /** 将一个源流体和对应流动流体绑定到同一套熔融纹理和固定颜色。 */
+    private static void registerFluidModel(RegisterFluidModelsEvent event, String name, Fluid source, int color) {
+        Identifier flowingId = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, name + "_flowing");
+        Fluid flowing = BuiltInRegistries.FLUID.getOptional(flowingId).orElse(null);
+        if (flowing == null) {
+            TinkerFoundry.LOGGER.warn("[fluid] Missing flowing fluid for {}", flowingId);
+            return;
         }
-
-        /** 返回本模组自己的流动熔融纹理。 */
-        @Override
-        public ResourceLocation getFlowingTexture() {
-            return ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "block/fluid/molten_flow");
-        }
-
-        /** 返回流体颜色。 */
-        @Override
-        public int getTintColor() {
-            return tintColor;
-        }
+        Material still = new Material(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "block/fluid/molten_still"));
+        Material flow = new Material(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "block/fluid/molten_flow"));
+        FluidModel.Unbaked model = new FluidModel.Unbaked(still, flow, null, FluidTintSources.constant(color));
+        event.register(model, source, flowing);
     }
 
     private FoundryClientEvents() {

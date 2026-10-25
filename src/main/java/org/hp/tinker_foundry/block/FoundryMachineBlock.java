@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 /** 为小型熔炼器、加热器和合金炉提供与官方模型匹配的水平朝向。 */
 public class FoundryMachineBlock extends FoundryEntityBlock {
     /** 三种独立设备共用的水平朝向属性。 */
-    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
+    public static final net.minecraft.world.level.block.state.properties.EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
 
     /** 使用 NeoForge 1.21.1 的方块编解码器创建设备。 */
     public static final MapCodec<FoundryMachineBlock> CODEC = simpleCodec(FoundryMachineBlock::new);

@@ -4,7 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.multiblock.StructureErrorReason;
@@ -14,7 +14,7 @@ public record FoundryStructureErrorPayload(BlockPos controllerPos, BlockPos erro
     implements CustomPacketPayload {
     /** 独立结构错误载荷类型。 */
     public static final Type<FoundryStructureErrorPayload> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "foundry_structure_error")
+        Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "foundry_structure_error")
     );
 
     /** 1.21.1 RegistryFriendlyByteBuf 使用的结构错误流编码器。 */

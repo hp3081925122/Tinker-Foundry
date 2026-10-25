@@ -1,7 +1,7 @@
 {
   "type": "tinker_foundry:casting",
-  "fluid": {"ingredient": {"fluid": "tinker_foundry:gold"}, "amount": 90},
-  "mold": {"tag": "c:nuggets"},
+  "fluid": {"ingredient": "tinker_foundry:molten/gold", "amount": 90},
+  "mold": "#c:nuggets",
   "result": {"id": "tinker_foundry:nugget_cast", "count": 1},
   "time": 60,
   "cast_consumed": true

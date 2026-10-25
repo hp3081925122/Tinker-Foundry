@@ -1,6 +1,9 @@
 {
   "type": "tinker_foundry:melting",
-  "ingredient": [{"item": "minecraft:brick"}, {"tag": "minecraft:decorated_pot_sherds"}],
+  "ingredient": {
+    "neoforge:ingredient_type": "neoforge:compound",
+    "children": ["minecraft:brick", "#minecraft:decorated_pot_sherds"]
+  },
   "result": {"id": "tinker_foundry:molten_clay", "amount": 250},
   "temperature": 450,
   "time": 48

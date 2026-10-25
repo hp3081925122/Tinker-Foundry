@@ -3,6 +3,6 @@
   "category": "blocks",
   "cookingtime": 200,
   "experience": 0.1,
-  "ingredient": {"item": "tinker_foundry:scorched_stone"},
+  "ingredient": "tinker_foundry:scorched_stone",
   "result": {"id": "tinker_foundry:scorched_road"}
 }
