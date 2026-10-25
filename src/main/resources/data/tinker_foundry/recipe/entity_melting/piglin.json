@@ -2,7 +2,7 @@
   "type": "tinker_foundry:entity_melting",
   "entity_tag": "tinker_foundry:melting/piglins",
   "result": {
-    "id": "tinker_foundry:gold",
+    "id": "tinker_foundry:molten/gold",
     "amount": 10
   },
   "damage": 4

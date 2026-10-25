@@ -519,7 +519,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     /** 判断流体是否拥有匠魂专用的材料单位，因此需要附加 Shift 提示。 */
     private boolean usesSpecificFluidUnits(FluidStack stack) {
         return !stack.isEmpty()
-            && (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())
+            && (TFFluids.isMetal(stack.getFluid())
                 || stack.get(DataComponents.POTION_CONTENTS) != null);
     }
 
@@ -893,7 +893,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 参照匠魂的流体标签规则显示数量：金属用锭粒，药水用瓶和液滴，其余流体使用桶。 */
     private Component formatFluidVolume(FluidStack stack) {
-        if (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())) {
+        if (TFFluids.isMetal(stack.getFluid())) {
             return formatVolume(stack.getAmount());
         }
         if (stack.get(DataComponents.POTION_CONTENTS) != null) {

@@ -114,12 +114,6 @@ public final class TFItems {
     /** 一次性宝石红砂模，使用四角红沙制作。 */
     public static final DeferredItem<Item> GEM_RED_SAND_CAST = simple("gem_red_sand_cast");
 
-    /** 保留原有熔融铁桶，供原版铁的熔炼和浇注配方使用。 */
-    public static final DeferredItem<BucketItem> IRON_BUCKET = bucket("iron", TFFluids.IRON);
-    /** 保留原有熔融金桶，供原版金的熔炼和浇注配方使用。 */
-    public static final DeferredItem<BucketItem> GOLD_BUCKET = bucket("gold", TFFluids.GOLD);
-    /** 保留原有熔融铜桶，供原版铜的熔炼和浇注配方使用。 */
-    public static final DeferredItem<BucketItem> COPPER_BUCKET = bucket("copper", TFFluids.COPPER);
 
     /** 铜制便携罐。 */
     public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.register("copper_canister", () -> new PortableTankItem(FluidValues.INGOT, new Item.Properties()));
@@ -208,12 +202,7 @@ public final class TFItems {
 
     /** 为流体基类提供对应桶的延迟查找。 */
     public static Item bucketFor(String name) {
-        return switch (name) {
-            case "iron" -> IRON_BUCKET.get();
-            case "gold" -> GOLD_BUCKET.get();
-            case "copper" -> COPPER_BUCKET.get();
-            default -> EXTRA_BUCKETS.get(name).get();
-        };
+        return EXTRA_BUCKETS.get(name).get();
     }
 
     private TFItems() {

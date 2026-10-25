@@ -5,7 +5,7 @@
   },
   "fluid": {
     "ingredient": {
-      "fluid": "tinker_foundry:copper"
+      "fluid": "tinker_foundry:molten/copper"
     },
     "amount": 90
   },

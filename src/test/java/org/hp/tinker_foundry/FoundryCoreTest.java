@@ -8,6 +8,8 @@ public final class FoundryCoreTest {
     /** 执行当前核心单位断言。 */
     public static void main(String[] args) {
         testFluidUnits();
+        org.hp.tinker_foundry.common.AutomaticMeltingRulesTest.run();
+        org.hp.tinker_foundry.common.AutomaticFluidConfigTest.run();
         FoundryMultiblockTest.run();
     }
 

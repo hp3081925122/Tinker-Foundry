@@ -88,11 +88,11 @@ public final class TFBlocks {
     public static final DeferredBlock<Block> SEARED_GLASS_PANE = pane("seared_glass_pane", MapColor.COLOR_LIGHT_GRAY);
     public static final DeferredBlock<Block> SEARED_TINTED_GLASS = tintedGlass("seared_tinted_glass", MapColor.COLOR_GRAY);
     public static final DeferredBlock<Block> SEARED_SOUL_GLASS = soulGlass("seared_soul_glass", MapColor.COLOR_LIGHT_GRAY);
-    public static final DeferredBlock<Block> SEARED_SOUL_GLASS_PANE = pane("seared_soul_glass_pane", MapColor.COLOR_LIGHT_GRAY);
+    public static final DeferredBlock<Block> SEARED_SOUL_GLASS_PANE = soulGlassPane("seared_soul_glass_pane", MapColor.COLOR_LIGHT_GRAY);
     public static final DeferredBlock<Block> SCORCHED_GLASS_PANE = pane("scorched_glass_pane", MapColor.COLOR_BLACK);
     public static final DeferredBlock<Block> SCORCHED_TINTED_GLASS = tintedGlass("scorched_tinted_glass", MapColor.COLOR_BLACK);
     public static final DeferredBlock<Block> SCORCHED_SOUL_GLASS = soulGlass("scorched_soul_glass", MapColor.COLOR_BLACK);
-    public static final DeferredBlock<Block> SCORCHED_SOUL_GLASS_PANE = pane("scorched_soul_glass_pane", MapColor.COLOR_BLACK);
+    public static final DeferredBlock<Block> SCORCHED_SOUL_GLASS_PANE = soulGlassPane("scorched_soul_glass_pane", MapColor.COLOR_BLACK);
 
     /** 冶炼炉控制器。 */
     public static final DeferredBlock<Block> SMELTERY_CONTROLLER = controller("smeltery_controller");
@@ -179,16 +179,21 @@ public final class TFBlocks {
             .mapColor(color).strength(2.0f, 6.0f)));
     }
 
+    private static DeferredBlock<Block> soulGlassPane(String name, MapColor color) {
+        return TinkerFoundry.BLOCKS.register(name, () -> new IronBarsBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS_PANE)
+            .mapColor(color).strength(2.0f, 6.0f).noCollission().speedFactor(0.1f)));
+    }
+
     /** 注册具有染色玻璃遮挡性质的冶炼玻璃。 */
     private static DeferredBlock<Block> tintedGlass(String name, MapColor color) {
         return TinkerFoundry.BLOCKS.register(name, () -> new TintedGlassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.TINTED_GLASS)
             .mapColor(color).strength(2.0f, 6.0f)));
     }
 
-    /** 注册低碰撞、减速并阻挡视线的灵魂玻璃基础方块。 */
+    /** 注册允许穿行、减速并阻挡视线的灵魂玻璃基础方块。 */
     private static DeferredBlock<Block> soulGlass(String name, MapColor color) {
         return TinkerFoundry.BLOCKS.register(name, () -> new TransparentBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS)
-            .mapColor(color).strength(2.0f, 6.0f).noOcclusion().speedFactor(0.1f)));
+            .mapColor(color).strength(2.0f, 6.0f).noCollission().noOcclusion().speedFactor(0.1f)));
     }
 
     /** 注册只提供光照的结构灯。 */

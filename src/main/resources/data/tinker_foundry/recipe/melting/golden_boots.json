@@ -1,7 +1,7 @@
 {
   "type": "tinker_foundry:damageable_melting",
   "ingredient": {"item": "minecraft:golden_boots"},
-  "result": {"id": "tinker_foundry:gold", "amount": 360},
+  "result": {"id": "tinker_foundry:molten/gold", "amount": 360},
   "temperature": 700,
   "time": 114,
   "unit_size": 10

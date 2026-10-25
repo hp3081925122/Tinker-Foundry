@@ -2,7 +2,7 @@
   "type": "tinker_foundry:casting",
   "fluid": {
     "ingredient": {
-      "fluid": "tinker_foundry:copper"
+      "fluid": "tinker_foundry:molten/copper"
     },
     "amount": 10
   },

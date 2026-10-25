@@ -46,7 +46,6 @@ public final class FoundryClientEvents {
     /** 为所有熔融流体注册独立颜色和本模组命名空间的流体动画纹理。 */
     @SubscribeEvent
     public static void registerFluidExtensions(RegisterClientExtensionsEvent event) {
-        TFFluids.ORIGINAL_TYPES.forEach((name, type) -> event.registerFluidType(new MoltenFluidExtensions(TFFluids.ORIGINAL_COLORS.get(name)), type.get()));
         TFFluids.EXTRA_TYPES.forEach((name, type) -> event.registerFluidType(new MoltenFluidExtensions(TFFluids.EXTRA_COLORS.get(name)), type.get()));
     }
 
@@ -54,7 +53,6 @@ public final class FoundryClientEvents {
     @SubscribeEvent
     public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
         DynamicFluidContainerModel.Colors colors = new DynamicFluidContainerModel.Colors();
-        event.register(colors, TFItems.IRON_BUCKET.get(), TFItems.GOLD_BUCKET.get(), TFItems.COPPER_BUCKET.get());
         TFItems.EXTRA_BUCKETS.values().forEach(bucket -> event.register(colors, bucket.get()));
         event.register(colors, TFItems.COPPER_CANISTER.get());
         // 原版没有铜粒，独立铜粒沿用统一灰度物品模型和铜色着色器。

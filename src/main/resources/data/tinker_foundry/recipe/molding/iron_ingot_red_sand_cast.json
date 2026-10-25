@@ -5,7 +5,7 @@
   },
   "fluid": {
     "ingredient": {
-      "fluid": "tinker_foundry:iron"
+      "fluid": "tinker_foundry:molten/iron"
     },
     "amount": 90
   },

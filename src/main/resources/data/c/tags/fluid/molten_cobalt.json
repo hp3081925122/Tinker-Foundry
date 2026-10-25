@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "tinker_foundry:molten/cobalt",
+      "required": false
+    }
+  ],
+  "tinker_foundry": {
+    "color": "#FF3677BA",
+    "temperature": 1000,
+    "names": {
+      "en_us": "Cobalt",
+      "zh_cn": "钴"
+    }
+  }
+}

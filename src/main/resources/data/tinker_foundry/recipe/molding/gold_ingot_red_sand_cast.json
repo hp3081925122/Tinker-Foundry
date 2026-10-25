@@ -5,7 +5,7 @@
   },
   "fluid": {
     "ingredient": {
-      "fluid": "tinker_foundry:gold"
+      "fluid": "tinker_foundry:molten/gold"
     },
     "amount": 90
   },

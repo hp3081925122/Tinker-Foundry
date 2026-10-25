@@ -72,14 +72,22 @@ public record OreMeltingRecipe(Ingredient ingredient, FluidStack result, int tem
 
     /** 应用矿物增产倍率；铸造炉保留完整九粒或四片结果。 */
     public FluidStack output(boolean foundry) {
-        int base = rate.equals("gem") ? (foundry ? 4 : 4) : (foundry ? 9 : 8);
-        int amount = Math.max(1, result.getAmount() * base / (rate.equals("gem") ? 4 : 9));
-        return result.copyWithAmount(amount);
+        return boosted(result, rate, foundry ? 9 : 12, foundry ? 4 : 8);
     }
 
     /** 计算副产物倍率。 */
     public List<FluidStack> byproductOutputs() {
-        return byproducts.stream().map(byproduct -> byproduct.result().copy()).toList();
+        return byproducts.stream().map(byproduct -> boosted(byproduct.result(),
+            byproduct.rate().equals("default") ? rate : byproduct.rate(), 3, 4)).toList();
+    }
+
+    private static FluidStack boosted(FluidStack stack, String rate, int metal, int gem) {
+        int amount = switch (rate) {
+            case "metal" -> (int) Math.min(Integer.MAX_VALUE, (long) stack.getAmount() * metal / 9);
+            case "gem" -> (int) Math.min(Integer.MAX_VALUE, (long) stack.getAmount() * gem / 4);
+            default -> stack.getAmount();
+        };
+        return amount > 0 ? stack.copyWithAmount(amount) : FluidStack.EMPTY;
     }
 
     /** 匹配矿石输入。 */

@@ -1,6 +1,6 @@
 {
   "type": "tinker_foundry:casting",
-  "fluid": {"ingredient": {"fluid": "tinker_foundry:gold"}, "amount": 90},
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:molten/gold"}, "amount": 90},
   "mold": {"tag": "c:ingots"},
   "result": {"id": "tinker_foundry:ingot_cast", "count": 1},
   "time": 60,

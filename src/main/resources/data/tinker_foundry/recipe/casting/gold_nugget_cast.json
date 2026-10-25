@@ -1,6 +1,6 @@
 {
   "type": "tinker_foundry:casting",
-  "fluid": {"ingredient": {"fluid": "tinker_foundry:gold"}, "amount": 10},
+  "fluid": {"ingredient": {"fluid": "tinker_foundry:molten/gold"}, "amount": 10},
   "mold": {"item": "tinker_foundry:nugget_cast"},
   "result": {"id": "minecraft:gold_nugget", "count": 1},
   "time": 20

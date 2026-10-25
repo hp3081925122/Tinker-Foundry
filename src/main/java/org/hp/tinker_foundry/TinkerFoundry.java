@@ -173,9 +173,6 @@ public final class TinkerFoundry {
         output.accept(TFItems.GEM_RED_SAND_CAST.get());
 
         // 输出熔融流体桶，基础桶沿用原版金属顺序，附加桶沿用注册表稳定顺序。
-        output.accept(TFItems.IRON_BUCKET.get());
-        output.accept(TFItems.GOLD_BUCKET.get());
-        output.accept(TFItems.COPPER_BUCKET.get());
         TFItems.EXTRA_BUCKETS.values().forEach(bucket -> output.accept(bucket.get()));
 
         // 输出本项目额外提供的铜粒，避免干扰前面的匠魂对照顺序。
@@ -196,6 +193,8 @@ public final class TinkerFoundry {
         modEventBus.addListener(FoundryNetworking::register);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         NeoForge.EVENT_BUS.register(FoundryWorldEvents.class);
+        NeoForge.EVENT_BUS.register(org.hp.tinker_foundry.recipe.AutomaticMeltingRecipes.class);
+        org.hp.tinker_foundry.common.AutomaticFluidResources.register(modEventBus);
         BLOCKS.register(modEventBus);
         org.hp.tinker_foundry.registry.TFDataComponents.REGISTER.register(modEventBus);
         ITEMS.register(modEventBus);

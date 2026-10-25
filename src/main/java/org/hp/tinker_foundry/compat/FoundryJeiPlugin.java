@@ -51,6 +51,7 @@ import org.hp.tinker_foundry.recipe.EntityMeltingRecipe;
 import org.hp.tinker_foundry.recipe.FuelRecipe;
 import org.hp.tinker_foundry.recipe.MeltingRecipe;
 import org.hp.tinker_foundry.recipe.MoldingRecipe;
+import org.hp.tinker_foundry.recipe.OreMeltingRecipe;
 import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
@@ -131,7 +132,11 @@ public final class FoundryJeiPlugin implements IModPlugin {
             return;
         }
         // 客户端连接中的配方管理器包含服务端同步的数据，保证单机和专用服务器使用同一份配方。
-        registration.addRecipes(MELTING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.MELTING.get()).stream().map(RecipeHolder::value).toList());
+        List<MeltingRecipe> meltingRecipes = new ArrayList<>(recipeManager.getAllRecipesFor(TFRecipes.MELTING.get()).stream().map(RecipeHolder::value).toList());
+        recipeManager.getAllRecipesFor(TFRecipes.ORE_MELTING.get()).stream().map(RecipeHolder::value)
+            .map(recipe -> new MeltingRecipe(recipe.ingredient(), recipe.result(), recipe.temperature(), recipe.time(), recipe.rate(), recipe.byproducts()))
+            .forEach(meltingRecipes::add);
+        registration.addRecipes(MELTING_TYPE, meltingRecipes);
         registration.addRecipes(ALLOYING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ALLOYING.get()).stream().map(RecipeHolder::value).toList());
         var castingRecipes = recipeManager.getAllRecipesFor(TFRecipes.CASTING.get()).stream().map(RecipeHolder::value).toList();
         registration.addRecipes(CASTING_BASIN_TYPE, castingRecipes.stream().filter(recipe -> recipe.mold().isEmpty()).toList());
@@ -243,7 +248,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, MeltingRecipe recipe, IFocusGroup focuses) {
             addItemInput(builder, recipe.ingredient(), 24, 18).setSlotName("ingredient");
-            addFluidOutput(builder, recipe.result(), 96, 4, 32, 32)
+            addFluidOutput(builder, recipe.output(false), 96, 4, 32, 32)
                 .setOverlay(tankOverlay, 0, 0)
                 .setSlotName("result");
             // 按上游页面把可用固体燃料绘制在左下角，避免温度文字覆盖燃料栏。
