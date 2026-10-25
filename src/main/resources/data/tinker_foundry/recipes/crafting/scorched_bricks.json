@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BB",
+    "BB"
+  ],
+  "key": {
+    "B": {
+      "item": "tinker_foundry:polished_scorched_stone"
+    }
+  },
+  "result": {
+    "count": 4,
+    "item": "tinker_foundry:scorched_bricks"
+  }
+}

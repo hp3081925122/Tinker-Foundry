@@ -15,7 +15,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.registry.TFBlocks;
 import org.hp.tinker_foundry.registry.TFItems;

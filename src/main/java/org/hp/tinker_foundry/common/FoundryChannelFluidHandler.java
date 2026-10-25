@@ -2,8 +2,8 @@ package org.hp.tinker_foundry.common;
 
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import org.hp.tinker_foundry.block.FoundryChannelBlock;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 

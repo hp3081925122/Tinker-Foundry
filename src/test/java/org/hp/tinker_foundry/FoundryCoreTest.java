@@ -3,11 +3,13 @@ package org.hp.tinker_foundry;
 import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.multiblock.FoundryMultiblockTest;
 
-/** NeoForge ModDev 工程的核心逻辑测试入口，使用 JavaExec 避免普通 JUnit 看不到用户开发环境类路径。 */
+/** Forge 1.20.1 工程的核心逻辑测试入口，使用 JavaExec 避免普通 JUnit 看不到用户开发环境类路径。 */
 public final class FoundryCoreTest {
     /** 执行当前核心单位断言。 */
     public static void main(String[] args) {
         testFluidUnits();
+        org.hp.tinker_foundry.common.AutomaticMeltingRulesTest.run();
+        org.hp.tinker_foundry.common.AutomaticFluidConfigTest.run();
         FoundryMultiblockTest.run();
     }
 

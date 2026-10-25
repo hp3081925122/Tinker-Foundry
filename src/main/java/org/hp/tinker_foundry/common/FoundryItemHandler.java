@@ -1,8 +1,8 @@
 package org.hp.tinker_foundry.common;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.registry.TFBlocks;
@@ -58,7 +58,7 @@ public final class FoundryItemHandler implements IItemHandlerModifiable {
         if (entity.isProxyTankBlock() || entity.isFluidCannonBlock()) return entity.insertSpecialItem(stack, simulate);
         int index = mapped(entity, slot);
         ItemStack stored = entity.getItem(index);
-        if (!stored.isEmpty() && !ItemStack.isSameItemSameComponents(stored, stack)) return stack;
+        if (!stored.isEmpty() && !ItemStack.isSameItemSameTags(stored, stack)) return stack;
         int amount = Math.min(stack.getCount(), Math.min(getSlotLimit(slot), stack.getMaxStackSize()) - stored.getCount());
         if (amount <= 0) return stack;
         if (!simulate) entity.setItem(index, stack.copyWithCount(stored.getCount() + amount));

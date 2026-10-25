@@ -92,6 +92,8 @@
   "tooltip.tinker_foundry.empty_tank": "空",
   "tooltip.tinker_foundry.tank_amount": "%s / %s mB",
   "category.tinker_foundry.melting": "熔炼",
+  "category.tinker_foundry.ore_melting": "矿石熔炼",
+  "category.tinker_foundry.damageable_melting": "耐久物品熔炼",
   "category.tinker_foundry.alloying": "合金",
   "category.tinker_foundry.casting": "浇注",
   "category.tinker_foundry.molding": "压模",

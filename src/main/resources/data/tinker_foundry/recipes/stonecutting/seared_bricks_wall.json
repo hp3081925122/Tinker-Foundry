@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:stonecutting",
+  "count": 1,
+  "ingredient": {
+    "item": "tinker_foundry:seared_bricks"
+  },
+  "result": {
+    "item": "tinker_foundry:seared_bricks_wall"
+  }
+}

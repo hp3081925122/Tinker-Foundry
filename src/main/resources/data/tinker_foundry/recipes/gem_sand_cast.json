@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "S S",
+    "   ",
+    "S S"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:sand"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:gem_sand_cast"
+  }
+}

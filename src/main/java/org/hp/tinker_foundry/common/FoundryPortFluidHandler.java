@@ -1,7 +1,7 @@
 package org.hp.tinker_foundry.common;
 
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 
 /** 排液口和流体导管无独立缓存，所有读写都指向仍然有效的炉体。 */

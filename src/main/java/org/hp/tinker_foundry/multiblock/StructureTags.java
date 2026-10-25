@@ -25,7 +25,7 @@ public final class StructureTags {
 
     /** 使用当前版本的方块标签注册表。 */
     private static TagKey<Block> block(String path) {
-        return TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, path));
+        return TagKey.create(Registries.BLOCK, new ResourceLocation(TinkerFoundry.MOD_ID, path));
     }
 
     private StructureTags() { }

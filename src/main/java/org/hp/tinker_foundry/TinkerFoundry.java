@@ -6,10 +6,19 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.capabilities.ICapabilityProvider;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.event.AttachCapabilitiesEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 import org.hp.tinker_foundry.registry.TFBlockEntities;
 import org.hp.tinker_foundry.registry.TFBlocks;
 import org.hp.tinker_foundry.registry.TFEntities;
@@ -18,11 +27,9 @@ import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.registry.TFRecipes;
 import org.hp.tinker_foundry.item.PortableTankFluidHandler;
 import org.hp.tinker_foundry.item.FoundryTankItem;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.hp.tinker_foundry.common.FoundryWorldEvents;
+import org.hp.tinker_foundry.debug.FoundryDebugCommand;
 import org.hp.tinker_foundry.network.FoundryNetworking;
 
 /** 独立冶炼系统的模组入口。 */
@@ -34,28 +41,28 @@ public final class TinkerFoundry {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     /** 注册方块。 */
-    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
+    public static final DeferredRegister<net.minecraft.world.level.block.Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MOD_ID);
     /** 注册物品。 */
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MOD_ID);
     /** 注册流体。 */
-    public static final DeferredRegister<net.minecraft.world.level.material.Fluid> FLUIDS = DeferredRegister.create(Registries.FLUID, MOD_ID);
+    public static final DeferredRegister<net.minecraft.world.level.material.Fluid> FLUIDS = DeferredRegister.create(ForgeRegistries.FLUIDS, MOD_ID);
     /** 注册流体类型。 */
-    public static final DeferredRegister<net.neoforged.neoforge.fluids.FluidType> FLUID_TYPES = DeferredRegister.create(net.neoforged.neoforge.registries.NeoForgeRegistries.FLUID_TYPES, MOD_ID);
+    public static final DeferredRegister<net.minecraftforge.fluids.FluidType> FLUID_TYPES = DeferredRegister.create(ForgeRegistries.Keys.FLUID_TYPES, MOD_ID);
     /** 注册方块实体。 */
-    public static final DeferredRegister<net.minecraft.world.level.block.entity.BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MOD_ID);
+    public static final DeferredRegister<net.minecraft.world.level.block.entity.BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, MOD_ID);
     /** 注册流体炮的发射实体。 */
-    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
+    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MOD_ID);
     /** 注册配方类型。 */
     public static final DeferredRegister<net.minecraft.world.item.crafting.RecipeType<?>> RECIPE_TYPES = DeferredRegister.create(Registries.RECIPE_TYPE, MOD_ID);
     /** 注册配方序列化器。 */
     public static final DeferredRegister<net.minecraft.world.item.crafting.RecipeSerializer<?>> RECIPE_SERIALIZERS = DeferredRegister.create(Registries.RECIPE_SERIALIZER, MOD_ID);
     /** 注册冶炼设备菜单。 */
-    public static final DeferredRegister<net.minecraft.world.inventory.MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, MOD_ID);
+    public static final DeferredRegister<net.minecraft.world.inventory.MenuType<?>> MENUS = DeferredRegister.create(ForgeRegistries.MENU_TYPES, MOD_ID);
     /** 注册创造模式标签页。 */
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MOD_ID);
 
     /** 独立的冶炼系统物品标签页。 */
-    public static final net.neoforged.neoforge.registries.DeferredHolder<CreativeModeTab, CreativeModeTab> FOUNDRY_TAB = CREATIVE_MODE_TABS.register("foundry", () -> CreativeModeTab.builder()
+    public static final RegistryObject<CreativeModeTab> FOUNDRY_TAB = CREATIVE_MODE_TABS.register("foundry", () -> CreativeModeTab.builder()
         .title(Component.translatable("itemGroup.tinker_foundry.foundry"))
         .icon(() -> TFItems.SEARED_BRICK.get().getDefaultInstance())
         .displayItems(TinkerFoundry::addFoundryTabItems)
@@ -173,9 +180,6 @@ public final class TinkerFoundry {
         output.accept(TFItems.GEM_RED_SAND_CAST.get());
 
         // 输出熔融流体桶，基础桶沿用原版金属顺序，附加桶沿用注册表稳定顺序。
-        output.accept(TFItems.IRON_BUCKET.get());
-        output.accept(TFItems.GOLD_BUCKET.get());
-        output.accept(TFItems.COPPER_BUCKET.get());
         TFItems.EXTRA_BUCKETS.values().forEach(bucket -> output.accept(bucket.get()));
 
         // 输出本项目额外提供的铜粒，避免干扰前面的匠魂对照顺序。
@@ -183,7 +187,8 @@ public final class TinkerFoundry {
     }
 
     /** 注册全部独立系统。 */
-    public TinkerFoundry(IEventBus modEventBus, ModContainer modContainer) {
+    public TinkerFoundry(FMLJavaModLoadingContext context) {
+        IEventBus modEventBus = context.getModEventBus();
         // 在注册事件触发前初始化所有静态注册表，避免能力事件阶段才延迟注册。
         TFBlocks.SEARED_BRICKS.getId();
         TFItems.SEARED_BRICK.getId();
@@ -191,13 +196,15 @@ public final class TinkerFoundry {
         TFEntities.FLUID_CANNON_PROJECTILE.getId();
         TFRecipes.MELTING.getId();
         org.hp.tinker_foundry.registry.TFMenus.FOUNDRY.getId();
-        modEventBus.addListener(this::registerCapabilities);
         // 客户端状态载荷只注册到当前模组协议，不改变原版容器包流程。
-        modEventBus.addListener(FoundryNetworking::register);
+        FoundryNetworking.register();
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
-        NeoForge.EVENT_BUS.register(FoundryWorldEvents.class);
+        MinecraftForge.EVENT_BUS.register(FoundryWorldEvents.class);
+        MinecraftForge.EVENT_BUS.register(org.hp.tinker_foundry.recipe.AutomaticMeltingRecipes.class);
+        MinecraftForge.EVENT_BUS.addListener(FoundryDebugCommand::register);
+        MinecraftForge.EVENT_BUS.addGenericListener(ItemStack.class, TinkerFoundry::attachItemCapabilities);
+        org.hp.tinker_foundry.common.AutomaticFluidResources.register(modEventBus);
         BLOCKS.register(modEventBus);
-        org.hp.tinker_foundry.registry.TFDataComponents.REGISTER.register(modEventBus);
         ITEMS.register(modEventBus);
         FLUID_TYPES.register(modEventBus);
         FLUIDS.register(modEventBus);
@@ -210,45 +217,28 @@ public final class TinkerFoundry {
 
     }
 
-    /** 注册设备和便携容器的流体能力。 */
-    private void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
-            // 浇注口只通过背面输入和下方输出工作，不应作为普通流体储罐暴露给外部管道。
-            if (entity.isFaucetBlock()) return null;
-            // 疏导槽按当前连接状态只暴露顶部输入或水平输入面，输出面由服务端逐面推送。
-            if (entity.getBlockState().is(TFBlocks.SEARED_CHANNEL.get())
-                || entity.getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get())) {
-                return org.hp.tinker_foundry.common.FoundryChannelFluidHandler.forSide(entity, side);
+    /** Forge 1.20.1 通过物品附加能力暴露便携罐，保存仍由 ItemStack NBT 负责。 */
+    private static void attachItemCapabilities(AttachCapabilitiesEvent<ItemStack> event) {
+        ItemStack stack = event.getObject();
+        int capacity;
+        boolean allowFuel;
+        if (stack.getItem() instanceof org.hp.tinker_foundry.item.PortableTankItem portable) {
+            capacity = portable.capacity();
+            allowFuel = false;
+        } else if (stack.getItem() instanceof FoundryTankItem tank) {
+            capacity = tank.capacity();
+            allowFuel = tank.allowsFuel();
+        } else {
+            return;
+        }
+        PortableTankFluidHandler handler = new PortableTankFluidHandler(stack, capacity, allowFuel);
+        event.addCapability(new net.minecraft.resources.ResourceLocation(MOD_ID, "fluid"), new ICapabilityProvider() {
+            private final LazyOptional<net.minecraftforge.fluids.capability.IFluidHandlerItem> optional = LazyOptional.of(() -> handler);
+
+            @Override
+            public <T> LazyOptional<T> getCapability(Capability<T> capability, net.minecraft.core.Direction side) {
+                return capability == ForgeCapabilities.FLUID_HANDLER_ITEM ? optional.cast() : LazyOptional.empty();
             }
-            // 导入槽仅处理物品；排液口与导管始终通过有效控制器访问流体。
-            if (entity.getBlockState().is(TFBlocks.SEARED_CHUTE.get())
-                || entity.getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())) return null;
-            if (entity.getBlockState().is(TFBlocks.SEARED_DRAIN.get())
-                || entity.getBlockState().is(TFBlocks.SCORCHED_DRAIN.get()) || entity.getBlockState().is(TFBlocks.SEARED_DUCT.get())
-                || entity.getBlockState().is(TFBlocks.SCORCHED_DUCT.get())) {
-                return new org.hp.tinker_foundry.common.FoundryPortFluidHandler(entity);
-            }
-            // 合金炉对外只暴露原版的单个输出罐，五个输入罐由自身的邻接模块读取。
-            if (entity.isAlloyer()) {
-                return entity.alloyerOutputHandler();
-            }
-            return entity;
         });
-        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, TFBlockEntities.GENERIC.get(), (entity, side) -> {
-            // 无物品功能的储罐、排液口和导管不暴露通用的隐藏容器。
-            if (entity.isMeltingBlock() || entity.isHeater() || entity.isFuelTankBlock() || entity.isCastingBlock() || entity.isCastingTankBlock()
-                || entity.isProxyTankBlock() || entity.isFluidCannonBlock()
-                || entity.getBlockState().is(TFBlocks.SEARED_CHUTE.get()) || entity.getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())) {
-                return new org.hp.tinker_foundry.common.FoundryItemHandler(entity);
-            }
-            return null;
-        });
-        event.registerItem(Capabilities.FluidHandler.ITEM, (stack, side) -> new PortableTankFluidHandler(stack, ((org.hp.tinker_foundry.item.PortableTankItem) stack.getItem()).capacity()), TFItems.COPPER_CANISTER.get());
-        event.registerItem(Capabilities.FluidHandler.ITEM, (stack, side) -> {
-            FoundryTankItem tank = (FoundryTankItem) stack.getItem();
-            return new PortableTankFluidHandler(stack, tank.capacity(), tank.allowsFuel());
-        }, TFItems.SEARED_INGOT_TANK.get(), TFItems.SCORCHED_INGOT_TANK.get(),
-            TFItems.SEARED_FUEL_TANK.get(), TFItems.SCORCHED_FUEL_TANK.get(), TFItems.SEARED_CASTING_TANK.get(),
-            TFItems.SEARED_LANTERN.get(), TFItems.SCORCHED_LANTERN.get(), TFItems.SEARED_FLUID_CANNON.get());
     }
 }

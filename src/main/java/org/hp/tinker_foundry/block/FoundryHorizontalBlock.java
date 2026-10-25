@@ -1,6 +1,5 @@
 package org.hp.tinker_foundry.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -31,9 +30,4 @@ public class FoundryHorizontalBlock extends FoundryEntityBlock {
         builder.add(FACING);
     }
 
-    /** 返回方块编解码器，保持 NeoForge 1.21.1 方块序列化契约。 */
-    @Override
-    protected MapCodec<? extends FoundryEntityBlock> codec() {
-        return simpleCodec(FoundryHorizontalBlock::new);
-    }
 }

@@ -1,6 +1,5 @@
 package org.hp.tinker_foundry.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -19,8 +18,6 @@ import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 /** 1.20.1 对应的贴壁流体计，只占据贴附面上的薄片碰撞箱。 */
 public final class FoundryGaugeBlock extends FoundryEntityBlock {
     /** 使用流体计构造器的独立方块编解码器。 */
-    public static final MapCodec<FoundryGaugeBlock> CODEC = simpleCodec(FoundryGaugeBlock::new);
-
     /** 流体计六个朝向对应的薄片碰撞箱。 */
     private static final VoxelShape[] BOUNDS = {
         Block.box(4, 15, 4, 12, 16, 12),
@@ -31,18 +28,13 @@ public final class FoundryGaugeBlock extends FoundryEntityBlock {
         Block.box(0, 4, 4, 1, 12, 12)
     };
 
-    /** 使用当前 NeoForge 方块编解码器注册贴壁流体计。 */
+    /** 使用 Forge 1.20.1 方块构造器注册贴壁流体计。 */
     public FoundryGaugeBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.NORTH));
     }
 
     /** 返回流体计自身的方块编解码器。 */
-    @Override
-    protected MapCodec<? extends net.minecraft.world.level.block.BaseEntityBlock> codec() {
-        return CODEC;
-    }
-
     /** 返回与 1.20.1 流体计一致的贴壁碰撞和选择箱。 */
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {

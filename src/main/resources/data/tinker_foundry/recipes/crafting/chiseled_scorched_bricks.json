@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "S",
+    "S"
+  ],
+  "key": {
+    "S": {
+      "item": "tinker_foundry:scorched_bricks_slab"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:chiseled_scorched_bricks"
+  }
+}

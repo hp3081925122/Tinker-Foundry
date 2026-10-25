@@ -14,9 +14,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemDisplayContext;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.client.model.data.ModelData;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.client.model.data.ModelData;
 import org.hp.tinker_foundry.block.FoundryControllerBlock;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import net.minecraft.world.phys.AABB;
@@ -57,7 +57,7 @@ public final class FoundryStructureRenderer {
             TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
                 .apply(extensions.getStillTexture(fluid));
             float next = y + heights[index] * compression;
-            int brightness = Math.max(light & 65535, fluid.getFluidType().getLightLevel(fluid) << 4)
+            int brightness = Math.max(light & 65535, fluid.getFluid().getFluidType().getLightLevel(fluid) << 4)
                 | light & 0xFFFF0000;
             VertexConsumer consumer = FoundryFluidRenderer.translucentConsumer(buffer);
             // 按方块切分纹理，只绘制炉腔外表面，避免内部生成重复面片。

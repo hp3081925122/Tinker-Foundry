@@ -1,7 +1,0 @@
-{
-  "type": "tinker_foundry:molding",
-  "mold": {"item": "tinker_foundry:ingot_sand_cast"},
-  "fluid": {"ingredient": {"fluid": "tinker_foundry:iron"}, "amount": 90},
-  "result": {"id": "minecraft:iron_ingot", "count": 1},
-  "time": 60
-}

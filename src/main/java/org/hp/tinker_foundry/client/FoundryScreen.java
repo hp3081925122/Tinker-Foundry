@@ -1,5 +1,7 @@
 package org.hp.tinker_foundry.client;
 
+import org.hp.tinker_foundry.common.FoundryFluidUtil;
+
 import java.util.List;
 import java.util.ArrayList;
 import net.minecraft.client.Minecraft;
@@ -7,17 +9,14 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.common.FluidValues;
@@ -29,18 +28,18 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     /** 合金炉五个邻接输入罐在官方界面上的固定横坐标。 */
     private static final int[] ALLOY_INPUT_TANK_START_X = {54, 22, 38, 70, 6};
     /** Melter 和普通熔炼控制器的界面纹理。 */
-    private static final ResourceLocation MELTER_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/melter.png");
+    private static final ResourceLocation MELTER_BACKGROUND = new ResourceLocation(TinkerFoundry.MOD_ID, "textures/gui/melter.png");
     /** 1.20.1 匠魂熔化炉燃料模块的内容区域。 */
     private static final int MELTER_FUEL_X = 153;
     private static final int MELTER_FUEL_Y = 32;
     private static final int MELTER_FUEL_WIDTH = 12;
     private static final int MELTER_FUEL_HEIGHT = 36;
     /** Alloyer 的界面纹理。 */
-    private static final ResourceLocation ALLOYER_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/alloyer.png");
+    private static final ResourceLocation ALLOYER_BACKGROUND = new ResourceLocation(TinkerFoundry.MOD_ID, "textures/gui/alloyer.png");
     /** Heater 的界面纹理。 */
-    private static final ResourceLocation HEATER_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/heater.png");
+    private static final ResourceLocation HEATER_BACKGROUND = new ResourceLocation(TinkerFoundry.MOD_ID, "textures/gui/heater.png");
     /** 冶炼炉和铸造炉控制器的多方块界面纹理。 */
-    private static final ResourceLocation STRUCTURE_BACKGROUND = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "textures/gui/heating_structure.png");
+    private static final ResourceLocation STRUCTURE_BACKGROUND = new ResourceLocation(TinkerFoundry.MOD_ID, "textures/gui/heating_structure.png");
     /** 原版控制器界面左侧侧栏的宽度，右侧 176 像素保持使用匠魂布局。 */
     private final int STRUCTURE_SIDE_WIDTH;
     /** 按当前槽数决定可见行数，多余行由滚动条访问。 */
@@ -90,7 +89,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         }
     }
 
-    /** 1.21.1 NeoForge 不会由 AbstractContainerScreen 自动调用 Tooltip，需要在主渲染尾部显式调用。 */
+    /** Forge 1.20.1 的屏幕需要在主渲染尾部显式处理自定义 Tooltip。 */
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -334,13 +333,13 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 滚轮按行移动输入区，界面外滚动交给原版或配方查看器处理。 */
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         if (menu.screenKind() == 3 && menu.maxScrollRow() > 0
             && isInside((int) mouseX - leftPos, (int) mouseY - topPos, 0, 0, STRUCTURE_SIDE_WIDTH, STRUCTURE_SIDE_HEIGHT)) {
             if (!isQuickCrafting) menu.scrollTo(menu.scrollRow() - (int) Math.signum(scrollY));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
 
     /** 拖动时持续改变首行，避免重新创建槽位而破坏原版快捷操作状态。 */
@@ -460,12 +459,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
     private List<Component> fluidTooltip(FluidStack stack, boolean alloyerUnits) {
         List<Component> tooltip = new ArrayList<>();
         ResourceLocation id = BuiltInRegistries.FLUID.getKey(stack.getFluid());
-        PotionContents potion = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
-        Component fluidName = stack.getHoverName();
-        if (potion.potion().isPresent()) {
-            // 使用原版药水命名键，让药水流体的名称和匠魂一致。
-            fluidName = Component.translatable(Potion.getName(potion.potion(), "item.minecraft.potion.effect."));
-        }
+        Component fluidName = stack.getDisplayName();
         tooltip.add(fluidName);
         if (id != null && Minecraft.getInstance().options.advancedItemTooltips) {
             tooltip.add(Component.literal(id.toString()).withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
@@ -478,7 +472,7 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         }
         if (id != null) {
             String modName = id.getNamespace();
-            modName = net.neoforged.fml.ModList.get().getModContainerById(id.getNamespace())
+            modName = net.minecraftforge.fml.ModList.get().getModContainerById(id.getNamespace())
                 .map(container -> container.getModInfo().getDisplayName()).orElse(modName);
             tooltip.add(Component.literal(modName).withStyle(net.minecraft.ChatFormatting.BLUE, net.minecraft.ChatFormatting.ITALIC));
         }
@@ -513,14 +507,14 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         if (menu.screenKind() == 1) {
             return formatVolume(amount);
         }
-        return stack.isEmpty() ? formatBucketVolume(amount) : formatFluidVolume(stack.copyWithAmount(amount));
+        return stack.isEmpty() ? formatBucketVolume(amount) : formatFluidVolume(FoundryFluidUtil.copy(stack, amount));
     }
 
     /** 判断流体是否拥有匠魂专用的材料单位，因此需要附加 Shift 提示。 */
     private boolean usesSpecificFluidUnits(FluidStack stack) {
         return !stack.isEmpty()
-            && (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())
-                || stack.get(DataComponents.POTION_CONTENTS) != null);
+            && (TFFluids.isMetal(stack.getFluid())
+                || isPotionFluid(stack));
     }
 
     /** 返回当前流体传输模式的标题、说明和切换提示。 */
@@ -893,13 +887,19 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
 
     /** 参照匠魂的流体标签规则显示数量：金属用锭粒，药水用瓶和液滴，其余流体使用桶。 */
     private Component formatFluidVolume(FluidStack stack) {
-        if (TFFluids.ORIGINAL_SOURCES.values().stream().anyMatch(source -> source.get() == stack.getFluid())) {
+        if (TFFluids.isMetal(stack.getFluid())) {
             return formatVolume(stack.getAmount());
         }
-        if (stack.get(DataComponents.POTION_CONTENTS) != null) {
+        if (isPotionFluid(stack)) {
             return formatPotionVolume(stack.getAmount());
         }
         return formatRawVolume(stack.getAmount());
+    }
+
+    /** 1.20.1 Forge 没有 1.21.1 数据组件，药水只能按本项目的独立 potion 流体 ID 判断。 */
+    private static boolean isPotionFluid(FluidStack stack) {
+        return !stack.isEmpty() && TFFluids.EXTRA_SOURCES.containsKey("potion")
+            && stack.getFluid() == TFFluids.EXTRA_SOURCES.get("potion").get();
     }
 
     /** 药水按 250 mB 一瓶、50 mB 一液滴显示，和 1.20.1 Forge 匠魂的 bottle 提示规则一致。 */

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BbB",
+    "BbB"
+  ],
+  "key": {
+    "B": {
+      "item": "tinker_foundry:scorched_bricks"
+    },
+    "b": {
+      "item": "tinker_foundry:scorched_brick"
+    }
+  },
+  "result": {
+    "count": 6,
+    "item": "tinker_foundry:scorched_bricks_fence"
+  }
+}

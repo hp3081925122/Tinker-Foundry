@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SSS",
+    "   ",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:sand"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:ingot_sand_cast"
+  }
+}

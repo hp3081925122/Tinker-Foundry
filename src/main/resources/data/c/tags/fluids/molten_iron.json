@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "tinker_foundry:molten/iron",
+      "required": false
+    }
+  ],
+  "tinker_foundry": {
+    "color": "#FFE1E1E1",
+    "temperature": 1100,
+    "names": {
+      "en_us": "Iron",
+      "zh_cn": "铁"
+    }
+  }
+}

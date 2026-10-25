@@ -13,7 +13,7 @@ public final class FoundryTags {
 
     /** 创建当前模组命名空间下的物品标签。 */
     private static TagKey<Item> item(String path) {
-        return TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, path));
+        return TagKey.create(Registries.ITEM, new ResourceLocation(TinkerFoundry.MOD_ID, path));
     }
 
     private FoundryTags() { }

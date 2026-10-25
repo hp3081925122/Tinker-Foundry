@@ -1,19 +1,13 @@
 package org.hp.tinker_foundry.item;
 
-import com.mojang.serialization.DataResult;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
-import org.hp.tinker_foundry.TinkerFoundry;
-import org.hp.tinker_foundry.registry.TFFluids;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import org.hp.tinker_foundry.registry.TFDataComponents;
 
-/** 使用物品数据组件保存流体，不依赖旧版物品 NBT API。 */
+/** 使用 1.20.1 Forge 的 ItemStack NBT 保存流体，不注册目标版本不存在的数据组件。 */
 public final class PortableTankFluidHandler implements IFluidHandlerItem {
     private final ItemStack container;
     private final int capacity;
@@ -33,27 +27,22 @@ public final class PortableTankFluidHandler implements IFluidHandlerItem {
 
     /** 读取物品当前流体。 */
     private FluidStack fluid() {
-        CustomData data = container.getOrDefault(TFDataComponents.FLUID.get(), CustomData.EMPTY);
-        if (data.isEmpty()) {
+        if (!container.hasTag()) {
             return FluidStack.EMPTY;
         }
-        DataResult<FluidStack> result = FluidStack.CODEC.parse(NbtOps.INSTANCE, data.copyTag());
-        return result.resultOrPartial(error -> TinkerFoundry.LOGGER.warn("Failed to decode portable tank fluid: {}", error))
-            .orElse(FluidStack.EMPTY).copy();
+        CompoundTag data = container.getTagElement(TFDataComponents.FLUID_TAG);
+        return data == null ? FluidStack.EMPTY : FluidStack.loadFluidStackFromNBT(data);
     }
 
-    /** 保存物品当前流体。 */
+    /** 保存物品当前流体，保持 FluidStack 的附加标签和旧物品持久化语义。 */
     private void setFluid(FluidStack stack) {
         if (stack.isEmpty()) {
-            container.remove(TFDataComponents.FLUID.get());
+            container.removeTagKey(TFDataComponents.FLUID_TAG);
             return;
         }
-        DataResult<Tag> result = FluidStack.CODEC.encodeStart(NbtOps.INSTANCE, stack.copy());
-        result.resultOrPartial(error -> TinkerFoundry.LOGGER.warn("Failed to encode portable tank fluid: {}", error))
-            .ifPresent(tag -> {
-                // FluidStack.CODEC 的成功结果必须是复合标签，避免异常数据写入物品组件。
-                if (tag instanceof CompoundTag compound) container.set(TFDataComponents.FLUID.get(), CustomData.of(compound));
-            });
+        CompoundTag data = new CompoundTag();
+        stack.writeToNBT(data);
+        container.getOrCreateTag().put(TFDataComponents.FLUID_TAG, data);
     }
 
     /** 返回单槽能力。 */
@@ -84,9 +73,11 @@ public final class PortableTankFluidHandler implements IFluidHandlerItem {
     @Override
     public int fill(FluidStack resource, FluidAction action) {
         FluidStack current = fluid();
-        if (!isFluidValid(0, resource) || !current.isEmpty() && !FluidStack.isSameFluidSameComponents(current, resource)) return 0;
+        if (!isFluidValid(0, resource) || !current.isEmpty() && !current.isFluidEqual(resource)) return 0;
         int amount = Math.min(resource.getAmount(), capacity - current.getAmount());
-        if (amount > 0 && action.execute()) setFluid(current.isEmpty() ? resource.copyWithAmount(amount) : current.copyWithAmount(current.getAmount() + amount));
+        if (amount > 0 && action.execute()) {
+            setFluid(current.isEmpty() ? new FluidStack(resource, amount) : new FluidStack(current, current.getAmount() + amount));
+        }
         return amount;
     }
 
@@ -94,7 +85,7 @@ public final class PortableTankFluidHandler implements IFluidHandlerItem {
     @Override
     public FluidStack drain(FluidStack resource, FluidAction action) {
         FluidStack current = fluid();
-        return resource.isEmpty() || current.isEmpty() || !FluidStack.isSameFluidSameComponents(current, resource) ? FluidStack.EMPTY : drain(resource.getAmount(), action);
+        return resource.isEmpty() || current.isEmpty() || !current.isFluidEqual(resource) ? FluidStack.EMPTY : drain(resource.getAmount(), action);
     }
 
     /** 按数量抽取。 */
@@ -102,7 +93,7 @@ public final class PortableTankFluidHandler implements IFluidHandlerItem {
     public FluidStack drain(int maxDrain, FluidAction action) {
         FluidStack current = fluid();
         if (current.isEmpty() || maxDrain <= 0) return FluidStack.EMPTY;
-        FluidStack result = current.copyWithAmount(Math.min(maxDrain, current.getAmount()));
+        FluidStack result = new FluidStack(current, Math.min(maxDrain, current.getAmount()));
         if (action.execute()) {
             current.shrink(result.getAmount());
             setFluid(current);

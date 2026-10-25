@@ -1,5 +1,7 @@
 package org.hp.tinker_foundry.entity;
 
+import org.hp.tinker_foundry.common.FoundryFluidUtil;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
@@ -20,7 +22,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.hp.tinker_foundry.common.FoundryFluidCannonEffects;
 
 /** 本地等价实现 Mantle 流体炮的流体弹实体。 */
@@ -54,12 +56,6 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         );
         setFluid(fluid);
         entityData.set(POWER, power);
-    }
-
-    /** 流体弹按匠魂原版弹射物使用固定重力。 */
-    @Override
-    protected double getDefaultGravity() {
-        return 0.06D;
     }
 
     /** 设置网络同步的流体内容。 */
@@ -102,7 +98,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         Vec3 movement = getDeltaMovement();
         HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
         if (hit.getType() != HitResult.Type.MISS) {
-            hitTargetOrDeflectSelf(hit);
+            onHit(hit);
         }
         if (isRemoved()) {
             return;
@@ -112,7 +108,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
             // 命中方块时把弹体移到碰撞面外沿，避免小实体尺寸导致穿过目标或卡入方块。
             EntityDimensions dimensions = getType().getDimensions();
             float offset = 0.01F + (hit instanceof BlockHitResult blockHit && blockHit.getDirection().getAxis() == Axis.Y
-                ? dimensions.height() : dimensions.width() / 2.0F);
+                ? dimensions.height : dimensions.width / 2.0F);
             nextLocation = hit.getLocation().add(movement.normalize().scale(offset));
         }
         updateRotation();
@@ -146,7 +142,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         FluidStack current = getFluid();
         int consumed = FoundryFluidCannonEffects.applyToEntity(level(), hit.getEntity(), current, getPower());
         if (consumed > 0) {
-            current = current.copyWithAmount(Math.max(0, current.getAmount() - consumed));
+            current = FoundryFluidUtil.copy(current, Math.max(0, current.getAmount() - consumed));
         }
         if (current.isEmpty()) {
             discard();
@@ -166,7 +162,7 @@ public final class FoundryFluidCannonProjectile extends Projectile {
         FluidStack current = getFluid();
         int consumed = FoundryFluidCannonEffects.applyToBlock(level(), hit, current, getPower());
         if (consumed > 0) {
-            current = current.copyWithAmount(Math.max(0, current.getAmount() - consumed));
+            current = FoundryFluidUtil.copy(current, Math.max(0, current.getAmount() - consumed));
             if (!current.isEmpty() && level().getBlockState(hit.getBlockPos()).isAir()) {
                 // 目标被破坏后允许剩余流体继续飞行，保持原版的多次命中行为。
                 setFluid(current);
@@ -178,11 +174,11 @@ public final class FoundryFluidCannonProjectile extends Projectile {
 
     /** 定义客户端显示流体所需的同步字段。 */
     @Override
-    protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        builder.define(FLUID_ID, "");
-        builder.define(FLUID_AMOUNT, 0);
-        builder.define(POWER, 1.0F);
-        builder.define(WATER_INERTIA, 0.6F);
+    protected void defineSynchedData() {
+        entityData.define(FLUID_ID, "");
+        entityData.define(FLUID_AMOUNT, 0);
+        entityData.define(POWER, 1.0F);
+        entityData.define(WATER_INERTIA, 0.6F);
     }
 
     /** 保存跨区块加载所需的流体和强度。 */

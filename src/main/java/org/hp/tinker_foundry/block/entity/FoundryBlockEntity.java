@@ -1,5 +1,8 @@
 package org.hp.tinker_foundry.block.entity;
 
+import org.hp.tinker_foundry.common.FoundryFluidUtil;
+import org.hp.tinker_foundry.common.FoundryCapabilityUtil;
+
 import java.util.List;
 import java.util.EnumMap;
 import java.util.Map;
@@ -9,19 +12,18 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.level.Level;
@@ -29,14 +31,19 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.EmptyFluidHandler;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.EmptyFluidHandler;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.common.FoundryTags;
 import org.hp.tinker_foundry.common.StructureFluidTank;
+import org.hp.tinker_foundry.common.FoundryChannelFluidHandler;
+import org.hp.tinker_foundry.common.FoundryItemHandler;
+import org.hp.tinker_foundry.common.FoundryPortFluidHandler;
 import org.hp.tinker_foundry.block.FoundryChannelBlock;
 import org.hp.tinker_foundry.block.FoundryDirectionalBlock;
 import org.hp.tinker_foundry.block.FoundryHorizontalBlock;
@@ -190,7 +197,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         @Override
         public boolean isFluidValid(int tank, FluidStack resource) {
             return isAlloyer() && tank == 0 && !resource.isEmpty()
-                && (fluid.isEmpty() || FluidStack.isSameFluidSameComponents(fluid, resource));
+                && (fluid.isEmpty() || FoundryFluidUtil.same(fluid, resource));
         }
 
         /** 向输出罐注入流体。 */
@@ -203,7 +210,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         @Override
         public FluidStack drain(FluidStack resource, FluidAction action) {
             if (!isAlloyer() || resource.isEmpty() || fluid.isEmpty()
-                || !FluidStack.isSameFluidSameComponents(fluid, resource)) {
+                || !FoundryFluidUtil.same(fluid, resource)) {
                 return FluidStack.EMPTY;
             }
             return drainTank(ALLOY_OUTPUT_TANK, resource.getAmount(), action);
@@ -345,7 +352,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             || oldFuelTemperature != entity.fuelTemperature || oldStructureCapacity != entity.structureCapacity
             || oldStructureValid != entity.structureValid || oldInputProgressVersion != entity.inputProgressVersion
             || oldCastingFluidCapacity != entity.castingFluidCapacity
-            || !FluidStack.matches(oldFluid, entity.fluid) || !FluidStack.matches(oldFuelFluid, entity.fuelFluid)
+            || !FoundryFluidUtil.same(oldFluid, entity.fluid) || !FoundryFluidUtil.same(oldFuelFluid, entity.fuelFluid)
             || !alloyInputsMatch(oldAlloyInputs, entity.alloyInputs);
         if (stateChanged) {
             entity.setChanged();
@@ -402,7 +409,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return false;
         }
         for (int index = 0; index < first.length; index++) {
-            if (!FluidStack.matches(first[index], second[index])) {
+            if (!FoundryFluidUtil.same(first[index], second[index])) {
                 return false;
             }
         }
@@ -427,7 +434,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 if (!targetState.is(StructureTags.ALLOYER_TANKS)) {
                     continue;
                 }
-                IFluidHandler handler = level.getCapability(Capabilities.FluidHandler.BLOCK, target, direction.getOpposite());
+                IFluidHandler handler = FoundryCapabilityUtil.get(level, target, ForgeCapabilities.FLUID_HANDLER, direction.getOpposite()).resolve().orElse(null);
                 if (handler == null || handler.getTanks() <= 0) {
                     continue;
                 }
@@ -505,7 +512,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 }
             }
             if (structureFuelTankPos == null || !structureFuelTanks.contains(structureFuelTankPos)) {
-                structureFuelTankPos = structureFuelTanks.isEmpty() ? null : structureFuelTanks.getFirst();
+                // Java 17 的 List 没有 Java 21 的 getFirst，使用索引读取首个燃料罐。
+                structureFuelTankPos = structureFuelTanks.isEmpty() ? null : structureFuelTanks.get(0);
             }
             structureErrorPos = result.errorPos();
             structureErrorReason = result.errorReason();
@@ -757,20 +765,20 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 统一把三类熔炼配方解析为运行时结果，避免燃料预判和实际熔炼各漏查一种类型。 */
     private Optional<MeltingMatch> findMeltingRecipe(Level level, ItemStack stack) {
-        SingleRecipeInput input = new SingleRecipeInput(stack);
-        Optional<RecipeHolder<MeltingRecipe>> normal = level.getRecipeManager().getRecipeFor(TFRecipes.MELTING.get(), input, level);
+        SimpleContainer input = new SimpleContainer(stack);
+        Optional<MeltingRecipe> normal = level.getRecipeManager().getRecipeFor(TFRecipes.MELTING.get(), input, level);
         if (normal.isPresent()) {
-            MeltingRecipe recipe = normal.get().value();
+            MeltingRecipe recipe = normal.get();
             return Optional.of(new MeltingMatch(recipe.output(isFoundryController()), recipe.temperature(), recipe.time(), recipe.byproductOutputs()));
         }
-        for (RecipeHolder<OreMeltingRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ORE_MELTING.get())) {
-            OreMeltingRecipe recipe = holder.value();
+        for (OreMeltingRecipe holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ORE_MELTING.get())) {
+            OreMeltingRecipe recipe = holder;
             if (recipe.matches(input, level)) {
                 return Optional.of(new MeltingMatch(recipe.output(isFoundryController()), recipe.temperature(), recipe.time(), recipe.byproductOutputs()));
             }
         }
-        for (RecipeHolder<DamageableMeltingRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.DAMAGEABLE_MELTING.get())) {
-            DamageableMeltingRecipe recipe = holder.value();
+        for (DamageableMeltingRecipe holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.DAMAGEABLE_MELTING.get())) {
+            DamageableMeltingRecipe recipe = holder;
             if (recipe.matches(input, level)) {
                 return Optional.of(new MeltingMatch(recipe.output(stack), recipe.temperature(), recipe.time(), recipe.byproductOutputs(stack)));
             }
@@ -875,8 +883,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private boolean runStructureAlloying(Level level, boolean simulate, int temperature) {
         List<FluidStack> available = structureFluids.snapshot();
         if (available.size() < 2) return false;
-        for (RecipeHolder<AlloyingRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ALLOYING.get())) {
-            AlloyingRecipe recipe = holder.value();
+        for (AlloyingRecipe holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ALLOYING.get())) {
+            AlloyingRecipe recipe = holder;
             int[] selected = new int[recipe.ingredients().size()];
             if (selected.length < 2 || !matchStructureAlloy(recipe, available, 0, new boolean[available.size()], selected)) continue;
             StructureFluidTank result = new StructureFluidTank();
@@ -930,13 +938,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return;
         }
         FluidRecipeInput input = new FluidRecipeInput(availableFluids);
-        Optional<RecipeHolder<AlloyingRecipe>> found = level.getRecipeManager().getRecipeFor(TFRecipes.ALLOYING.get(), input, level);
-        if (found.isEmpty() || !hasHeat(level, found.get().value().temperature())) {
+        Optional<AlloyingRecipe> found = level.getRecipeManager().getRecipeFor(TFRecipes.ALLOYING.get(), input, level);
+        if (found.isEmpty() || !hasHeat(level, found.get().temperature())) {
             progress = 0;
             processTime = 0;
             return;
         }
-        AlloyingRecipe recipe = found.get().value();
+        AlloyingRecipe recipe = found.get();
         int[] selected = selectAlloyInputs(recipe);
         if (selected == null) {
             progress = 0;
@@ -1006,7 +1014,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             int tank = selected[ingredientIndex];
             IFluidHandler handler = alloyerInputHandler(tank);
             // 用实际匹配到的流体构造精确抽取请求，兼容标签型流体配方。
-            FluidStack requested = alloyInputs[tank].copyWithAmount(ingredient.ingredient().amount());
+            FluidStack requested = FoundryFluidUtil.copy(alloyInputs[tank], ingredient.ingredient().amount());
             FluidStack simulated = handler.drain(requested, FluidAction.SIMULATE);
             if (simulated.getAmount() != requested.getAmount()) {
                 return false;
@@ -1018,8 +1026,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 continue;
             }
             int tank = selected[ingredientIndex];
-            // 执行阶段复用同一实际流体类型，避免把 SizedFluidIngredient 当成 FluidStack。
-            FluidStack requested = alloyInputs[tank].copyWithAmount(ingredient.ingredient().amount());
+            // 执行阶段复用同一实际流体类型，避免把配方匹配器当成 FluidStack。
+            FluidStack requested = FoundryFluidUtil.copy(alloyInputs[tank], ingredient.ingredient().amount());
             FluidStack drained = alloyerInputHandler(tank).drain(requested, FluidAction.EXECUTE);
             if (drained.getAmount() != requested.getAmount()) {
                 TinkerFoundry.LOGGER.warn("[alloyer] input handler changed between simulation and execution pos={} tank={} expected={} actual={}",
@@ -1040,16 +1048,16 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return 0;
         }
         // 原版 Mantle 先按流体种类找出配方，再由配方返回所需液量；这里用最大数量模拟该阶段。
-        FluidStack discoveryFluid = candidate.copyWithAmount(Integer.MAX_VALUE);
+        FluidStack discoveryFluid = FoundryFluidUtil.copy(candidate, Integer.MAX_VALUE);
         FluidRecipeInput recipeInput = new FluidRecipeInput(List.of(discoveryFluid), inputs[0], isCastingTable());
-        Optional<RecipeHolder<CastingRecipe>> casting = level.getRecipeManager()
+        Optional<CastingRecipe> casting = level.getRecipeManager()
             .getRecipeFor(TFRecipes.CASTING.get(), recipeInput, level);
         if (casting.isPresent()) {
-            return casting.get().value().fluid().amount();
+            return casting.get().fluid().amount();
         }
-        Optional<RecipeHolder<MoldingRecipe>> molding = level.getRecipeManager()
+        Optional<MoldingRecipe> molding = level.getRecipeManager()
             .getRecipeFor(TFRecipes.MOLDING.get(), recipeInput, level);
-        return molding.map(holder -> holder.value().fluid().amount()).orElse(0);
+        return molding.map(holder -> holder.fluid().amount()).orElse(0);
     }
 
     /** 首次注入时锁定配方液量，复刻 Mantle CastingFluidHandler 的动态容量。 */
@@ -1127,28 +1135,28 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return;
         }
         FluidRecipeInput recipeInput = new FluidRecipeInput(List.of(fluid), inputs[0], isCastingTable());
-        Optional<RecipeHolder<CastingRecipe>> casting = level.getRecipeManager().getRecipeFor(TFRecipes.CASTING.get(), recipeInput, level);
+        Optional<CastingRecipe> casting = level.getRecipeManager().getRecipeFor(TFRecipes.CASTING.get(), recipeInput, level);
         if (casting.isPresent()) {
             String key = "casting:" + casting.get().id() + ":" + inputs[0].getItem() + ":" + fluid.getFluid();
             if (!key.equals(castingDiagnosticKey)) {
                 TinkerFoundry.LOGGER.debug("[casting] matched recipe={} pos={} block={} fluid={} amount={} input={} amountRequired={} time={}",
                     casting.get().id(), worldPosition, getBlockState().getBlock(), fluid.getFluid(), fluid.getAmount(),
-                    inputs[0].getItem(), casting.get().value().fluid().amount(), casting.get().value().time());
+                    inputs[0].getItem(), casting.get().fluid().amount(), casting.get().time());
                 castingDiagnosticKey = key;
             }
-            finishCasting(casting.get().value(), recipeInput, level.registryAccess());
+            finishCasting(casting.get(), recipeInput, level.registryAccess());
             return;
         }
-        Optional<RecipeHolder<MoldingRecipe>> molding = level.getRecipeManager().getRecipeFor(TFRecipes.MOLDING.get(), recipeInput, level);
+        Optional<MoldingRecipe> molding = level.getRecipeManager().getRecipeFor(TFRecipes.MOLDING.get(), recipeInput, level);
         if (molding.isPresent()) {
             String key = "molding:" + molding.get().id() + ":" + inputs[0].getItem() + ":" + fluid.getFluid();
             if (!key.equals(castingDiagnosticKey)) {
                 TinkerFoundry.LOGGER.debug("[casting] matched molding recipe={} pos={} block={} fluid={} amount={} input={} amountRequired={} time={}",
                     molding.get().id(), worldPosition, getBlockState().getBlock(), fluid.getFluid(), fluid.getAmount(),
-                    inputs[0].getItem(), molding.get().value().fluid().amount(), molding.get().value().time());
+                    inputs[0].getItem(), molding.get().fluid().amount(), molding.get().time());
                 castingDiagnosticKey = key;
             }
-            finishMolding(molding.get().value());
+            finishMolding(molding.get());
             return;
         }
         // 无模具配方必须能在浇注盆中工作；此日志用于定位流体、数量或模具注册不一致，而不是静默卡住。
@@ -1181,8 +1189,12 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 处理单个流体容器，所有模拟检查完成后才执行两侧变更。 */
     private ItemStack processCastingContainer(ItemStack input) {
+        // 输出槽已有产物时禁止再次处理容器，防止同一服务端 tick 重复扣液或吞入输入。
+        if (!output.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
         if (input.getItem() instanceof net.minecraft.world.item.BucketItem bucket) {
-            if (bucket.content == net.minecraft.world.level.material.Fluids.EMPTY) {
+            if (bucket.getFluid() == net.minecraft.world.level.material.Fluids.EMPTY) {
                 FluidStack stored = getFluidInTank(0);
                 if (stored.getAmount() < FluidValues.BUCKET) {
                     return ItemStack.EMPTY;
@@ -1190,7 +1202,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 FluidStack drained = drainTank(0, FluidValues.BUCKET, FluidAction.EXECUTE);
                 return drained.getAmount() == FluidValues.BUCKET ? new ItemStack(drained.getFluid().getBucket()) : ItemStack.EMPTY;
             }
-            FluidStack resource = new FluidStack(bucket.content, FluidValues.BUCKET);
+            FluidStack resource = new FluidStack(bucket.getFluid(), FluidValues.BUCKET);
             if (fillTank(0, resource, FluidAction.SIMULATE) != FluidValues.BUCKET) {
                 return ItemStack.EMPTY;
             }
@@ -1216,7 +1228,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             if (moved <= 0) {
                 return ItemStack.EMPTY;
             }
-            fillTank(0, contained.copyWithAmount(moved), FluidAction.EXECUTE);
+            fillTank(0, FoundryFluidUtil.copy(contained, moved), FluidAction.EXECUTE);
             container.drain(moved, FluidAction.EXECUTE);
             return input;
         }
@@ -1225,7 +1237,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return ItemStack.EMPTY;
         }
         int requested = Math.min(stored.getAmount(), containerCapacity);
-        FluidStack moved = stored.copyWithAmount(requested);
+        FluidStack moved = FoundryFluidUtil.copy(stored, requested);
         if (container.fill(moved, FluidAction.SIMULATE) != requested) {
             return ItemStack.EMPTY;
         }
@@ -1238,7 +1250,11 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     }
 
     /** 冷却并完成铸造配方，按配方字段处理铸模消耗和槽位切换。 */
-    private void finishCasting(CastingRecipe recipe, FluidRecipeInput recipeInput, net.minecraft.core.HolderLookup.Provider registries) {
+    private void finishCasting(CastingRecipe recipe, FluidRecipeInput recipeInput, net.minecraft.core.RegistryAccess registries) {
+        // 输出槽未清空前不允许完成下一次浇注，保护流体和输入的一次性扣除边界。
+        if (!output.isEmpty()) {
+            return;
+        }
         processTime = recipe.time();
         progress++;
         int fluidBefore = fluid.getAmount();
@@ -1275,6 +1291,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 冷却并完成必须使用模具的浇注。 */
     private void finishMolding(MoldingRecipe recipe) {
+        // 输出槽未清空前不允许完成下一次模具浇注，避免重复产出。
+        if (!output.isEmpty()) {
+            return;
+        }
         processTime = recipe.time();
         progress++;
         int fluidBefore = fluid.getAmount();
@@ -1304,7 +1324,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (result.isEmpty() || output.isEmpty()) {
             return result.getCount() <= result.getMaxStackSize();
         }
-        return ItemStack.isSameItemSameComponents(output, result)
+        return ItemStack.isSameItemSameTags(output, result)
             && output.getCount() + result.getCount() <= output.getMaxStackSize();
     }
 
@@ -1325,7 +1345,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (remainder.isEmpty()) {
             return result.getCount() <= result.getMaxStackSize();
         }
-        return ItemStack.isSameItemSameComponents(remainder, result)
+        return ItemStack.isSameItemSameTags(remainder, result)
             && remainder.getCount() + result.getCount() <= remainder.getMaxStackSize();
     }
 
@@ -1341,7 +1361,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
     }
 
-    /** 先使用自定义燃料配方，再回退到 NeoForge 原版燃料值。 */
+    /** 先使用自定义燃料配方，再回退到 Forge 1.20.1 原版燃料值。 */
     private boolean hasHeat(Level level, int requiredTemperature) {
         // 熔炼设备由第零相位统一点火，逐槽检查不得抽取燃料。
         if (isMeltingBlock()) return burnTime > 0 && fuelTemperature >= requiredTemperature;
@@ -1382,7 +1402,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         boolean melted = false;
         var inventory = new org.hp.tinker_foundry.common.FoundryItemHandler(this);
         var blacklist = net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ENTITY_TYPE,
-            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "melting_blacklist"));
+            new ResourceLocation(TinkerFoundry.MOD_ID, "melting_blacklist"));
         for (net.minecraft.world.entity.Entity entity : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, bounds)) {
             if (!entity.isAlive()) continue;
             if (entity instanceof net.minecraft.world.entity.item.ItemEntity item) {
@@ -1399,17 +1419,19 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             if (canMelt == null) canMelt = burnTime > 0 || findHeatingFuel(false) > 0;
             if (!canMelt) continue;
             var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE,
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID,
+                new ResourceLocation(TinkerFoundry.MOD_ID,
                     entity.fireImmune() ? "smeltery_magic" : "smeltery_heat"));
-            var damageSource = level.damageSources().source(key);
+            var damageType = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
+                .getHolderOrThrow(key);
+            var damageSource = new net.minecraft.world.damagesource.DamageSource(damageType);
             if (living.isInvulnerableTo(damageSource)) continue;
             // 默认实体熔炼量与上游按玻璃板五分之一的规则一致，避免无配方实体少产一半流体。
             FluidStack result = new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), FluidValues.GLASS_PANE / 5);
             int damage = 2;
             for (var holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.ENTITY_MELTING.get())) {
-                if (holder.value().matchesEntity(entity.getType())) {
-                    result = holder.value().result().copy();
-                    damage = holder.value().damage();
+                if (holder.matchesEntity(entity.getType())) {
+                    result = holder.result().copy();
+                    damage = holder.damage();
                     break;
                 }
             }
@@ -1431,18 +1453,18 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         java.util.List<IFluidHandler> handlers = new java.util.ArrayList<>();
         if (isStructureController()) handlers.addAll(structureFuelSources());
         else {
-            IFluidHandler below = level.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-                worldPosition.below(), Direction.UP);
+            IFluidHandler below = FoundryCapabilityUtil.get(level, worldPosition.below(), ForgeCapabilities.FLUID_HANDLER,
+                Direction.UP).resolve().orElse(null);
             if (below != null) handlers.add(below);
         }
         // 流体优先于固体，模拟时绝不修改燃料储罐。
         for (IFluidHandler handler : handlers) {
             for (int tank = 0; tank < handler.getTanks(); tank++) {
                 FluidStack stored = handler.getFluidInTank(tank);
-                for (RecipeHolder<FuelRecipe> holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get())) {
-                    FuelRecipe recipe = holder.value();
+                for (FuelRecipe holder : level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get())) {
+                    FuelRecipe recipe = holder;
                     if (!recipe.matchesFluid(stored) || recipe.temperature() <= 0) continue;
-                    FluidStack cost = stored.copyWithAmount(Math.max(1, recipe.consumption()));
+                    FluidStack cost = FoundryFluidUtil.copy(stored, Math.max(1, recipe.consumption()));
                     FluidStack available = isStructureController() ? drainStructureFuel(cost, FluidAction.SIMULATE)
                         : handler.drain(cost, FluidAction.SIMULATE);
                     if (available.getAmount() != cost.getAmount()) continue;
@@ -1468,8 +1490,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         // 多方块优先从登记的燃料储罐流体能力取液，再从同一储罐的物品能力取固体燃料。
         if (isStructureController()) return findStructureSolidFuel(consume);
-        net.neoforged.neoforge.items.IItemHandler items = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, worldPosition.below(), Direction.UP);
+        net.minecraftforge.items.IItemHandler items = FoundryCapabilityUtil.get(level, worldPosition.below(), ForgeCapabilities.ITEM_HANDLER,
+            Direction.UP).resolve().orElse(null);
         if (items == null) return 0;
         for (int slot = 0; slot < items.getSlots(); slot++) {
             ItemStack candidate = items.getStackInSlot(slot);
@@ -1481,7 +1503,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             int rate = fuelRecipe.map(FuelRecipe::rate).orElse(8);
             if (consume) {
                 ItemStack taken = items.extractItem(slot, 1, false);
-                if (taken.isEmpty() || !ItemStack.isSameItemSameComponents(candidate, taken)) return 0;
+                if (taken.isEmpty() || !ItemStack.isSameItemSameTags(candidate, taken)) return 0;
                 burnTime = fuelBurnDuration = duration;
                 fuelTemperature = temperature;
                 fuelHeatingRate = rate;
@@ -1503,8 +1525,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 返回当前世界中与固体燃料物品匹配的自定义配方。 */
     private Optional<FuelRecipe> findSolidFuelRecipe(ItemStack stack) {
         if (level == null || stack.isEmpty()) return Optional.empty();
-        return level.getRecipeManager().getRecipeFor(TFRecipes.FUEL.get(), new SingleRecipeInput(stack), level)
-            .map(RecipeHolder::value);
+        return level.getRecipeManager().getRecipeFor(TFRecipes.FUEL.get(), new SimpleContainer(stack), level)
+            .map(value -> value);
     }
 
     /** 固体燃料既支持燃料配方，也保留原版可燃物回退。 */
@@ -1516,8 +1538,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     private int findStructureSolidFuel(boolean consume) {
         if (level == null) return 0;
         for (FoundryBlockEntity source : structureFuelSources()) {
-            net.neoforged.neoforge.items.IItemHandler items = level.getCapability(
-                net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, source.getBlockPos(), Direction.UP);
+            net.minecraftforge.items.IItemHandler items = FoundryCapabilityUtil.get(level, source.getBlockPos(), ForgeCapabilities.ITEM_HANDLER,
+                Direction.UP).resolve().orElse(null);
             if (items == null) continue;
             for (int slot = 0; slot < items.getSlots(); slot++) {
                 ItemStack candidate = items.getStackInSlot(slot);
@@ -1530,7 +1552,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 int rate = fuelRecipe.map(FuelRecipe::rate).orElse(8);
                 if (!consume) return temperature;
                 ItemStack taken = items.extractItem(slot, 1, false);
-                if (taken.isEmpty() || !ItemStack.isSameItemSameComponents(candidate, taken)) return 0;
+                if (taken.isEmpty() || !ItemStack.isSameItemSameTags(candidate, taken)) return 0;
                 burnTime = fuelBurnDuration = duration;
                 fuelTemperature = temperature;
                 fuelHeatingRate = rate;
@@ -1557,15 +1579,15 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             if (burnTime <= 0) {
                 for (FoundryBlockEntity source : structureFuelSources()) {
                     FluidStack available = source.getFluidInTank(0);
-                    Optional<RecipeHolder<FuelRecipe>> found = level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get()).stream()
-                        .filter(holder -> holder.value().matchesFluid(available))
-                        .filter(holder -> holder.value().temperature() >= requiredTemperature)
-                        .filter(holder -> drainStructureFuel(available.copyWithAmount(Math.max(1, holder.value().consumption())), FluidAction.SIMULATE).getAmount() >= Math.max(1, holder.value().consumption()))
+                    Optional<FuelRecipe> found = level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get()).stream()
+                        .filter(holder -> holder.matchesFluid(available))
+                        .filter(holder -> holder.temperature() >= requiredTemperature)
+                        .filter(holder -> drainStructureFuel(FoundryFluidUtil.copy(available, Math.max(1, holder.consumption())), FluidAction.SIMULATE).getAmount() >= Math.max(1, holder.consumption()))
                         .findFirst();
                     if (found.isEmpty()) continue;
-                    FuelRecipe recipe = found.get().value();
+                    FuelRecipe recipe = found.get();
                     structureFuelTankPos = source.getBlockPos();
-                    drainStructureFuel(available.copyWithAmount(Math.max(1, recipe.consumption())), FluidAction.EXECUTE);
+                    drainStructureFuel(FoundryFluidUtil.copy(available, Math.max(1, recipe.consumption())), FluidAction.EXECUTE);
                     burnTime = Math.max(1, recipe.duration());
                     fuelBurnDuration = burnTime;
                     fuelTemperature = recipe.temperature();
@@ -1584,12 +1606,12 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         if (burnTime <= 0 && (isHeater() || isStructureController()) && !fuelFluid.isEmpty()) {
             // 流体燃料按配方声明的总消耗量启动一段燃烧，实际扣除在每个服务端 tick 平滑完成。
-            Optional<RecipeHolder<FuelRecipe>> found = level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get()).stream()
-                .filter(holder -> holder.value().matchesFluid(fuelFluid))
-                .filter(holder -> fuelFluid.getAmount() >= Math.max(1, holder.value().consumption()))
+            Optional<FuelRecipe> found = level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get()).stream()
+                .filter(holder -> holder.matchesFluid(fuelFluid))
+                .filter(holder -> fuelFluid.getAmount() >= Math.max(1, holder.consumption()))
                 .findFirst();
             if (found.isPresent()) {
-                FuelRecipe recipe = found.get().value();
+                FuelRecipe recipe = found.get();
                 burnTime = Math.max(1, recipe.duration());
                 fuelTemperature = Math.max(0, recipe.temperature());
                 fuelHeatingRate = recipe.rate();
@@ -1600,9 +1622,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             }
         }
         if (burnTime <= 0 && !fuel.isEmpty()) {
-            Optional<RecipeHolder<FuelRecipe>> found = level.getRecipeManager().getRecipeFor(TFRecipes.FUEL.get(), new SingleRecipeInput(fuel), level);
+            Optional<FuelRecipe> found = level.getRecipeManager().getRecipeFor(TFRecipes.FUEL.get(), new SimpleContainer(fuel), level);
             if (found.isPresent()) {
-                FuelRecipe recipe = found.get().value();
+                FuelRecipe recipe = found.get();
                 burnTime = recipe.duration();
                 fuelTemperature = recipe.temperature();
                 fuelHeatingRate = recipe.rate();
@@ -1639,7 +1661,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 continue;
             }
             int requested = Math.min(Math.min(available.getAmount(), availableCapacity), FluidValues.BUCKET);
-            int accepted = fillTank(0, available.copyWithAmount(requested), FluidAction.SIMULATE);
+            int accepted = fillTank(0, FoundryFluidUtil.copy(available, requested), FluidAction.SIMULATE);
             if (accepted <= 0) {
                 continue;
             }
@@ -1700,6 +1722,103 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     /** 计算随真实槽数增长的菜单数据长度，额外槽按进度、总时长、温度、状态排列。 */
     public static int menuDataCount(int slots) {
         return MENU_DATA_COUNT;
+    }
+
+    /** 返回当前结构是否有效，供菜单、调试和服务端状态同步使用。 */
+    public boolean isStructureValid() {
+        return structureValid;
+    }
+
+    /** 返回当前结构容量，结构无效时为零。 */
+    public int structureCapacity() {
+        return structureValid ? structureCapacity : 0;
+    }
+
+    /** 返回当前处理进度。 */
+    public int progress() {
+        return progress;
+    }
+
+    /** 返回当前处理总时长。 */
+    public int processTime() {
+        return processTime;
+    }
+
+    /** 返回铸造设备当前锁定的配方液量，供客户端状态载荷恢复容量。 */
+    public int castingFluidCapacity() {
+        return castingFluidCapacity;
+    }
+
+    /** 提供菜单使用的服务端权威进度、燃料和容量同步数据。 */
+    public ContainerData menuData() {
+        return new ContainerData() {
+            @Override
+            public int get(int index) {
+                // 超过基础编号段的每个输入同样同步四项状态，不受显示页影响。
+                if (index >= MENU_DATA_COUNT) {
+                    int input = BASE_INPUT_SLOTS + (index - MENU_DATA_COUNT) / 4;
+                    if (input >= inputs.length) return 0;
+                    return switch ((index - MENU_DATA_COUNT) % 4) {
+                        case 0 -> inputProgress[input];
+                        case 1 -> inputRecipeTimes[input];
+                        case 2 -> inputRequiredTemperatures[input];
+                        default -> inputStatuses[input];
+                    };
+                }
+                if (index >= MENU_INPUT_PROGRESS_START && index < MENU_INPUT_TIME_START) {
+                    return inputProgress[index - MENU_INPUT_PROGRESS_START];
+                }
+                if (index >= MENU_INPUT_TIME_START && index < MENU_INPUT_TEMPERATURE_START) {
+                    return inputRecipeTimes[index - MENU_INPUT_TIME_START];
+                }
+                if (index >= MENU_INPUT_TEMPERATURE_START && index < MENU_INPUT_STATUS_START) {
+                    return inputRequiredTemperatures[index - MENU_INPUT_TEMPERATURE_START];
+                }
+                if (index >= MENU_INPUT_STATUS_START && index < MENU_INPUT_DATA_COUNT) {
+                    return inputStatuses[index - MENU_INPUT_STATUS_START];
+                }
+                return switch (index) {
+                    case 0 -> progress;
+                    case 1 -> processTime;
+                    case 2 -> burnTime;
+                    case 3 -> isStructureController() ? structureCapacity() : isAlloyer() ? ALLOYER_CAPACITY : getTankCapacity(0);
+                    case 4 -> structureValid ? 1 : 0;
+                    case 5 -> isStructureController() ? structureFluids.amount() : displayFluid().getAmount();
+                    case 6 -> isAlloyer() ? alloyInputs[0].getAmount() : 0;
+                    case 7 -> isAlloyer() ? alloyInputs[1].getAmount() : 0;
+                    case 8 -> fluidRegistryId(displayFluid());
+                    case 9 -> isAlloyer() ? fluidRegistryId(alloyInputs[0]) : -1;
+                    case 10 -> isAlloyer() ? fluidRegistryId(alloyInputs[1]) : -1;
+                    case 13 -> isAlloyer() ? alloyInputs[2].getAmount() : 0;
+                    case 14 -> isAlloyer() ? fluidRegistryId(alloyInputs[2]) : -1;
+                    case 15 -> isAlloyer() ? alloyInputs[3].getAmount() : 0;
+                    case 16 -> isAlloyer() ? fluidRegistryId(alloyInputs[3]) : -1;
+                    case 17 -> structureErrorReason.ordinal();
+                    case MENU_FUEL_TEMPERATURE_INDEX -> fuelTemperature > 0 ? fuelTemperature : fuelDisplayTemperature();
+                    case 11 -> screenKind();
+                    case 12 -> inputSlotCount();
+                    case MENU_FUEL_AMOUNT_INDEX -> fuelDisplayFluid().getAmount();
+                    case MENU_FUEL_CAPACITY_INDEX -> fuelDisplayCapacity();
+                    case MENU_FUEL_FLUID_INDEX -> fluidRegistryId(fuelDisplayFluid());
+                    case MENU_FUEL_SOURCE_INDEX -> hasFuelSource() ? 1 : 0;
+                    case MENU_FUEL_DURATION_INDEX -> fuelBurnDuration;
+                    case MENU_ALLOY_INPUT_COUNT_INDEX -> isAlloyer() ? alloyerInputCount() : 0;
+                    case MENU_ALLOY_INPUT_FIFTH_AMOUNT_INDEX -> isAlloyer() && alloyInputs.length > 4 ? alloyInputs[4].getAmount() : 0;
+                    case MENU_ALLOY_INPUT_FIFTH_FLUID_INDEX -> isAlloyer() && alloyInputs.length > 4 ? fluidRegistryId(alloyInputs[4]) : -1;
+                    default -> 0;
+                };
+            }
+
+            @Override
+            public void set(int index, int value) {
+                // 服务端数据由方块实体自身维护，客户端只接收菜单同步值。
+            }
+
+            @Override
+            public int getCount() {
+                return menuDataCount(inputSlotCount());
+            }
+        };
     }
 
     /** 超出基础槽数的数据不使用原版短整数编号通道。 */
@@ -1852,7 +1971,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             markItemChanged();
             return true;
         }
-        if (ItemStack.isSameItemSameComponents(fuel, stack) && fuel.getCount() < fuel.getMaxStackSize()) {
+        if (ItemStack.isSameItemSameTags(fuel, stack) && fuel.getCount() < fuel.getMaxStackSize()) {
             fuel.grow(1);
             stack.shrink(1);
             markItemChanged();
@@ -1879,7 +1998,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             markItemChanged();
             return true;
         }
-        if (ItemStack.isSameItemSameComponents(inputs[0], stack) && inputs[0].getCount() < inputs[0].getMaxStackSize()) {
+        if (ItemStack.isSameItemSameTags(inputs[0], stack) && inputs[0].getCount() < inputs[0].getMaxStackSize()) {
             inputs[0].grow(1);
             stack.shrink(1);
             markItemChanged();
@@ -1896,7 +2015,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 markItemChanged();
                 return true;
             }
-            if (ItemStack.isSameItemSameComponents(fuel, stack) && fuel.getCount() < fuel.getMaxStackSize()) {
+            if (ItemStack.isSameItemSameTags(fuel, stack) && fuel.getCount() < fuel.getMaxStackSize()) {
                 fuel.grow(1);
                 stack.shrink(1);
                 markItemChanged();
@@ -1909,7 +2028,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 markItemChanged();
                 return true;
             }
-            if (!isStructureController() && ItemStack.isSameItemSameComponents(inputs[index], stack) && inputs[index].getCount() < inputs[index].getMaxStackSize()) {
+            if (!isStructureController() && ItemStack.isSameItemSameTags(inputs[index], stack)
+                    && inputs[index].getCount() < inputs[index].getMaxStackSize()) {
                 inputs[index].grow(1);
                 stack.shrink(1);
                 markItemChanged();
@@ -1923,139 +2043,42 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     public ItemStack takeOutput() {
         ItemStack result = output;
         output = ItemStack.EMPTY;
-        if (!result.isEmpty()) markItemChanged();
+        if (!result.isEmpty()) {
+            markItemChanged();
+        }
         return result;
     }
 
-    /** 返回当前结构是否有效，供菜单、调试和服务端状态同步使用。 */
-    public boolean isStructureValid() {
-        return structureValid;
-    }
-
-    /** 返回当前结构容量，结构无效时为零。 */
-    public int structureCapacity() {
-        return structureValid ? structureCapacity : 0;
-    }
-
-    /** 返回当前处理进度。 */
-    public int progress() {
-        return progress;
-    }
-
-    /** 返回当前处理总时长。 */
-    public int processTime() {
-        return processTime;
-    }
-
-    /** 返回铸造设备当前锁定的配方液量，供客户端状态载荷恢复容量。 */
-    public int castingFluidCapacity() {
-        return castingFluidCapacity;
-    }
-
-    /** 提供菜单使用的服务端权威进度、燃料和容量同步数据。 */
-    public ContainerData menuData() {
-        return new ContainerData() {
-            @Override
-            public int get(int index) {
-                // 超过基础编号段的每个输入同样同步四项状态，不受显示页影响。
-                if (index >= MENU_DATA_COUNT) {
-                    int input = BASE_INPUT_SLOTS + (index - MENU_DATA_COUNT) / 4;
-                    if (input >= inputs.length) return 0;
-                    return switch ((index - MENU_DATA_COUNT) % 4) {
-                        case 0 -> inputProgress[input];
-                        case 1 -> inputRecipeTimes[input];
-                        case 2 -> inputRequiredTemperatures[input];
-                        default -> inputStatuses[input];
-                    };
-                }
-                if (index >= MENU_INPUT_PROGRESS_START && index < MENU_INPUT_TIME_START) {
-                    return inputProgress[index - MENU_INPUT_PROGRESS_START];
-                }
-                if (index >= MENU_INPUT_TIME_START && index < MENU_INPUT_TEMPERATURE_START) {
-                    return inputRecipeTimes[index - MENU_INPUT_TIME_START];
-                }
-                if (index >= MENU_INPUT_TEMPERATURE_START && index < MENU_INPUT_STATUS_START) {
-                    return inputRequiredTemperatures[index - MENU_INPUT_TEMPERATURE_START];
-                }
-                if (index >= MENU_INPUT_STATUS_START && index < MENU_INPUT_DATA_COUNT) {
-                    return inputStatuses[index - MENU_INPUT_STATUS_START];
-                }
-                return switch (index) {
-                    case 0 -> progress;
-                    case 1 -> processTime;
-                    case 2 -> burnTime;
-                    case 3 -> isStructureController() ? structureCapacity() : isAlloyer() ? ALLOYER_CAPACITY : getTankCapacity(0);
-                    case 4 -> structureValid ? 1 : 0;
-                    case 5 -> isStructureController() ? structureFluids.amount() : displayFluid().getAmount();
-                    case 6 -> isAlloyer() ? alloyInputs[0].getAmount() : 0;
-                    case 7 -> isAlloyer() ? alloyInputs[1].getAmount() : 0;
-                    case 8 -> fluidRegistryId(displayFluid());
-                    case 9 -> isAlloyer() ? fluidRegistryId(alloyInputs[0]) : -1;
-                    case 10 -> isAlloyer() ? fluidRegistryId(alloyInputs[1]) : -1;
-                    case 13 -> isAlloyer() ? alloyInputs[2].getAmount() : 0;
-                    case 14 -> isAlloyer() ? fluidRegistryId(alloyInputs[2]) : -1;
-                    case 15 -> isAlloyer() ? alloyInputs[3].getAmount() : 0;
-                    case 16 -> isAlloyer() ? fluidRegistryId(alloyInputs[3]) : -1;
-                    case 17 -> structureErrorReason.ordinal();
-                    case MENU_FUEL_TEMPERATURE_INDEX -> fuelTemperature > 0 ? fuelTemperature : fuelDisplayTemperature();
-                    case 11 -> screenKind();
-                    case 12 -> inputSlotCount();
-                    case MENU_FUEL_AMOUNT_INDEX -> fuelDisplayFluid().getAmount();
-                    case MENU_FUEL_CAPACITY_INDEX -> fuelDisplayCapacity();
-                    case MENU_FUEL_FLUID_INDEX -> fluidRegistryId(fuelDisplayFluid());
-                    case MENU_FUEL_SOURCE_INDEX -> hasFuelSource() ? 1 : 0;
-                    case MENU_FUEL_DURATION_INDEX -> fuelBurnDuration;
-                    case MENU_ALLOY_INPUT_COUNT_INDEX -> isAlloyer() ? alloyerInputCount() : 0;
-                    case MENU_ALLOY_INPUT_FIFTH_AMOUNT_INDEX -> isAlloyer() && alloyInputs.length > 4 ? alloyInputs[4].getAmount() : 0;
-                    case MENU_ALLOY_INPUT_FIFTH_FLUID_INDEX -> isAlloyer() && alloyInputs.length > 4 ? fluidRegistryId(alloyInputs[4]) : -1;
-                    default -> 0;
-                };
-            }
-
-            @Override
-            public void set(int index, int value) {
-                // 服务端数据由方块实体自身维护，客户端只接收菜单同步值。
-            }
-
-            @Override
-            public int getCount() {
-                return menuDataCount(inputSlotCount());
-            }
-        };
-    }
-
-    /** 容器包含动态输入和三个固定编号功能槽。 */
-    @Override
-    public int getContainerSize() {
-        return inputs.length + 3;
-    }
-
-    /** 原版多方块熔炼每槽最多一个物品，漏斗也遵守这一限制。 */
-    @Override
-    public int getMaxStackSize() {
-        return isMeltingBlock() ? 1 : 64;
-    }
-
-    /** 判断设备物品槽是否全部为空。 */
-    @Override
-    public boolean isEmpty() {
-        for (ItemStack stack : inputs) {
-            if (!stack.isEmpty()) return false;
-        }
-        return fuel.isEmpty() && output.isEmpty() && remainder.isEmpty() && proxyItem.isEmpty() && cannonItem.isEmpty();
-    }
-
-    /** 容器协议要求返回实际堆栈，使快速移动和漏斗扣量能写回设备。 */
+    /** 根据菜单槽位读取物品。 */
     @Override
     public ItemStack getItem(int slot) {
         int input = inputIndex(slot);
-        if (input >= 0) return inputs[input];
+        if (input >= 0) {
+            return inputs[input];
+        }
         return switch (slot) {
             case FUEL_SLOT -> fuel;
             case OUTPUT_SLOT -> output;
             case REMAINDER_SLOT -> remainder;
             default -> ItemStack.EMPTY;
         };
+    }
+
+    /** 返回当前设备对原版 Container 暴露的固定槽位总数。 */
+    @Override
+    public int getContainerSize() {
+        return CONTAINER_SIZE;
+    }
+
+    /** 检查设备暴露的全部物品槽是否为空。 */
+    @Override
+    public boolean isEmpty() {
+        for (int slot = 0; slot < getContainerSize(); slot++) {
+            if (!getItem(slot).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** 从菜单物品槽移出指定数量。 */
@@ -2094,11 +2117,11 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     public void setItem(int slot, ItemStack stack) {
         ItemStack copy = stack.copy();
         int input = inputIndex(slot);
-        int stackLimit = input == 0 && isCastingTable() ? 1 : getMaxStackSize(copy);
+        int stackLimit = input == 0 && isCastingTable() ? 1 : copy.getMaxStackSize();
         copy.setCount(Math.min(copy.getCount(), stackLimit));
         if (input >= 0) {
             // 更换或取出物品必须清除旧配方热量，不能把上一件物品的进度移给新物品。
-            if (!ItemStack.isSameItemSameComponents(inputs[input], copy) || inputs[input].getCount() != copy.getCount()) {
+            if (!ItemStack.isSameItemSameTags(inputs[input], copy) || inputs[input].getCount() != copy.getCount()) {
                 setInputProgress(input, 0);
                 inputStatuses[input] = INPUT_STATUS_EMPTY;
                 inputRecipeTimes[input] = 0;
@@ -2153,33 +2176,33 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 写入设备物品、流体和进度。 */
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
         ListTag inputTags = new ListTag();
         for (int index = 0; index < inputs.length; index++) {
             if (!inputs[index].isEmpty()) {
-                // 1.21.1 编码器返回包含组件的新标签，不会原地填充传入的空标签。
-                CompoundTag inputTag = (CompoundTag) inputs[index].save(registries);
+                // Forge 1.20.1 的 ItemStack.save 会返回包含物品数据的新标签。
+                CompoundTag inputTag = (CompoundTag) inputs[index].save(new CompoundTag());
                 inputTag.putInt("Slot", index);
                 inputTags.add(inputTag);
             }
         }
         tag.put("Inputs", inputTags);
         tag.putInt("InputSize", structureInventorySize);
-        if (!output.isEmpty()) tag.put("Output", output.save(registries));
-        if (!remainder.isEmpty()) tag.put("Remainder", remainder.save(registries));
-        if (!fuel.isEmpty()) tag.put("Fuel", fuel.save(registries));
-        if (!proxyItem.isEmpty()) tag.put("ProxyItem", proxyItem.save(registries));
-        if (!cannonItem.isEmpty()) tag.put("CannonItem", cannonItem.save(registries));
-        if (!fluid.isEmpty()) tag.put("Fluid", fluid.save(registries));
+        if (!output.isEmpty()) tag.put("Output", output.save(new CompoundTag()));
+        if (!remainder.isEmpty()) tag.put("Remainder", remainder.save(new CompoundTag()));
+        if (!fuel.isEmpty()) tag.put("Fuel", fuel.save(new CompoundTag()));
+        if (!proxyItem.isEmpty()) tag.put("ProxyItem", proxyItem.save(new CompoundTag()));
+        if (!cannonItem.isEmpty()) tag.put("CannonItem", cannonItem.save(new CompoundTag()));
+        if (!fluid.isEmpty()) tag.put("Fluid", FoundryFluidUtil.toTag(fluid));
         tag.putInt("CastingFluidCapacity", castingFluidCapacity);
         // 多流体单独保存有序列表，不读取或迁移旧控制器的单槽流体。
         if (isStructureController()) {
             ListTag layers = new ListTag();
-            for (FluidStack layer : structureFluids.snapshot()) layers.add(layer.save(registries));
+            for (FluidStack layer : structureFluids.snapshot()) layers.add(FoundryFluidUtil.toTag(layer));
             tag.put("StructureFluids", layers);
         }
-        if (!fuelFluid.isEmpty()) tag.put("FuelFluid", fuelFluid.save(registries));
+        if (!fuelFluid.isEmpty()) tag.put("FuelFluid", FoundryFluidUtil.toTag(fuelFluid));
         tag.putInt("Progress", progress);
         tag.putInt("ProcessTime", processTime);
         tag.putIntArray("InputProgress", inputProgress);
@@ -2204,13 +2227,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         tag.putByte("FaucetState", (byte) faucetState.ordinal());
         tag.putBoolean("FaucetStop", faucetStopPouring);
         tag.putBoolean("FaucetRedstone", faucetRedstone);
-        if (!faucetRenderFluid.isEmpty()) tag.put("FaucetRenderFluid", faucetRenderFluid.save(registries));
+        if (!faucetRenderFluid.isEmpty()) tag.put("FaucetRenderFluid", FoundryFluidUtil.toTag(faucetRenderFluid));
         ListTag alloyInputTags = new ListTag();
         for (int index = 0; index < alloyInputs.length; index++) {
             if (!alloyInputs[index].isEmpty()) {
                 CompoundTag alloyInputTag = new CompoundTag();
                 alloyInputTag.putInt("Slot", index);
-                alloyInputTag.put("Fluid", alloyInputs[index].save(registries));
+                alloyInputTag.put("Fluid", FoundryFluidUtil.toTag(alloyInputs[index]));
                 alloyInputTags.add(alloyInputTag);
             }
         }
@@ -2219,8 +2242,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 读取设备物品、流体和进度。 */
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    public void load(CompoundTag tag) {
+        super.load(tag);
         // 当前格式明确保存槽数；不从旧条目猜测炉体规模或迁移损坏输入。
         if (isStructureController()) resizeStructureInputs(tag.getInt("InputSize"), false);
         // 对比更新前后的输入总数，只在实际变化时输出客户端同步诊断。
@@ -2236,7 +2259,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 int slot = inputTag.getInt("Slot");
                 if (slot >= 0 && slot < inputs.length) {
                     if (inputTag.contains("id", Tag.TAG_STRING)) {
-                        inputs[slot] = ItemStack.parse(registries, inputTag).orElse(ItemStack.EMPTY);
+                        inputs[slot] = ItemStack.of(inputTag);
                     } else if (!invalidInputReported) {
                         // 缺失标识的历史数据无法恢复物品，不猜测或迁移，也不重复刷屏。
                         TinkerFoundry.LOGGER.warn("[inventory-sync] missing item id at pos={} slot={} keys={}", worldPosition, slot, inputTag.getAllKeys());
@@ -2245,19 +2268,19 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 }
             }
         }
-        output = tag.contains("Output", 10) ? ItemStack.parse(registries, tag.getCompound("Output")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
-        remainder = tag.contains("Remainder", 10) ? ItemStack.parse(registries, tag.getCompound("Remainder")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
-        fuel = tag.contains("Fuel", 10) ? ItemStack.parse(registries, tag.getCompound("Fuel")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
+        output = tag.contains("Output", 10) ? ItemStack.of(tag.getCompound("Output")) : ItemStack.EMPTY;
+        remainder = tag.contains("Remainder", 10) ? ItemStack.of(tag.getCompound("Remainder")) : ItemStack.EMPTY;
+        fuel = tag.contains("Fuel", 10) ? ItemStack.of(tag.getCompound("Fuel")) : ItemStack.EMPTY;
         proxyItem = tag.contains("ProxyItem", Tag.TAG_COMPOUND)
-            ? ItemStack.parse(registries, tag.getCompound("ProxyItem")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
+            ? ItemStack.of(tag.getCompound("ProxyItem")) : ItemStack.EMPTY;
         cannonItem = tag.contains("CannonItem", Tag.TAG_COMPOUND)
-            ? ItemStack.parse(registries, tag.getCompound("CannonItem")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
-        fluid = FluidStack.parseOptional(registries, tag.getCompound("Fluid"));
+            ? ItemStack.of(tag.getCompound("CannonItem")) : ItemStack.EMPTY;
+        fluid = tag.contains("Fluid", Tag.TAG_COMPOUND) ? FluidStack.loadFluidStackFromNBT(tag.getCompound("Fluid")) : FluidStack.EMPTY;
         if (isStructureController()) {
             List<FluidStack> layers = new java.util.ArrayList<>();
             ListTag stored = tag.getList("StructureFluids", Tag.TAG_COMPOUND);
             for (int index = 0; index < stored.size(); index++) {
-                layers.add(FluidStack.parseOptional(registries, stored.getCompound(index)));
+                layers.add(FluidStack.loadFluidStackFromNBT(stored.getCompound(index)));
             }
             structureFluids.restore(layers);
             fluid = FluidStack.EMPTY;
@@ -2266,7 +2289,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!isCastingBlock() || fluid.isEmpty()) {
             castingFluidCapacity = 0;
         }
-        fuelFluid = FluidStack.parseOptional(registries, tag.getCompound("FuelFluid"));
+        fuelFluid = tag.contains("FuelFluid", Tag.TAG_COMPOUND) ? FluidStack.loadFluidStackFromNBT(tag.getCompound("FuelFluid")) : FluidStack.EMPTY;
         alloyInputs = emptyFluidInputs();
         if (tag.contains("AlloyInputs", Tag.TAG_LIST)) {
             ListTag alloyInputTags = tag.getList("AlloyInputs", Tag.TAG_COMPOUND);
@@ -2274,7 +2297,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 CompoundTag alloyInputTag = alloyInputTags.getCompound(index);
                 int slot = alloyInputTag.getInt("Slot");
                 if (slot >= 0 && slot < alloyInputs.length) {
-                    alloyInputs[slot] = FluidStack.parseOptional(registries, alloyInputTag.getCompound("Fluid"));
+                    alloyInputs[slot] = alloyInputTag.contains("Fluid", Tag.TAG_COMPOUND) ? FluidStack.loadFluidStackFromNBT(alloyInputTag.getCompound("Fluid")) : FluidStack.EMPTY;
                 }
             }
         }
@@ -2311,7 +2334,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         faucetStopPouring = tag.getBoolean("FaucetStop");
         faucetRedstone = tag.getBoolean("FaucetRedstone");
         faucetRenderFluid = tag.contains("FaucetRenderFluid", Tag.TAG_COMPOUND)
-            ? FluidStack.parseOptional(registries, tag.getCompound("FaucetRenderFluid")) : fluid.copy();
+            ? FluidStack.loadFluidStackFromNBT(tag.getCompound("FaucetRenderFluid")) : fluid.copy();
         lastComparatorStrength = -1;
         // 世界更新包和菜单更新都应保留同一份物品，日志用于复测是否还会被清空。
         int loadedInputCount = java.util.Arrays.stream(inputs).mapToInt(ItemStack::getCount).sum();
@@ -2323,8 +2346,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 为客户端方块实体渲染器提供初始流体状态。 */
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        return saveWithoutMetadata(registries);
+    public CompoundTag getUpdateTag() {
+        return saveWithoutMetadata();
     }
 
     /** 为流体变化提供标准的方块实体同步包。 */
@@ -2518,7 +2541,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (accepted) {
             int amount = Math.min(resource.getAmount(), capacity());
             if (amount > 0) {
-                fluid = resource.copyWithAmount(amount);
+                fluid = FoundryFluidUtil.copy(resource, amount);
             }
         }
         markFluidChanged();
@@ -2545,7 +2568,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             if (stack.is(FoundryTags.PROXY_TANK_BLACKLIST)) return false;
             ItemStack remainder = stack.getCraftingRemainingItem();
             if (!remainder.isEmpty() && remainder.is(FoundryTags.PROXY_TANK_BLACKLIST)) return false;
-            return net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(stack).isPresent();
+            return net.minecraftforge.fluids.FluidUtil.getFluidHandler(stack).isPresent();
         }
         return isFluidCannonBlock();
     }
@@ -2555,7 +2578,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!isSpecialItemValid(stack)) return stack;
         ItemStack stored = getSpecialItem();
         int limit = isProxyTankBlock() ? 1 : 64;
-        if (!stored.isEmpty() && !ItemStack.isSameItemSameComponents(stored, stack)) return stack;
+        if (!stored.isEmpty() && !ItemStack.isSameItemSameTags(stored, stack)) return stack;
         int amount = Math.min(stack.getCount(), limit - stored.getCount());
         if (amount <= 0) return stack;
         if (!simulate) {
@@ -2641,7 +2664,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         private IFluidHandler delegate() {
             return proxyItem.isEmpty()
                 ? null
-                : net.neoforged.neoforge.fluids.FluidUtil.getFluidHandler(proxyItem).orElse(null);
+                : net.minecraftforge.fluids.FluidUtil.getFluidHandler(proxyItem).orElse(null);
         }
 
         /** 代理物品能力的槽数。 */
@@ -2751,10 +2774,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             net.minecraft.world.phys.BlockHitResult directHit = new net.minecraft.world.phys.BlockHitResult(
                 net.minecraft.world.phys.Vec3.atCenterOf(targetPos), direction.getOpposite(), targetPos, false);
             int consumed = org.hp.tinker_foundry.common.FoundryFluidCannonEffects.applyToBlock(
-                serverLevel, directHit, stored.copyWithAmount(amount), cannon.power());
+                serverLevel, directHit, FoundryFluidUtil.copy(stored, amount), cannon.power());
             if (consumed > 0) {
                 drainTank(0, consumed, IFluidHandler.FluidAction.EXECUTE);
-                serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE,
+                serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT,
                     worldPosition, direction.get3DDataValue());
                 TinkerFoundry.LOGGER.debug("[fluid-cannon] direct block effect pos={} target={} fluid={} amount={}",
                     worldPosition, targetPos, stored.getFluid(), consumed);
@@ -2766,14 +2789,14 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (!targetState.isFaceSturdy(serverLevel, targetPos, direction.getOpposite())) {
             org.hp.tinker_foundry.entity.FoundryFluidCannonProjectile projectile =
                 new org.hp.tinker_foundry.entity.FoundryFluidCannonProjectile(
-                    serverLevel, worldPosition, direction, stored.copyWithAmount(amount), cannon.power());
+                    serverLevel, worldPosition, direction, FoundryFluidUtil.copy(stored, amount), cannon.power());
             projectile.shoot(direction.getStepX(), direction.getStepY() + 0.1D, direction.getStepZ(),
                 cannon.velocity(), cannon.inaccuracy());
             serverLevel.addFreshEntity(projectile);
             drainTank(0, amount, IFluidHandler.FluidAction.EXECUTE);
             serverLevel.playSound(null, worldPosition, net.minecraft.sounds.SoundEvents.LLAMA_SPIT,
                 net.minecraft.sounds.SoundSource.BLOCKS, 0.8F, 0.9F + random.nextFloat() * 0.2F);
-            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT_SMOKE,
+            serverLevel.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_SHOOT,
                 worldPosition, direction.get3DDataValue());
             TinkerFoundry.LOGGER.debug("[fluid-cannon] projectile fired pos={} target={} fluid={} amount={} power={} velocity={} inaccuracy={}",
                 worldPosition, targetPos, stored.getFluid(), amount, cannon.power(), cannon.velocity(), cannon.inaccuracy());
@@ -2832,9 +2855,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (outputState.isAir()) {
             return false;
         }
-        IFluidHandler outputHandler = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            outputPos, Direction.UP);
+        IFluidHandler outputHandler = FoundryCapabilityUtil.get(level, outputPos, ForgeCapabilities.FLUID_HANDLER,
+            Direction.UP).resolve().orElse(null);
         if (outputHandler == null) {
             return false;
         }
@@ -2843,7 +2865,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return false;
         }
         // 渲染前模拟一次真实金属粒接收，满罐或拒收流体时不显示虚假的流柱。
-        return outputHandler.fill(displayFluid.copyWithAmount(Math.min(displayFluid.getAmount(), FluidValues.NUGGET)),
+        return outputHandler.fill(FoundryFluidUtil.copy(displayFluid, Math.min(displayFluid.getAmount(), FluidValues.NUGGET)),
             IFluidHandler.FluidAction.SIMULATE) > 0;
     }
 
@@ -3004,15 +3026,17 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 从浇注口背面模拟或执行一份金属锭容量，复刻 Mantle 的连续传输入口。 */
     private boolean startFaucetTransfer(Level level, boolean execute) {
+        // 已有缓冲批次时不能覆盖它，连续浇注必须由 pourFaucet 单独消耗。
+        if (!fluid.isEmpty()) {
+            return false;
+        }
         Direction inputDirection = blockFacing().getOpposite();
         BlockPos inputPos = worldPosition.relative(inputDirection);
-        IFluidHandler input = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            inputPos, inputDirection.getOpposite());
+        IFluidHandler input = FoundryCapabilityUtil.get(level, inputPos, ForgeCapabilities.FLUID_HANDLER,
+            inputDirection.getOpposite()).resolve().orElse(null);
         BlockPos outputPos = worldPosition.below();
-        IFluidHandler outputHandler = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            outputPos, Direction.UP);
+        IFluidHandler outputHandler = FoundryCapabilityUtil.get(level, outputPos, ForgeCapabilities.FLUID_HANDLER,
+            Direction.UP).resolve().orElse(null);
         if (input == null || outputHandler == null) {
             logFaucetTransferBlocked(level, "missing_handler", inputPos, outputPos, 0, 0);
             if (faucetRedstone) {
@@ -3032,7 +3056,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             }
             return false;
         }
-        int accepted = outputHandler.fill(available, FluidAction.SIMULATE);
+        int accepted = Math.min(available.getAmount(), outputHandler.fill(available, FluidAction.SIMULATE));
         if (accepted <= 0) {
             logFaucetTransferBlocked(level, "output_rejected", inputPos, outputPos, available.getAmount(), accepted);
             if (faucetRedstone) {
@@ -3046,7 +3070,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         // 低于一个金属粒时允许小容器接收；否则必须能模拟接收一个完整金属粒。
         if (accepted > FluidValues.NUGGET
-            && outputHandler.fill(available.copyWithAmount(FluidValues.NUGGET), FluidAction.SIMULATE) <= 0) {
+            && outputHandler.fill(FoundryFluidUtil.copy(available, FluidValues.NUGGET), FluidAction.SIMULATE) <= 0) {
             logFaucetTransferBlocked(level, "increment_rejected", inputPos, outputPos, available.getAmount(), accepted);
             if (faucetRedstone) {
                 faucetState = FaucetState.POWERED;
@@ -3088,23 +3112,22 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (fluid.isEmpty()) {
             return true;
         }
-        IFluidHandler outputHandler = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            worldPosition.below(), Direction.UP);
+        IFluidHandler outputHandler = FoundryCapabilityUtil.get(level, worldPosition.below(), ForgeCapabilities.FLUID_HANDLER,
+            Direction.UP).resolve().orElse(null);
         if (outputHandler == null) {
             // 下方没有接收方时保留当前批次，不能因一次右键或拆掉目标而丢失缓冲液体。
             logFaucetOutputWaiting(level, "missing_handler", 0, 0);
             return true;
         }
         int requested = Math.min(fluid.getAmount(), FluidValues.NUGGET);
-        FluidStack candidate = fluid.copyWithAmount(requested);
-        int accepted = outputHandler.fill(candidate, FluidAction.SIMULATE);
+        FluidStack candidate = FoundryFluidUtil.copy(fluid, requested);
+        int accepted = Math.min(requested, outputHandler.fill(candidate, FluidAction.SIMULATE));
         if (accepted <= 0) {
             // 目标能力仍然存在但暂时拒收时保留缓冲，等价 Mantle 的满载等待行为；渲染层会隐藏流柱。
             logFaucetOutputWaiting(level, "target_full_or_rejected", accepted, 0);
             return true;
         }
-        FluidStack moved = fluid.copyWithAmount(accepted);
+        FluidStack moved = FoundryFluidUtil.copy(fluid, accepted);
         int executed = outputHandler.fill(moved, FluidAction.EXECUTE);
         int transferred = Math.min(moved.getAmount(), Math.max(0, executed));
         if (transferred <= 0) {
@@ -3131,7 +3154,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             || channel.fluid.isEmpty()) {
             return false;
         }
-        FluidStack sample = channel.fluid.copyWithAmount(Math.min(channel.fluid.getAmount(), FluidValues.NUGGET));
+        FluidStack sample = FoundryFluidUtil.copy(channel.fluid, Math.min(channel.fluid.getAmount(), FluidValues.NUGGET));
         BlockState state = channel.getBlockState();
         if (state.getValue(FoundryChannelBlock.DOWN) && canFillChannelNeighbor(level, channelPos, Direction.DOWN, sample)) {
             return true;
@@ -3147,9 +3170,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 模拟检查疏导孔指定输出面是否存在仍可接收一个金属粒的邻居。 */
     private boolean canFillChannelNeighbor(Level level, BlockPos channelPos, Direction side, FluidStack sample) {
-        IFluidHandler target = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            channelPos.relative(side), side.getOpposite());
+        IFluidHandler target = FoundryCapabilityUtil.get(level, channelPos.relative(side), ForgeCapabilities.FLUID_HANDLER,
+            side.getOpposite()).resolve().orElse(null);
         return target != null && target.fill(sample, FluidAction.SIMULATE) > 0;
     }
 
@@ -3190,7 +3212,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 continue;
             }
             int requested = Math.min(available.getAmount(), FluidValues.BUCKET);
-            int moved = fill(available.copyWithAmount(requested), FluidAction.SIMULATE);
+            int moved = fill(FoundryFluidUtil.copy(available, requested), FluidAction.SIMULATE);
             if (moved <= 0) {
                 continue;
             }
@@ -3209,9 +3231,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (sourceEntity == this || sourceEntity instanceof FoundryBlockEntity source && source.isFaucet()) {
             return false;
         }
-        IFluidHandler source = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            sourcePos, direction.getOpposite());
+        IFluidHandler source = FoundryCapabilityUtil.get(level, sourcePos, ForgeCapabilities.FLUID_HANDLER,
+            direction.getOpposite()).resolve().orElse(null);
         if (source == null || source.getTanks() <= 0) {
             return false;
         }
@@ -3241,12 +3262,11 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (targetEntity == this) {
             return false;
         }
-        IFluidHandler target = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            targetPos, direction.getOpposite());
+        IFluidHandler target = FoundryCapabilityUtil.get(level, targetPos, ForgeCapabilities.FLUID_HANDLER,
+            direction.getOpposite()).resolve().orElse(null);
         if (target == null) return false;
         int requested = Math.min(fluid.getAmount(), FluidValues.BUCKET);
-        int moved = target.fill(fluid.copyWithAmount(requested), FluidAction.SIMULATE);
+        int moved = target.fill(FoundryFluidUtil.copy(fluid, requested), FluidAction.SIMULATE);
         if (moved <= 0) {
             return false;
         }
@@ -3279,26 +3299,24 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         Direction outputSide = outputDirection();
         Direction inputSide = outputSide.getOpposite();
-        IFluidHandler source = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            worldPosition.relative(inputSide), inputSide.getOpposite());
+        IFluidHandler source = FoundryCapabilityUtil.get(level, worldPosition.relative(inputSide), ForgeCapabilities.FLUID_HANDLER,
+            inputSide.getOpposite()).resolve().orElse(null);
         if (source != null && source.getTanks() > 0) {
             FluidStack available = source.getFluidInTank(0);
             if (!available.isEmpty()) {
-                int moved = fill(available.copyWithAmount(Math.min(available.getAmount(), FluidValues.BUCKET)), FluidAction.SIMULATE);
+                int moved = fill(FoundryFluidUtil.copy(available, Math.min(available.getAmount(), FluidValues.BUCKET)), FluidAction.SIMULATE);
                 if (moved > 0) {
                     FluidStack drained = source.drain(moved, FluidAction.EXECUTE);
                     if (drained.getAmount() == moved) fill(drained, FluidAction.EXECUTE);
                 }
             }
         }
-        IFluidHandler target = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            worldPosition.relative(outputSide), outputSide.getOpposite());
+        IFluidHandler target = FoundryCapabilityUtil.get(level, worldPosition.relative(outputSide), ForgeCapabilities.FLUID_HANDLER,
+            outputSide.getOpposite()).resolve().orElse(null);
         if (target != null) {
             FluidStack available = getFluidInTank(0);
             if (!available.isEmpty()) {
-                int moved = target.fill(available.copyWithAmount(Math.min(available.getAmount(), FluidValues.BUCKET)), FluidAction.SIMULATE);
+                int moved = target.fill(FoundryFluidUtil.copy(available, Math.min(available.getAmount(), FluidValues.BUCKET)), FluidAction.SIMULATE);
                 if (moved > 0) {
                     FluidStack drained = drain(moved, FluidAction.EXECUTE);
                     if (drained.getAmount() == moved) target.fill(drained, FluidAction.EXECUTE);
@@ -3400,15 +3418,14 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             setChannelFlowing(side, false);
             return false;
         }
-        IFluidHandler target = level.getCapability(
-            net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
-            worldPosition.relative(side), side.getOpposite());
+        IFluidHandler target = FoundryCapabilityUtil.get(level, worldPosition.relative(side), ForgeCapabilities.FLUID_HANDLER,
+            side.getOpposite()).resolve().orElse(null);
         if (target == null) {
-            logChannelTransfer(level, side, worldPosition.relative(side), null, fluid.copyWithAmount(usable), 0, "missing_handler");
+            logChannelTransfer(level, side, worldPosition.relative(side), null, FoundryFluidUtil.copy(fluid, usable), 0, "missing_handler");
             setChannelFlowing(side, false);
             return false;
         }
-        FluidStack candidate = fluid.copyWithAmount(usable);
+        FluidStack candidate = FoundryFluidUtil.copy(fluid, usable);
         int accepted = target.fill(candidate, FluidAction.SIMULATE);
         if (accepted <= 0) {
             logChannelTransfer(level, side, worldPosition.relative(side), target, candidate, accepted, "output_rejected");
@@ -3535,7 +3552,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             for (FoundryBlockEntity source : sources) {
                 if (!source.getFluidInTank(0).isEmpty()) return source;
             }
-            return sources.isEmpty() ? null : sources.getFirst();
+            // Java 17 的 List 没有 Java 21 的 getFirst，使用索引读取首个来源位置。
+            return sources.isEmpty() ? null : sources.get(0);
         }
         if (isAlloyer() && level != null) {
             BlockPos below = worldPosition.below();
@@ -3564,7 +3582,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     }
 
     /** 返回合金炉下方燃料来源的物品能力，供专用燃料槽直接代理。 */
-    public net.neoforged.neoforge.items.IItemHandler alloyerFuelItemHandler() {
+    public net.minecraftforge.items.IItemHandler alloyerFuelItemHandler() {
         if (!isAlloyer() || level == null || !level.getBlockState(worldPosition.below()).is(StructureTags.FUEL_TANKS)) {
             return null;
         }
@@ -3573,11 +3591,11 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return null;
         }
         // 与匠魂 SolidFuelModule 一致，不限制加热器能力的方向面。
-        return level.getCapability(Capabilities.ItemHandler.BLOCK, worldPosition.below(), null);
+        return FoundryCapabilityUtil.get(level, worldPosition.below(), ForgeCapabilities.ITEM_HANDLER, null).resolve().orElse(null);
     }
 
     /** 返回单方块熔化炉下方加热器的物品燃料能力，供界面代理固体燃料槽。 */
-    public net.neoforged.neoforge.items.IItemHandler melterFuelItemHandler() {
+    public net.minecraftforge.items.IItemHandler melterFuelItemHandler() {
         if (!isMeltingBlock() || isStructureController() || level == null) {
             return null;
         }
@@ -3589,7 +3607,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
             return null;
         }
         // 与 1.20.1 MelterContainerMenu 一致，不限制加热器物品能力的方向面。
-        return level.getCapability(Capabilities.ItemHandler.BLOCK, below, null);
+        return FoundryCapabilityUtil.get(level, below, ForgeCapabilities.ITEM_HANDLER, null).resolve().orElse(null);
     }
 
     /** 返回结构、加热器或相邻加热器当前应展示的燃料流体。 */
@@ -3602,9 +3620,10 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 int amount = 0;
                 for (FoundryBlockEntity tank : structureFuelSources()) {
                     FluidStack stored = tank.getFluidInTank(0);
-                    if (FluidStack.isSameFluidSameComponents(shown, stored)) amount += stored.getAmount();
+                    // 多个燃料罐合并显示时只比较流体类型和组件，不能把各罐当前数量当成流体身份。
+                    if (FoundryFluidUtil.sameFluid(shown, stored)) amount += stored.getAmount();
                 }
-                return shown.copyWithAmount(amount);
+                return FoundryFluidUtil.copy(shown, amount);
             }
             return source.isHeater() ? source.fuelFluid.copy() : source.getFluidInTank(0);
         }
@@ -3620,7 +3639,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                 int capacity = 0;
                 for (FoundryBlockEntity tank : structureFuelSources()) {
                     FluidStack stored = tank.getFluidInTank(0);
-                    if (stored.isEmpty() || FluidStack.isSameFluidSameComponents(shown, stored)) capacity += tank.getTankCapacity(0);
+                    // 空罐或同类流体罐都可以继续接收燃料，数量差异不应影响容量统计。
+                    if (stored.isEmpty() || FoundryFluidUtil.sameFluid(shown, stored)) capacity += tank.getTankCapacity(0);
                 }
                 return capacity;
             }
@@ -3634,7 +3654,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         FluidStack display = fuelDisplayFluid();
         if (display.isEmpty() || level == null) return 0;
         return level.getRecipeManager().getAllRecipesFor(TFRecipes.FUEL.get()).stream()
-            .filter(holder -> holder.value().matchesFluid(display)).mapToInt(holder -> holder.value().temperature()).findFirst().orElse(0);
+            .filter(holder -> holder.matchesFluid(display)).mapToInt(holder -> holder.temperature()).findFirst().orElse(0);
     }
 
     /** 判断当前设备是否存在可以显示或交互的燃料来源。 */
@@ -3661,11 +3681,12 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         int drained = 0;
         for (FoundryBlockEntity source : structureFuelSources()) {
             FluidStack stored = source.getFluidInTank(0);
-            if (!FluidStack.isSameFluidSameComponents(stored, requested)) continue;
+            // 抽取指定数量的燃料时只比较流体身份；完整栈比较会错误地要求存量等于请求量。
+            if (!FoundryFluidUtil.sameFluid(stored, requested)) continue;
             drained += source.drainTank(0, requested.getAmount() - drained, action).getAmount();
             if (drained >= requested.getAmount()) break;
         }
-        return drained == 0 ? FluidStack.EMPTY : requested.copyWithAmount(drained);
+        return drained == 0 ? FluidStack.EMPTY : FoundryFluidUtil.copy(requested, drained);
     }
 
     /** 向多个罐分配燃料，先补同类非空罐，再使用空罐。 */
@@ -3676,7 +3697,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         for (int pass = 0; pass < 2; pass++) {
             for (FoundryBlockEntity source : sources) {
                 if (source.getFluidInTank(0).isEmpty() != (pass == 1)) continue;
-                filled += source.fill(resource.copyWithAmount(resource.getAmount() - filled), action);
+                filled += source.fill(FoundryFluidUtil.copy(resource, resource.getAmount() - filled), action);
                 if (filled >= resource.getAmount()) return filled;
             }
         }
@@ -3792,13 +3813,51 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
 
     /** 合金输出槽使用独立容量限制。 */
     private int fillOutput(FluidStack resource, FluidAction action) {
-        if (resource.isEmpty() || (!fluid.isEmpty() && !FluidStack.isSameFluidSameComponents(fluid, resource))) return 0;
+        if (resource.isEmpty() || (!fluid.isEmpty() && !FoundryFluidUtil.same(fluid, resource))) return 0;
         int amount = Math.min(resource.getAmount(), ALLOYER_CAPACITY - fluid.getAmount());
         if (amount > 0 && action.execute()) {
-            fluid = fluid.isEmpty() ? resource.copyWithAmount(amount) : fluid.copyWithAmount(fluid.getAmount() + amount);
+            fluid = fluid.isEmpty() ? FoundryFluidUtil.copy(resource, amount) : FoundryFluidUtil.copy(fluid, fluid.getAmount() + amount);
             markFluidChanged();
         }
         return amount;
+    }
+
+    /** Forge 1.20.1 方块实体能力入口，按设备和查询面暴露真实流体/物品能力。 */
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> capability, Direction side) {
+        if (capability == ForgeCapabilities.FLUID_HANDLER) {
+            IFluidHandler handler = null;
+            if (!isFaucetBlock()) {
+                if (getBlockState().is(TFBlocks.SEARED_CHANNEL.get()) || getBlockState().is(TFBlocks.SCORCHED_CHANNEL.get())) {
+                    handler = FoundryChannelFluidHandler.forSide(this, side);
+                } else if (!getBlockState().is(TFBlocks.SEARED_CHUTE.get()) && !getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())) {
+                    if (getBlockState().is(TFBlocks.SEARED_DRAIN.get()) || getBlockState().is(TFBlocks.SCORCHED_DRAIN.get())
+                        || getBlockState().is(TFBlocks.SEARED_DUCT.get()) || getBlockState().is(TFBlocks.SCORCHED_DUCT.get())) {
+                        handler = new FoundryPortFluidHandler(this);
+                    } else if (isAlloyer()) {
+                        handler = alloyerOutputHandler();
+                    } else {
+                        handler = this;
+                    }
+                }
+            }
+            return capabilityOf(handler);
+        }
+        if (capability == ForgeCapabilities.ITEM_HANDLER) {
+            if (isMeltingBlock() || isHeater() || isFuelTankBlock() || isCastingBlock() || isCastingTankBlock()
+                || isProxyTankBlock() || isFluidCannonBlock() || getBlockState().is(TFBlocks.SEARED_CHUTE.get())
+                || getBlockState().is(TFBlocks.SCORCHED_CHUTE.get())) {
+                return capabilityOf(new FoundryItemHandler(this));
+            }
+            return LazyOptional.empty();
+        }
+        return super.getCapability(capability, side);
+    }
+
+    /** 把可空能力包装为 Forge 的延迟能力，避免把 null 传播给外部管道。 */
+    @SuppressWarnings("unchecked")
+    private static <T> LazyOptional<T> capabilityOf(Object value) {
+        return value == null ? LazyOptional.empty() : LazyOptional.of(() -> (T) value);
     }
 
     /** Alloyer 暴露最多五个邻接输入槽和一个输出槽，其余设备暴露一个槽。 */
@@ -3879,13 +3938,13 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (controller != null) return controller.isFluidValid(tank, resource);
         if (resource.isEmpty()) return false;
         if (isStructureController()) return tank >= 0 && tank < getTanks() && !resource.isEmpty();
-        if (isHeater()) return tank == 0 && (fuelFluid.isEmpty() || FluidStack.isSameFluid(fuelFluid, resource));
-        if (isFuelTankBlock()) return tank == 0 && acceptsTankFluid(resource) && (fluid.isEmpty() || FluidStack.isSameFluid(fluid, resource));
+        if (isHeater()) return tank == 0 && (fuelFluid.isEmpty() || FoundryFluidUtil.sameFluid(fuelFluid, resource));
+        if (isFuelTankBlock()) return tank == 0 && acceptsTankFluid(resource) && (fluid.isEmpty() || FoundryFluidUtil.sameFluid(fluid, resource));
         if (resource.isEmpty()) return false;
         if (isAlloyer()) {
             return tank >= 0 && tank < alloyerInputCount() && alloyerInputHandler(tank).isFluidValid(0, resource);
         }
-        return tank == 0 && (fluid.isEmpty() || FluidStack.isSameFluid(fluid, resource));
+        return tank == 0 && (fluid.isEmpty() || FoundryFluidUtil.sameFluid(fluid, resource));
     }
 
     /** 按指定槽位注入流体，供界面交互和合金炉多槽输入使用。 */
@@ -3934,7 +3993,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         int amount = Math.min(resource.getAmount(), tankCapacity - stored.getAmount());
         if (amount > 0 && action.execute()) {
-            FluidStack updated = stored.isEmpty() ? resource.copyWithAmount(amount) : stored.copyWithAmount(stored.getAmount() + amount);
+            FluidStack updated = stored.isEmpty() ? FoundryFluidUtil.copy(resource, amount) : FoundryFluidUtil.copy(stored, stored.getAmount() + amount);
             if (isHeater()) {
                 fuelFluid = updated;
             } else {
@@ -4043,9 +4102,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         int usable = isChannelBlock() ? Math.max(0, stored.getAmount() - channelLocked) : stored.getAmount();
         int amount = Math.min(maxDrain, usable);
-        FluidStack result = stored.copyWithAmount(amount);
+        FluidStack result = FoundryFluidUtil.copy(stored, amount);
         if (action.execute()) {
-            FluidStack updated = stored.copyWithAmount(stored.getAmount() - amount);
+            FluidStack updated = FoundryFluidUtil.copy(stored, stored.getAmount() - amount);
             if (updated.isEmpty()) {
                 updated = FluidStack.EMPTY;
             }
@@ -4075,7 +4134,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         if (controller != null) return controller.drain(resource, action);
         if (isStructureController()) return drainTank(structureFluids.indexOf(resource), resource.getAmount(), action);
         FluidStack stored = getFluidInTank(isAlloyer() ? ALLOY_OUTPUT_TANK : 0);
-        if (resource.isEmpty() || stored.isEmpty() || !FluidStack.isSameFluid(stored, resource)) return FluidStack.EMPTY;
+        if (resource.isEmpty() || stored.isEmpty() || !FoundryFluidUtil.sameFluid(stored, resource)) return FluidStack.EMPTY;
         return drain(resource.getAmount(), action);
     }
 

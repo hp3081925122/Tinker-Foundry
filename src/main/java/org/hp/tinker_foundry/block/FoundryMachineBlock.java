@@ -1,6 +1,5 @@
 package org.hp.tinker_foundry.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -12,9 +11,7 @@ public class FoundryMachineBlock extends FoundryEntityBlock {
     /** 三种独立设备共用的水平朝向属性。 */
     public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
 
-    /** 使用 NeoForge 1.21.1 的方块编解码器创建设备。 */
-    public static final MapCodec<FoundryMachineBlock> CODEC = simpleCodec(FoundryMachineBlock::new);
-
+    /** 使用 Forge 1.20.1 的方块构造器创建设备。 */
     /** 创建带正面朝向的独立设备方块。 */
     public FoundryMachineBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties properties) {
         super(properties);
@@ -34,9 +31,4 @@ public class FoundryMachineBlock extends FoundryEntityBlock {
         builder.add(FACING, ACTIVE);
     }
 
-    /** 返回设备自身的方块编解码器。 */
-    @Override
-    protected MapCodec<? extends net.minecraft.world.level.block.BaseEntityBlock> codec() {
-        return CODEC;
-    }
-}
+    /** 返回设备自身的方块编解码器。 */}

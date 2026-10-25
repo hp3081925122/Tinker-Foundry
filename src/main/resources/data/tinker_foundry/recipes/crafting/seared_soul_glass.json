@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "BGB",
+    " B "
+  ],
+  "key": {
+    "B": {
+      "item": "tinker_foundry:seared_brick"
+    },
+    "G": {
+      "item": "minecraft:soul_sand"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:seared_soul_glass"
+  }
+}

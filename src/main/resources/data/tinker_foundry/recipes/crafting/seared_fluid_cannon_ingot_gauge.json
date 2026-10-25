@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " R ",
+    "CTC",
+    "CCC"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "T": {
+      "item": "tinker_foundry:seared_ingot_gauge"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "tinker_foundry:seared_fluid_cannon"
+  }
+}

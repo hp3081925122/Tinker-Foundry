@@ -1,0 +1,12 @@
+{
+  "type": "tinker_foundry:entity_melting",
+  "entity_tag": "tinker_foundry:melting/shulkers",
+  "result": {
+    "id": "tinker_foundry:potion",
+    "amount": 25,
+    "tag": {
+      "Potion": "minecraft:leaping"
+    }
+  },
+  "damage": 3
+}
