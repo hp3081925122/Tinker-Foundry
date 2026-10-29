@@ -191,6 +191,8 @@ public final class TinkerFoundry {
         TFRecipes.MELTING.getId();
         org.hp.tinker_foundry.registry.TFMenus.FOUNDRY.getId();
         modEventBus.addListener(this::registerCapabilities);
+        modEventBus.addListener(org.hp.tinker_foundry.gametest.FoundryGameTests::registerFunctions);
+        modEventBus.addListener(org.hp.tinker_foundry.gametest.FoundryGameTests::registerTests);
         // 客户端状态载荷只注册到当前模组协议，不改变原版容器包流程。
         modEventBus.addListener(FoundryNetworking::register);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
