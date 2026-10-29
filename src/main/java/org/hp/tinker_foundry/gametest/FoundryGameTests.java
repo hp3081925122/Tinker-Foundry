@@ -20,6 +20,7 @@ import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.event.RegisterGameTestsEvent;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.block.FoundryControllerBlock;
@@ -42,6 +43,9 @@ import org.hp.tinker_foundry.registry.TFRecipes;
 @GameTestHolder(TinkerFoundry.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class FoundryGameTests {
+    public static void register(RegisterGameTestsEvent event) {
+        event.register(FoundryGameTests.class);
+    }
     // 统一通过 1.20.1 Forge 的基础方块实体返回值完成类型校验。
     private static FoundryBlockEntity getFoundryBlockEntity(GameTestHelper helper, BlockPos pos) {
         net.minecraft.world.level.block.entity.BlockEntity blockEntity = helper.getBlockEntity(pos);
@@ -153,7 +157,7 @@ public final class FoundryGameTests {
         JsonElement encoded = JsonParser.parseString("""
             {
               "ingredient": {"item": "minecraft:iron_ingot"},
-              "result": {"id": "tinker_foundry:molten/cobalt", "amount": 144},
+              "result": {"id": "tinker_foundry:molten/cobalt", "amount": 90},
               "temperature": 1000,
               "time": 60
             }

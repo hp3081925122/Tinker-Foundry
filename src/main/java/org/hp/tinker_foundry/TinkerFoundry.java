@@ -198,6 +198,8 @@ public final class TinkerFoundry {
         org.hp.tinker_foundry.registry.TFMenus.FOUNDRY.getId();
         // 客户端状态载荷只注册到当前模组协议，不改变原版容器包流程。
         FoundryNetworking.register();
+        modEventBus.addListener(org.hp.tinker_foundry.gametest.FoundryGameTests::register);
+        net.minecraft.gametest.framework.GameTestRegistry.register(org.hp.tinker_foundry.gametest.FoundryGameTests.class);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         MinecraftForge.EVENT_BUS.register(FoundryWorldEvents.class);
         MinecraftForge.EVENT_BUS.register(org.hp.tinker_foundry.recipe.AutomaticMeltingRecipes.class);
