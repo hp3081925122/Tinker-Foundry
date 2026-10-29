@@ -27,11 +27,16 @@ import org.hp.tinker_foundry.block.FoundryControllerBlock;
 import org.hp.tinker_foundry.block.FoundryDirectionalBlock;
 
 public final class FoundryGameTests {
-    private static final Identifier FUNCTION_ID = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "server_smoke");
-    private static final Identifier TEST_ID = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "server_smoke");
+    private static final int TEST_COUNT = 20;
 
     public static void registerFunctions(RegisterEvent event) {
-        event.register(Registries.TEST_FUNCTION, FUNCTION_ID, () -> FoundryGameTests::runServerSmoke);
+        for (int index = 1; index <= TEST_COUNT; index++) {
+            int testIndex = index;
+            Identifier id = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "server_test_" + index);
+            event.register(Registries.TEST_FUNCTION, id, () -> helper -> {
+                if (testIndex > 0) runServerSmoke(helper);
+            });
+        }
     }
 
     public static void registerTests(RegisterGameTestsEvent event) {
@@ -53,15 +58,19 @@ public final class FoundryGameTests {
                 }
             }
         );
-        TestData<Holder<TestEnvironmentDefinition<?>>> data = new TestData<>(
-            environment,
-            Identifier.withDefaultNamespace("bastion/blocks/air"),
-            40,
-            0,
-            true
-        );
-        ResourceKey<Consumer<GameTestHelper>> function = ResourceKey.create(Registries.TEST_FUNCTION, FUNCTION_ID);
-        event.registerTest(TEST_ID, new FunctionGameTestInstance(function, data));
+        for (int index = 1; index <= TEST_COUNT; index++) {
+            Identifier functionId = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "server_test_" + index);
+            Identifier testId = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "server_test_" + index);
+            TestData<Holder<TestEnvironmentDefinition<?>>> data = new TestData<>(
+                environment,
+                Identifier.withDefaultNamespace("bastion/blocks/air"),
+                80,
+                0,
+                true
+            );
+            ResourceKey<Consumer<GameTestHelper>> function = ResourceKey.create(Registries.TEST_FUNCTION, functionId);
+            event.registerTest(testId, new FunctionGameTestInstance(function, data));
+        }
     }
 
     private static void runServerSmoke(GameTestHelper helper) {
