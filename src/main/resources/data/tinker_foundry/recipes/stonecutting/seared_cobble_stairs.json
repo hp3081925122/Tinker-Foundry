@@ -4,7 +4,5 @@
   "ingredient": {
     "item": "tinker_foundry:seared_cobble"
   },
-  "result": {
-    "item": "tinker_foundry:seared_cobble_stairs"
-  }
+  "result": "tinker_foundry:seared_cobble_stairs"
 }

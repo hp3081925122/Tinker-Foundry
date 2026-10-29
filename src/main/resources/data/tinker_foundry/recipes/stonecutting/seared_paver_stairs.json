@@ -4,7 +4,5 @@
   "ingredient": {
     "item": "tinker_foundry:seared_paver"
   },
-  "result": {
-    "item": "tinker_foundry:seared_paver_stairs"
-  }
+  "result": "tinker_foundry:seared_paver_stairs"
 }

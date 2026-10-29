@@ -4,7 +4,5 @@
   "ingredient": {
     "item": "tinker_foundry:seared_bricks"
   },
-  "result": {
-    "item": "tinker_foundry:seared_bricks_slab"
-  }
+  "result": "tinker_foundry:seared_bricks_slab"
 }
