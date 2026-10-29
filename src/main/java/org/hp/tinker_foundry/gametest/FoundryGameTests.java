@@ -13,6 +13,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.Direction;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
@@ -22,6 +23,8 @@ import org.hp.tinker_foundry.block.entity.FoundryBlockEntity;
 import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.registry.TFBlocks;
 import org.hp.tinker_foundry.registry.TFFluids;
+import org.hp.tinker_foundry.block.FoundryControllerBlock;
+import org.hp.tinker_foundry.block.FoundryDirectionalBlock;
 
 public final class FoundryGameTests {
     private static final Identifier FUNCTION_ID = Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "server_smoke");
@@ -73,7 +76,43 @@ public final class FoundryGameTests {
         helper.assertTrue(entity.fill(new FluidStack(TFFluids.EXTRA_SOURCES.get("liquid_soul").get(), 1), FluidAction.SIMULATE) == 0, "different fluid was accepted");
         helper.setBlock(new net.minecraft.core.BlockPos(2, 0, 0), Blocks.STONE);
         helper.assertBlockPresent(Blocks.STONE, new net.minecraft.core.BlockPos(2, 0, 0));
-        helper.succeed();
+        for (int y = 0; y <= 3; y++) {
+            for (int x = 5; x <= 8; x++) {
+                for (int z = 0; z <= 3; z++) {
+                    boolean casing = x == 5 || x == 8 || z == 0 || z == 3 || y == 0;
+                    helper.setBlock(new net.minecraft.core.BlockPos(x, y, z), casing ? TFBlocks.SEARED_BRICKS.get() : Blocks.AIR);
+                }
+            }
+        }
+        net.minecraft.core.BlockPos controllerPos = new net.minecraft.core.BlockPos(6, 1, 0);
+        helper.setBlock(controllerPos, TFBlocks.SMELTERY_CONTROLLER.get().defaultBlockState().setValue(FoundryControllerBlock.FACING, Direction.NORTH));
+        helper.setBlock(new net.minecraft.core.BlockPos(5, 1, 1), TFBlocks.SEARED_FUEL_TANK.get());
+        helper.setBlock(new net.minecraft.core.BlockPos(5, 1, 2), TFBlocks.SEARED_FUEL_TANK.get());
+        FoundryBlockEntity controller = helper.getBlockEntity(controllerPos, FoundryBlockEntity.class);
+        controller.refreshStructureIfDirty();
+        helper.assertTrue(controller.isStructureValid(), "smeltery structure was rejected");
+        helper.assertTrue(controller.inputSlotCount() > 0, "smeltery input slots were not resized");
+        FoundryBlockEntity fuelA = helper.getBlockEntity(new net.minecraft.core.BlockPos(5, 1, 1), FoundryBlockEntity.class);
+        FoundryBlockEntity fuelB = helper.getBlockEntity(new net.minecraft.core.BlockPos(5, 1, 2), FoundryBlockEntity.class);
+        fuelA.fill(new FluidStack(net.minecraft.world.level.material.Fluids.LAVA, 500), FluidAction.EXECUTE);
+        fuelB.fill(new FluidStack(net.minecraft.world.level.material.Fluids.LAVA, 500), FluidAction.EXECUTE);
+        helper.assertValueEqual(controller.fuelDisplayFluid().getAmount(), 1000, "fuel tanks were not aggregated");
+        net.minecraft.core.BlockPos sourcePos = new net.minecraft.core.BlockPos(11, 0, 0);
+        net.minecraft.core.BlockPos faucetPos = new net.minecraft.core.BlockPos(12, 0, 0);
+        net.minecraft.core.BlockPos outputPos = new net.minecraft.core.BlockPos(12, -1, 0);
+        helper.setBlock(sourcePos, TFBlocks.SEARED_MELTER.get());
+        helper.setBlock(faucetPos, TFBlocks.SEARED_FAUCET.get().defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
+        helper.setBlock(outputPos, TFBlocks.SEARED_INGOT_TANK.get());
+        FoundryBlockEntity source = helper.getBlockEntity(sourcePos, FoundryBlockEntity.class);
+        FoundryBlockEntity faucet = helper.getBlockEntity(faucetPos, FoundryBlockEntity.class);
+        FoundryBlockEntity output = helper.getBlockEntity(outputPos, FoundryBlockEntity.class);
+        source.fill(new FluidStack(TFFluids.metal("cobalt"), FluidValues.BUCKET), FluidAction.EXECUTE);
+        faucet.activateFaucet();
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(source.getFluidInTank(0).getAmount() < FluidValues.BUCKET, "faucet did not drain source");
+            helper.assertTrue(!output.getFluidInTank(0).isEmpty(), "faucet output tank stayed empty");
+            helper.succeed();
+        });
     }
 
     private FoundryGameTests() {
