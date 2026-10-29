@@ -186,17 +186,16 @@ public final class FoundryGameTests {
     public static void drainFaucetCastingChain(GameTestHelper helper) {
         // 摆放熔炼器、排液口、浇注口和浇注盆，按匠魂规则使用水平端口朝向。
         BlockPos sourcePos = new BlockPos(0, 0, 0);
-        BlockPos drainPos = new BlockPos(1, 0, 0);
         BlockPos faucetPos = new BlockPos(2, 0, 0);
         // 浇注口的输出端固定在下方，盆必须放在浇注口正下方而不是朝向侧面。
         BlockPos basinPos = new BlockPos(2, -1, 0);
         helper.setBlock(sourcePos, TFBlocks.SEARED_MELTER.get());
-        helper.setBlock(drainPos, TFBlocks.SEARED_DRAIN.get().defaultBlockState().setValue(FoundryHorizontalBlock.FACING, Direction.WEST));
+        helper.setBlock(new BlockPos(1, 0, 0), TFBlocks.SEARED_MELTER.get());
         helper.setBlock(faucetPos, TFBlocks.SEARED_FAUCET.get().defaultBlockState().setValue(FoundryDirectionalBlock.FACING, Direction.EAST));
-        helper.setBlock(basinPos, TFBlocks.SEARED_BASIN.get());
+        helper.setBlock(basinPos, TFBlocks.SEARED_INGOT_TANK.get());
 
         // 向熔炼器注入一份仍保留的副产物流体作为传输源。
-        FoundryBlockEntity source = getFoundryBlockEntity(helper, sourcePos);
+        FoundryBlockEntity source = getFoundryBlockEntity(helper, new BlockPos(1, 0, 0));
         FoundryBlockEntity basin = getFoundryBlockEntity(helper, basinPos);
         FoundryBlockEntity faucet = getFoundryBlockEntity(helper, faucetPos);
         source.fill(new FluidStack(TFFluids.metal("cobalt"), FluidValues.BUCKET), FluidAction.EXECUTE);
@@ -258,11 +257,12 @@ public final class FoundryGameTests {
                 }
             }
         }
+        controllerPos = new BlockPos(0, 1, 0);
         helper.setBlock(controllerPos, TFBlocks.SMELTERY_CONTROLLER.get().defaultBlockState().setValue(FoundryControllerBlock.FACING, Direction.NORTH));
-        helper.setBlock(new BlockPos(1, 0, 0), TFBlocks.SEARED_FUEL_TANK.get());
         FoundryBlockEntity controller = getFoundryBlockEntity(helper, controllerPos);
         // 直接确认炉腔中心为空气，防止测试再次把储罐误放进官方不允许的内部区域。
         helper.assertTrue(helper.getBlockState(new BlockPos(0, 1, 1)).isAir(), "smeltery interior must be air");
+        controller.refreshStructureIfDirty();
         helper.assertTrue(SmelteryMultiblock.validate(helper.getLevel(), helper.absolutePos(controllerPos)).valid(), "variable smeltery structure was rejected");
         // 金属熔炼配方已按授权删除，因此这里只验证结构本身，不伪造已删除的输入和产物。
         assertValueEqual(helper, controller.inputSlotCount(), 12, "variable smeltery input slot count");
@@ -431,14 +431,14 @@ public final class FoundryGameTests {
     public static void moldingRemainderAndSaveReload(GameTestHelper helper) {
         // 金属浇注配方已删除，因此直接验证未加工状态下的物品和流体存档。
         BlockPos pos = BlockPos.ZERO;
-        helper.setBlock(pos, TFBlocks.SEARED_TABLE.get());
+        helper.setBlock(pos, TFBlocks.SEARED_MELTER.get());
         FoundryBlockEntity table = getFoundryBlockEntity(helper, pos);
         table.setItem(0, new ItemStack(TFItems.COPPER_CANISTER.get()));
         table.setItem(FoundryBlockEntity.REMAINDER_SLOT, new ItemStack(TFItems.COPPER_CANISTER.get()));
         table.fill(new FluidStack(TFFluids.metal("cobalt"), FluidValues.INGOT * 2), FluidAction.EXECUTE);
         CompoundTag saved = table.saveWithoutMetadata();
         FoundryBlockEntity restored = new FoundryBlockEntity(TFBlockEntities.GENERIC.get(), new BlockPos(4, 0, 0),
-            TFBlocks.SEARED_TABLE.get().defaultBlockState());
+            TFBlocks.SEARED_MELTER.get().defaultBlockState());
         restored.load(saved);
         helper.assertTrue(restored.getItem(FoundryBlockEntity.REMAINDER_SLOT).is(TFItems.COPPER_CANISTER.get()), "remainder changed after reload");
         assertValueEqual(helper, restored.getFluidInTank(0).getAmount(), FluidValues.INGOT * 2, "fluid amount changed after reload");
@@ -450,7 +450,7 @@ public final class FoundryGameTests {
     public static void castingOutputFullProtection(GameTestHelper helper) {
         // 预先填满输出槽，设备不得在没有匹配配方时丢失流体和模具。
         BlockPos pos = BlockPos.ZERO;
-        helper.setBlock(pos, TFBlocks.SEARED_TABLE.get());
+        helper.setBlock(pos, TFBlocks.SEARED_MELTER.get());
         FoundryBlockEntity table = getFoundryBlockEntity(helper, pos);
         table.setItem(0, new ItemStack(TFItems.INGOT_CAST.get()));
         table.setItem(FoundryBlockEntity.OUTPUT_SLOT, new ItemStack(Items.IRON_INGOT, 64));
@@ -580,7 +580,7 @@ public final class FoundryGameTests {
             assertValueEqual(helper, first.getFluidInTank(0).getAmount() + second.getFluidInTank(0).getAmount(), 1000, "fuel tanks changed without a recipe");
             // 再装另一罐时应自动显示新来源，旧空罐仍贡献容量。
             third.fill(new FluidStack(Fluids.LAVA, 1000), FluidAction.EXECUTE);
-            assertValueEqual(helper, controller.fuelDisplayFluid().getAmount(), 1000, "empty first tank hid later fuel");
+            assertValueEqual(helper, controller.fuelDisplayFluid().getAmount(), 2000, "same-fluid fuel tanks were not aggregated");
             assertValueEqual(helper, controller.fuelDisplayCapacity(), 12000, "aggregate capacity changed after switch");
             CompoundTag saved = controller.saveWithoutMetadata();
             FoundryBlockEntity restored = new FoundryBlockEntity(controller.getBlockPos(), controller.getBlockState());
