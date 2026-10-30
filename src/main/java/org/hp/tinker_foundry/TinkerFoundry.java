@@ -189,6 +189,8 @@ public final class TinkerFoundry {
         TFEntities.FLUID_CANNON_PROJECTILE.getId();
         TFRecipes.MELTING.getId();
         org.hp.tinker_foundry.registry.TFMenus.FOUNDRY.getId();
+        // 注册通用配置文件
+        modContainer.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, org.hp.tinker_foundry.common.FoundryConfig.SPEC);
         modEventBus.addListener(this::registerCapabilities);
         // 客户端状态载荷只注册到当前模组协议，不改变原版容器包流程。
         modEventBus.addListener(FoundryNetworking::register);
