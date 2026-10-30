@@ -10,6 +10,8 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.neoforge.client.model.DynamicFluidContainerModel;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.registry.TFMenus;
@@ -46,7 +48,13 @@ public final class FoundryClientEvents {
     /** 为所有熔融流体注册独立颜色和本模组命名空间的流体动画纹理。 */
     @SubscribeEvent
     public static void registerFluidExtensions(RegisterClientExtensionsEvent event) {
-        TFFluids.EXTRA_TYPES.forEach((name, type) -> event.registerFluidType(new MoltenFluidExtensions(TFFluids.EXTRA_COLORS.get(name)), type.get()));
+        TFFluids.EXTRA_TYPES.forEach((name, type) -> event.registerFluidType(new MoltenFluidExtensions(name, TFFluids.EXTRA_COLORS.get(name)), type.get()));
+    }
+
+    /** 资源重载后清空自动流体取色缓存，按新材质重新取色。 */
+    @SubscribeEvent
+    public static void registerReloadListeners(RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener((ResourceManagerReloadListener) resourceManager -> AutomaticFluidColors.clear());
     }
 
     /** 注册动态流体容器的流体色，保证创造栏和手持容器显示真实熔融颜色。 */
@@ -60,7 +68,7 @@ public final class FoundryClientEvents {
     }
 
     /** 保存一种熔融流体的颜色并提供原版流体动画资源。 */
-    private record MoltenFluidExtensions(int tintColor) implements IClientFluidTypeExtensions {
+    private record MoltenFluidExtensions(String name, int tintColor) implements IClientFluidTypeExtensions {
         /** 返回本模组自己的静止熔融纹理。 */
         @Override
         public ResourceLocation getStillTexture() {
@@ -73,10 +81,10 @@ public final class FoundryClientEvents {
             return ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "block/fluid/molten_flow");
         }
 
-        /** 返回流体颜色。 */
+        /** 返回流体颜色；自动流体没有显式颜色时按代表物品材质取色。 */
         @Override
         public int getTintColor() {
-            return tintColor;
+            return AutomaticFluidColors.tint(name, tintColor);
         }
     }
 
