@@ -54,7 +54,7 @@ When every ingredient of a shaped, shapeless or stonecutting recipe can be melte
 
 ### Fluid names
 
-Chinese and English names are built in for about 200 metals, alloys and gems: common ores and alloys (tin, lead, silver, nickel, zinc, aluminum, uranium, osmium, bronze, brass, electrum, invar, steel and more) plus materials from popular tech and adventure mods such as Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems. For other materials, run the client command `/tinker_foundry_client export_lang`: it derives names from the matching ingot/nugget/block translations and writes the missing `en_us` / `zh_cn` entries to `.minecraft/tinker_foundry/lang_export/<lang>.json.export`. Remove the `.export` suffix and drop the file into a resource pack's `assets/tinker_foundry/lang/`.
+Chinese and English names are built in for about 200 metals, alloys and gems: common ores and alloys (tin, lead, silver, nickel, zinc, aluminum, uranium, osmium, bronze, brass, electrum, invar, steel and more) plus materials from popular tech and adventure mods such as Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems. Missing names fall back to the templates above. To ship fixed names, run the client command `/tinker_foundry_client export_lang`: it derives names with the same rules and writes the missing `en_us`, `zh_cn` and currently selected language entries to `.minecraft/tinker_foundry/lang_export/<lang>.json.export`. Remove the `.export` suffix and drop the file into a resource pack's `assets/tinker_foundry/lang/`.
 
 ### Register fluids with JSON
 
@@ -79,7 +79,7 @@ Do not put names in the definition. Add translations to a resource pack's `asset
 }
 ```
 
-Configured materials do not generate default translations, so custom lang entries remain effective. Files are sorted by relative path; the first valid definition for a material wins. Invalid files are logged and skipped. The first startup creates an inactive `example.json.disabled` and instructions. Match the configuration on both sides and restart after editing.
+Lang entries always win. When a fluid or bucket has no entry, its name is built from the current-language name of the material's ingot/nugget/block using the templates `tinker_foundry.automatic.fluid` (`Molten %s`), `tinker_foundry.automatic.bucket` (`%s Bucket`, %s is the fluid name) and the form list `tinker_foundry.automatic.item_forms` (`%s Ingot|%s Nugget|...|Raw %s`); add these three keys to support any other language. Files are sorted by relative path; the first valid definition for a material wins. Invalid files are logged and skipped. The first startup creates an inactive `example.json.disabled` and instructions. Match the configuration on both sides and restart after editing.
 
 ## 自动熔融流体与自动熔炼
 
@@ -103,7 +103,7 @@ Configured materials do not generate default translations, so custom lang entrie
 
 ### 流体名称
 
-内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料可在游戏内执行客户端指令 `/tinker_foundry_client export_lang`，按对应锭、粒、块的译名推导名称，把 `en_us`、`zh_cn` 中缺失的条目写入 `.minecraft/tinker_foundry/lang_export/<语言>.json.export`，去掉 `.export` 后缀放进资源包 `assets/tinker_foundry/lang/` 即可使用。
+内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料缺少翻译时按上述模板自动显示；需要固定译名时，可在游戏内执行客户端指令 `/tinker_foundry_client export_lang`，按相同规则推导名称，把 `en_us`、`zh_cn` 和当前所选语言中缺失的条目写入 `.minecraft/tinker_foundry/lang_export/<语言>.json.export`，去掉 `.export` 后缀放进资源包 `assets/tinker_foundry/lang/` 即可使用。
 
 ### JSON 注册流体
 
@@ -118,6 +118,6 @@ Configured materials do not generate default translations, so custom lang entrie
 }
 ```
 
-配置材料不自动生成翻译。文件按相对路径排序，同材料第一份有效配置生效；坏文件跳过并记录日志。首次创建目录会生成默认不生效的 `example.json.disabled` 和说明。双端配置需一致，修改后完全重启。
+lang 条目始终优先；流体或桶缺少 lang 时，按材料对应锭、粒、块在当前语言下的译名，套用 `tinker_foundry.automatic.fluid`（`熔融%s`）、`tinker_foundry.automatic.bucket`（`%s桶`，%s 为流体名）和形态词列表 `tinker_foundry.automatic.item_forms`（`%s锭|%s粒|%s块|粗%s`）自动显示，其他语言补这三个键即可。文件按相对路径排序，同材料第一份有效配置生效；坏文件跳过并记录日志。首次创建目录会生成默认不生效的 `example.json.disabled` 和说明。双端配置需一致，修改后完全重启。
 
 [Wiki / 使用文档](https://github.com/hp3081925122/Tinker-Foundry/wiki) · [Source / 源码](https://github.com/hp3081925122/Tinker-Foundry)

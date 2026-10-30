@@ -701,5 +701,8 @@
   "fluid_type.tinker_foundry.molten.sulfur": "熔融硫",
   "item.tinker_foundry.molten.sulfur_bucket": "熔融硫桶",
   "fluid_type.tinker_foundry.molten.coal_coke": "熔融焦煤",
-  "item.tinker_foundry.molten.coal_coke_bucket": "熔融焦煤桶"
+  "item.tinker_foundry.molten.coal_coke_bucket": "熔融焦煤桶",
+  "tinker_foundry.automatic.fluid": "熔融%s",
+  "tinker_foundry.automatic.bucket": "%s桶",
+  "tinker_foundry.automatic.item_forms": "%s锭|%s粒|%s块|%s粉|%s碎片|%s晶体|粗%s"
 }

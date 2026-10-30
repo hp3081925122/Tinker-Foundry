@@ -123,6 +123,17 @@ public final class TFFluids {
             .temperature(temperature)
             .lightLevel(lightLevel)
             .canConvertToSource(false)) {
+                /** 自动材料流体缺少 lang 时按对应物品译名回退显示。 */
+                @Override
+                public net.minecraft.network.chat.Component getDescription() {
+                    return name.startsWith("molten/") ? org.hp.tinker_foundry.common.AutomaticFluidNames.fluid(name.substring(7), getDescriptionId()) : super.getDescription();
+                }
+
+                @Override
+                public net.minecraft.network.chat.Component getDescription(net.minecraftforge.fluids.FluidStack stack) {
+                    return name.startsWith("molten/") ? getDescription() : super.getDescription(stack);
+                }
+
                 /** 在 Forge 1.20.1 的 FluidType 初始化入口提供客户端颜色和纹理。 */
                 @Override
                 public void initializeClient(Consumer<IClientFluidTypeExtensions> consumer) {
