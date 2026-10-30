@@ -12,18 +12,18 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
+import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
 import org.hp.tinker_foundry.common.FoundryConfig;
 
-/** 按合成台配方折算熔炼配方：材料全部可熔炼时，产物按材料总量除以产物数量向下取整熔炼。 */
+/** 按合成台与切石机配方折算熔炼配方：材料全部可熔炼时，产物按材料总量除以产物数量向下取整熔炼。 */
 final class CraftingMeltingRecipes {
     /** 多轮推导上限，允许由已推导物品继续合成的物品获得熔炼配方。 */
     private static final int MAX_PASSES = 4;
@@ -54,14 +54,14 @@ final class CraftingMeltingRecipes {
         // 配置中可忽略的材料（默认木棍）不计入熔炼量
         Set<Item> ignored = FoundryConfig.craftingIgnoredItems();
         List<RecipeHolder<?>> crafting = recipes.stream()
-            .filter(holder -> holder.value() instanceof ShapedRecipe || holder.value() instanceof ShapelessRecipe)
+            .filter(holder -> holder.value() instanceof ShapedRecipe || holder.value() instanceof ShapelessRecipe || holder.value() instanceof StonecutterRecipe)
             .sorted(Comparator.comparing(holder -> holder.id().toString())).toList();
         int count = 0;
         for (int pass = 0; pass < MAX_PASSES; pass++) {
-            // 同一产物有多个合成配方时取熔出总量最少的，避免借便宜配方刷流体
+            // 同一产物有多个合成或切石配方时取熔出总量最少的，避免借切石机等高产路线刷流体
             Map<Item, Candidate> best = new IdentityHashMap<>();
             for (RecipeHolder<?> holder : crafting) {
-                Candidate candidate = candidate(server, (CraftingRecipe) holder.value(), melts, ignored);
+                Candidate candidate = candidate(server, holder.value(), melts, ignored);
                 if (candidate == null || melted.contains(candidate.item()) || excluded.contains(candidate.item())) continue;
                 Candidate old = best.get(candidate.item());
                 if (old == null || candidate.total() < old.total()) best.put(candidate.item(), candidate);
@@ -86,7 +86,7 @@ final class CraftingMeltingRecipes {
     }
 
     /** 折算一个合成配方；任一材料不可熔炼、带返还物品或产物带组件时返回 null。 */
-    private static Candidate candidate(MinecraftServer server, CraftingRecipe recipe, Map<Item, Melt> melts, Set<Item> ignored) {
+    private static Candidate candidate(MinecraftServer server, Recipe<?> recipe, Map<Item, Melt> melts, Set<Item> ignored) {
         if (recipe.isSpecial()) return null;
         ItemStack result = recipe.getResultItem(server.registryAccess());
         if (result.isEmpty() || !result.getComponentsPatch().isEmpty()) return null;
