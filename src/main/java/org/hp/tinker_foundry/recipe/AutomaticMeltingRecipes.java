@@ -9,6 +9,7 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -28,7 +29,9 @@ import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.hp.tinker_foundry.TinkerFoundry;
+import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.common.AutomaticMeltingRules;
 import org.hp.tinker_foundry.common.AutomaticMeltingRules.Form;
 
@@ -144,10 +147,56 @@ public final class AutomaticMeltingRecipes {
             recipes.add(new RecipeHolder<>(id, recipe));
             generated.add(recipe);
         }
+        int melting = generated.size();
+        // 已有浇注配方产出的材料形态不再自动生成，避免和数据包配方重复
+        Set<String> castOutputs = new HashSet<>();
+        for (RecipeHolder<?> holder : recipes) {
+            if (!(holder.value() instanceof CastingRecipe casting)) continue;
+            Form form = forms.get(casting.result().getItem());
+            if (form != null) castOutputs.add(form.material() + "/" + form.kind());
+        }
+        List<String> sortedMaterials = materials.stream().sorted().toList();
+        for (String material : sortedMaterials) {
+            if (ambiguous.contains(material)) continue;
+            Metal metal = metals.get(material);
+            if (metal == null) continue;
+            // 锭用锭模、宝石用宝石模在浇注台产出，块在浇注盆直接产出
+            addCasting(recipes, generated, ids, castOutputs, forms, excluded, items, material, metal,
+                AutomaticMeltingRules.Kind.INGOT, Optional.of(Ingredient.of(TFItems.INGOT_CAST.get())), 60);
+            addCasting(recipes, generated, ids, castOutputs, forms, excluded, items, material, metal,
+                AutomaticMeltingRules.Kind.GEM, Optional.of(Ingredient.of(TFItems.GEM_CAST.get())), 60);
+            addCasting(recipes, generated, ids, castOutputs, forms, excluded, items, material, metal,
+                AutomaticMeltingRules.Kind.BLOCK, Optional.empty(), 180);
+        }
         manager.replaceRecipes(recipes);
         GENERATED.put(server, generated);
-        TinkerFoundry.LOGGER.info("Automatic melting recipes: generated={}, existingInputs={}, ambiguousMaterials={}",
-            generated.size(), covered.size(), ambiguous.size());
+        TinkerFoundry.LOGGER.info("Automatic melting recipes: generated={}, casting={}, existingInputs={}, ambiguousMaterials={}",
+            melting, generated.size() - melting, covered.size(), ambiguous.size());
+    }
+
+    private static void addCasting(List<RecipeHolder<?>> recipes, Set<Object> generated, Set<ResourceLocation> ids, Set<String> castOutputs,
+                                   Map<Item, Form> forms, Set<Item> excluded, List<Item> items, String material, Metal metal,
+                                   AutomaticMeltingRules.Kind kind, Optional<Ingredient> mold, int time) {
+        if (castOutputs.contains(material + "/" + kind)) return;
+        // 产物优先选与流体同模组的物品，其次原版物品，最后按物品 ID 排序取第一个
+        String fluidNamespace = BuiltInRegistries.FLUID.getKey(metal.fluid()).getNamespace();
+        Item result = items.stream()
+            .filter(item -> !excluded.contains(item) && new Form(material, kind).equals(forms.get(item)))
+            .min(Comparator.comparingInt((Item item) -> {
+                String namespace = itemId(item).getNamespace();
+                return namespace.equals(fluidNamespace) ? 0 : namespace.equals("minecraft") ? 1 : 2;
+            }))
+            .orElse(null);
+        if (result == null) return;
+        int amount = AutomaticMeltingRules.volume(kind.amount, metal.ingotAmount());
+        if (amount <= 0) return;
+        ResourceLocation itemId = itemId(result);
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(TinkerFoundry.MOD_ID,
+            "automatic/casting/" + itemId.getNamespace() + "/" + itemId.getPath());
+        if (!ids.add(id)) return;
+        CastingRecipe recipe = new CastingRecipe(SizedFluidIngredient.of(metal.fluid(), amount), mold, new ItemStack(result), time);
+        recipes.add(new RecipeHolder<>(id, recipe));
+        generated.add(recipe);
     }
 
     private static void merge(Map<String, Metal> metals, Set<String> ambiguous, String material, Fluid fluid, int amount, int temperature) {
