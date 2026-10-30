@@ -83,15 +83,15 @@ Lang entries always win. When a fluid or bucket has no entry, its name is built 
 
 ## 自动熔融流体与自动熔炼
 
-按 `forge:` / `c:` 材料标签，为粒、锭、块、粗矿、粗矿块、矿石、粉、板和宝石补全缺失的熔融流体与熔炼配方，已有带标签的外部流体和已有配方优先。新流体包含静止/流动变体、可放置方块和桶；矿石与粗矿沿用冶炼炉/铸造炉的增产规则。
+按 forge: / c: 材料标签，为粒、锭、块、粗矿、粗矿块、矿石、粉、板和宝石补全缺失的熔融流体与熔炼配方，已有带标签的外部流体和已有配方优先。新流体包含静止/流动变体、可放置方块和桶；矿石与粗矿沿用冶炼炉/铸造炉的增产规则。
 
 ### 自动生成的限制
 
 *   只根据标签识别，不根据注册名或外观猜测。缺失或错误标签需要整合包修正或手写配方。
-*   流体在启动时注册；晚加载的世界数据包和服务端脚本不能通过 `/reload` 新增流体。双端启动资源及配置必须一致，修改后完全重启。
+*   流体在启动时注册；晚加载的世界数据包和服务端脚本不能通过 /reload 新增流体。双端启动资源及配置必须一致，修改后完全重启。
 *   条件、空、循环和仅含可选引用的物品标签不能可靠确认启动材料。仅含可选引用的外部流体标签可能预留一个未使用的备用流体，正式加载后的配方仍优先复用实际绑定的外部流体。
 *   同一材料映射到多个不同源流体时，自动配方会因歧义而跳过；同一流体的静止/流动变体会归一。本体基础工艺的明确材料引用按稳定顺序选择已标记的源流体。
-*   未知材料使用通用熔融材质和默认温度，颜色由客户端读取材料锭、宝石、块的贴图自动取色（配置或标签显式写了颜色的优先）。可用 `tinker_foundry:melting/automatic_blacklist` 标签排除自动熔炼物品。
+*   未知材料使用通用熔融材质和默认温度，颜色由客户端读取材料锭、宝石、块的贴图自动取色（配置或标签显式写了颜色的优先）。可用 tinker_foundry:melting/automatic_blacklist 标签排除自动熔炼物品。
 
 ### 自动浇注
 
@@ -99,17 +99,17 @@ Lang entries always win. When a fluid or bucket has no entry, its name is built 
 
 ### 合成配方折算熔炼
 
-有序、无序合成和切石机配方的材料全部可熔炼时，按材料总量除以产物数量（向下取整）为产物生成熔炼配方；同一产物有多条配方时取熔出最少的一条，防止借切石机刷流体。多种流体时量最多的为主产物，其余为副产物（冶炼炉和铸造炉都会产出）；有耐久的物品按剩余耐久折算，原版和模组的工具、盔甲无需手写配方即可回收。`config/tinker_foundry-common.toml` 中的 `automatic_melting.crafting_ignored_ingredients`（默认 `minecraft:stick`）可列出折算时忽略的物品或 `#标签`。
+有序、无序合成和切石机配方的材料全部可熔炼时，按材料总量除以产物数量（向下取整）为产物生成熔炼配方；同一产物有多条配方时取熔出最少的一条，防止借切石机刷流体。多种流体时量最多的为主产物，其余为副产物（冶炼炉和铸造炉都会产出）；有耐久的物品按剩余耐久折算，原版和模组的工具、盔甲无需手写配方即可回收。config/tinker_foundry-common.toml 中的 automatic_melting.crafting_ignored_ingredients（默认 minecraft:stick）可列出折算时忽略的物品或 #标签。
 
 ### 流体名称
 
-内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料缺少翻译时按下文的名称模板自动显示；需要固定译名时，可在游戏内执行客户端指令 `/tinker_foundry_client export_lang`，按相同规则推导名称，把 `en_us`、`zh_cn` 和当前所选语言中缺失的条目写入 `.minecraft/tinker_foundry/lang_export/<语言>.json.export`，去掉 `.export` 后缀放进资源包 `assets/tinker_foundry/lang/` 即可使用。
+内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料缺少翻译时按下文的名称模板自动显示；需要固定译名时，可在游戏内执行客户端指令 /tinker_foundry_client export_lang，按相同规则推导名称，把 en_us、zh_cn 和当前所选语言中缺失的条目写入 .minecraft/tinker_foundry/lang_export/<语言>.json.export，去掉 .export 后缀放进资源包 assets/tinker_foundry/lang/ 即可使用。
 
 ### JSON 注册流体
 
-在 `config/tinker_foundry/fluids/` 及子目录中，每个 `.json` 文件填写上面的 `material`、`color`、`temperature` 三项即可；温度为非负的开尔文整数。即使没有物品标签也能显式注册流体，但自动熔炼配方仍需输入物品标签。已有带标签外部流体优先复用，其固有颜色和温度不被改写；本模组生成流体的 JSON 色温优先于标签内元数据。
+在 config/tinker_foundry/fluids/ 及子目录中，每个 .json 文件填写上面的 material、color、temperature 三项即可；温度为非负的开尔文整数。即使没有物品标签也能显式注册流体，但自动熔炼配方仍需输入物品标签。已有带标签外部流体优先复用，其固有颜色和温度不被改写；本模组生成流体的 JSON 色温优先于标签内元数据。
 
-名称不写入配置，使用资源包 `assets/tinker_foundry/lang/zh_cn.json`：
+名称不写入配置，使用资源包 assets/tinker_foundry/lang/zh_cn.json：
 
 ```
 {
@@ -118,6 +118,6 @@ Lang entries always win. When a fluid or bucket has no entry, its name is built 
 }
 ```
 
-lang 条目始终优先；流体或桶缺少 lang 时，按材料对应锭、粒、块在当前语言下的译名，套用 `tinker_foundry.automatic.fluid`（`熔融%s`）、`tinker_foundry.automatic.bucket`（`%s桶`，%s 为流体名）和形态词列表 `tinker_foundry.automatic.item_forms`（`%s锭|%s粒|%s块|粗%s`）自动显示，其他语言补这三个键即可。文件按相对路径排序，同材料第一份有效配置生效；坏文件跳过并记录日志。首次创建目录会生成默认不生效的 `example.json.disabled` 和说明。双端配置需一致，修改后完全重启。
+lang 条目始终优先；流体或桶缺少 lang 时，按材料对应锭、粒、块在当前语言下的译名，套用 tinker_foundry.automatic.fluid（熔融%s）、tinker_foundry.automatic.bucket（%s桶，%s 为流体名）和形态词列表 tinker_foundry.automatic.item_forms（%s锭|%s粒|%s块|粗%s）自动显示，其他语言补这三个键即可。文件按相对路径排序，同材料第一份有效配置生效；坏文件跳过并记录日志。首次创建目录会生成默认不生效的 example.json.disabled 和说明。双端配置需一致，修改后完全重启。
 
 [Wiki / 使用文档](https://github.com/hp3081925122/Tinker-Foundry/wiki) · [Source / 源码](https://github.com/hp3081925122/Tinker-Foundry)
