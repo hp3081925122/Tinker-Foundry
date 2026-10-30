@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "tinker_foundry:milk_bucket"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "item": "minecraft:milk_bucket"
+  }
+}

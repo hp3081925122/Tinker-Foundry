@@ -7,6 +7,7 @@ import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.builder.IRecipeSlotBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.gui.drawable.IDrawableAnimated.StartDirection;
+import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.gui.widgets.IRecipeExtrasBuilder;
 import mezz.jei.api.helpers.IGuiHelper;
@@ -31,6 +32,9 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.ItemLike;
@@ -140,8 +144,8 @@ public final class FoundryJeiPlugin implements IModPlugin {
         registration.addRecipes(DAMAGEABLE_MELTING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.DAMAGEABLE_MELTING.get()));
         registration.addRecipes(ALLOYING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ALLOYING.get()));
         var castingRecipes = recipeManager.getAllRecipesFor(TFRecipes.CASTING.get());
-        registration.addRecipes(CASTING_BASIN_TYPE, castingRecipes.stream().filter(recipe -> recipe.mold().isEmpty()).toList());
-        registration.addRecipes(CASTING_TABLE_TYPE, castingRecipes.stream().filter(recipe -> recipe.mold().isPresent()).toList());
+        registration.addRecipes(CASTING_BASIN_TYPE, castingRecipes.stream().filter(CastingRecipe::basin).toList());
+        registration.addRecipes(CASTING_TABLE_TYPE, castingRecipes.stream().filter(recipe -> !recipe.basin()).toList());
         registration.addRecipes(MOLDING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.MOLDING.get()));
         // 先把同步到客户端的燃料配方转换成 JEI 展示栈，熔炼和实体熔炼分类共用这份数据。
         var fuelRecipes = recipeManager.getAllRecipesFor(TFRecipes.FUEL.get());
@@ -201,6 +205,19 @@ public final class FoundryJeiPlugin implements IModPlugin {
     /** 为输出物品创建带官方输出背景的 JEI 输出槽。 */
     private static IRecipeSlotBuilder addItemOutput(IRecipeLayoutBuilder builder, ItemStack result, int x, int y) {
         return builder.addOutputSlot(x, y).addItemStack(result).setOutputSlotBackground();
+    }
+
+    /** JEI 默认只显示流体类型名，带药水 NBT 时把第一行换成原版药水名称。 */
+    private static void renamePotionFluid(IRecipeSlotView slot, List<Component> tooltip) {
+        slot.getDisplayedIngredient(ForgeTypes.FLUID_STACK)
+            .filter(FluidStack::hasTag)
+            .map(stack -> PotionUtils.getPotion(stack.getTag()))
+            .filter(potion -> potion != Potions.EMPTY)
+            .ifPresent(potion -> {
+                Component name = Component.translatable(potion.getName("item.minecraft.potion.effect."));
+                if (tooltip.isEmpty()) tooltip.add(name);
+                else tooltip.set(0, name);
+            });
     }
 
     /** 为输出流体创建带官方流体背景的 JEI 输出槽。 */
@@ -437,10 +454,38 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 .setSlotName("mold")
                 .addTooltipCallback((slot, tooltip) -> tooltip.add(Component.translatable(recipe.castConsumed()
                     ? "jei.tinker_foundry.casting.cast_consumed" : "jei.tinker_foundry.casting.cast_kept"))));
-            addFluidInput(builder, recipe.fluid(), 3, 3, 32, 32)
+            if (!recipe.copyPotionContents()) {
+                addFluidInput(builder, recipe.fluid(), 3, 3, 32, 32)
+                    .setOverlay(tankOverlay, 0, 0)
+                    .setSlotName("fluid");
+                addItemOutput(builder, recipe.result(), 93, 18).setSlotName("result");
+                return;
+            }
+            // 药水浇注按全部原版药水展开，流体与产物一一对应。
+            List<FluidStack> fluids = new ArrayList<>();
+            List<ItemStack> results = new ArrayList<>();
+            for (Potion potion : BuiltInRegistries.POTION) {
+                if (potion == Potions.EMPTY) continue;
+                String potionId = BuiltInRegistries.POTION.getKey(potion).toString();
+                for (Fluid fluid : fuelFluids(recipe.fluid().ingredient())) {
+                    FluidStack stack = new FluidStack(fluid, recipe.fluid().amount());
+                    stack.getOrCreateTag().putString("Potion", potionId);
+                    fluids.add(stack);
+                    results.add(PotionUtils.setPotion(recipe.result().copy(), potion));
+                }
+            }
+            // 流体槽与产物槽建立焦点联动，保证轮播时两边是同一种药水。
+            IRecipeSlotBuilder fluidSlot = builder.addInputSlot(3, 3)
+                .setFluidRenderer(FluidValues.BLOCK, false, 32, 32)
+                .addIngredients(ForgeTypes.FLUID_STACK, fluids)
+                .addTooltipCallback(FoundryJeiPlugin::renamePotionFluid)
                 .setOverlay(tankOverlay, 0, 0)
                 .setSlotName("fluid");
-            addItemOutput(builder, recipe.result(), 93, 18).setSlotName("result");
+            IRecipeSlotBuilder resultSlot = builder.addOutputSlot(93, 18)
+                .addItemStacks(results)
+                .setOutputSlotBackground()
+                .setSlotName("result");
+            builder.createFocusLink(fluidSlot, resultSlot);
         }
 
         /** 显示设备图标、浇注动画和铸模不消耗语义。 */
@@ -560,6 +605,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
             builder.addOutputSlot(115, 11)
                 .setFluidRenderer(FluidValues.INGOT * 2L, false, 16, 32)
                 .addIngredient(ForgeTypes.FLUID_STACK, recipe.result())
+                .addTooltipCallback(FoundryJeiPlugin::renamePotionFluid)
                 .setSlotName("result");
             // 下方显示当前同步燃料配方中的流体燃料，不把燃料逻辑硬编码到 JEI 分类。
             builder.addSlot(RecipeIngredientRole.CATALYST, 75, 43)

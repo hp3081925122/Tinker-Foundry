@@ -29,7 +29,6 @@ import org.hp.tinker_foundry.item.PortableTankFluidHandler;
 import org.hp.tinker_foundry.item.FoundryTankItem;
 import org.slf4j.Logger;
 import org.hp.tinker_foundry.common.FoundryWorldEvents;
-import org.hp.tinker_foundry.debug.FoundryDebugCommand;
 import org.hp.tinker_foundry.network.FoundryNetworking;
 
 /** 独立冶炼系统的模组入口。 */
@@ -76,6 +75,7 @@ public final class TinkerFoundry {
         output.accept(TFItems.NETHER_GROUT.get());
         output.accept(TFItems.SCORCHED_BRICK.get());
         output.accept(TFItems.COPPER_CANISTER.get());
+        output.accept(TFItems.MEAT_SOUP.get());
 
         // 输出小型设备和冶炼炉控制器，顺序对应匠魂的 controllers 分组。
         output.accept(TFItems.SEARED_MELTER.get());
@@ -198,12 +198,9 @@ public final class TinkerFoundry {
         org.hp.tinker_foundry.registry.TFMenus.FOUNDRY.getId();
         // 客户端状态载荷只注册到当前模组协议，不改变原版容器包流程。
         FoundryNetworking.register();
-        modEventBus.addListener(org.hp.tinker_foundry.gametest.FoundryGameTests::register);
-        net.minecraft.gametest.framework.GameTestRegistry.register(org.hp.tinker_foundry.gametest.FoundryGameTests.class);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         MinecraftForge.EVENT_BUS.register(FoundryWorldEvents.class);
         MinecraftForge.EVENT_BUS.register(org.hp.tinker_foundry.recipe.AutomaticMeltingRecipes.class);
-        MinecraftForge.EVENT_BUS.addListener(FoundryDebugCommand::register);
         MinecraftForge.EVENT_BUS.addGenericListener(ItemStack.class, TinkerFoundry::attachItemCapabilities);
         org.hp.tinker_foundry.common.AutomaticFluidResources.register(modEventBus);
         BLOCKS.register(modEventBus);

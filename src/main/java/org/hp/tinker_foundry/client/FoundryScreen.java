@@ -460,6 +460,13 @@ public final class FoundryScreen extends AbstractContainerScreen<FoundryMenu> {
         List<Component> tooltip = new ArrayList<>();
         ResourceLocation id = BuiltInRegistries.FLUID.getKey(stack.getFluid());
         Component fluidName = stack.getDisplayName();
+        if (stack.hasTag()) {
+            net.minecraft.world.item.alchemy.Potion potion = net.minecraft.world.item.alchemy.PotionUtils.getPotion(stack.getTag());
+            if (potion != net.minecraft.world.item.alchemy.Potions.EMPTY) {
+                // 使用原版药水命名键，让药水流体的名称和匠魂一致。
+                fluidName = Component.translatable(potion.getName("item.minecraft.potion.effect."));
+            }
+        }
         tooltip.add(fluidName);
         if (id != null && Minecraft.getInstance().options.advancedItemTooltips) {
             tooltip.add(Component.literal(id.toString()).withStyle(net.minecraft.ChatFormatting.DARK_GRAY));

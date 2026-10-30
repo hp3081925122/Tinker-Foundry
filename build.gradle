@@ -32,16 +32,12 @@ minecraft {
             }
         }
 
+        // 客户端运行配置，供 runClient 使用。
         client {
-            property 'forge.enabledGameTestNamespaces', project.mod_id
         }
 
         server {
             args '--nogui'
-        }
-
-        gameTestServer {
-            property 'forge.enabledGameTestNamespaces', project.mod_id
         }
 
         // ForgeGradle 6.0 的数据生成运行类型使用 serverData，不能写成 data。

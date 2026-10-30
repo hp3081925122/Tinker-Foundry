@@ -20,13 +20,13 @@ import java.util.TreeMap;
 import org.hp.tinker_foundry.TinkerFoundry;
 
 public final class AutomaticMaterialTags {
-    public record Material(String name, List<String> fluids, int color, int temperature, Map<String, String> names, boolean declared) {
+    public record Material(String name, List<String> fluids, int color, int temperature, boolean declared) {
         public String registryName() { return "molten/" + name; }
         public String generatedId() { return "tinker_foundry:" + registryName(); }
-        public String displayName(String language) { return names.getOrDefault(language, names.get("en_us")); }
     }
 
     private record Entry(String id, boolean tag, boolean required) { }
+
 
     private final Map<String, List<Entry>> items = new LinkedHashMap<>();
     private final Map<String, List<Entry>> fluids = new LinkedHashMap<>();
@@ -71,11 +71,7 @@ public final class AutomaticMaterialTags {
             if (configured == null && (color & 0xFF000000) == 0) color |= 0xFF000000;
             int temperature = configured != null ? configured.temperature()
                 : options.has("temperature") ? Math.max(300, options.get("temperature").getAsInt()) : 1100;
-            Map<String, String> names = new HashMap<>();
-            names.put("en_us", readable(name));
-            names.put("zh_cn", readable(name));
-            if (options.has("names")) options.getAsJsonObject("names").entrySet().forEach(entry -> names.put(entry.getKey(), entry.getValue().getAsString()));
-            result.put(name, new Material(name, List.copyOf(candidates), color, temperature, Map.copyOf(names), declaredMaterials.contains(name)));
+            result.put(name, new Material(name, List.copyOf(candidates), color, temperature, declaredMaterials.contains(name)));
         }
         materials = Collections.unmodifiableMap(result);
         TinkerFoundry.LOGGER.info("Automatic material tags: materials={}, externalFluidMappings={}", materials.size(), materials.values().stream().filter(material -> !material.fluids().isEmpty()).count());
@@ -153,15 +149,6 @@ public final class AutomaticMaterialTags {
         return AutomaticMeltingRules.fromFluidTag(id.substring(0, colon), id.substring(colon + 1));
     }
 
-    private static String readable(String name) {
-        StringBuilder result = new StringBuilder();
-        for (String part : name.split("[_\\-.]")) {
-            if (part.isEmpty()) continue;
-            if (!result.isEmpty()) result.append(' ');
-            result.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
-        }
-        return result.toString();
-    }
 
     public Map<String, Material> materials() { return materials; }
     public boolean isGemstone(String material) { return gemstones.contains(material); }

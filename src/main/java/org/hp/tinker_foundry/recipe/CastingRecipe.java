@@ -19,7 +19,7 @@ import org.hp.tinker_foundry.registry.TFRecipes;
 
 /** 流体经过可选模具冷却后产出物品。 */
 public record CastingRecipe(ResourceLocation id, FoundryFluidAmount fluid, Optional<Ingredient> mold, ItemStack result, int time,
-                            boolean castConsumed, boolean switchSlots, boolean copyPotionContents) implements Recipe<FluidRecipeInput> {
+                            boolean castConsumed, boolean switchSlots, boolean copyPotionContents, Optional<Boolean> basinFlag) implements Recipe<FluidRecipeInput> {
     /** 返回 Forge 1.20.1 Recipe 接口要求的配方 ID。 */
     @Override
     public ResourceLocation getId() {
@@ -28,7 +28,12 @@ public record CastingRecipe(ResourceLocation id, FoundryFluidAmount fluid, Optio
 
     /** 保留旧构造签名，默认使用可重复铸模且不切换槽位。 */
     public CastingRecipe(FoundryFluidAmount fluid, Optional<Ingredient> mold, ItemStack result, int time) {
-        this(runtimeId(), fluid, mold, result, time, false, false, false);
+        this(runtimeId(), fluid, mold, result, time, false, false, false, Optional.empty());
+    }
+
+    /** 是否为浇注盆配方；未显式声明时无模具为浇注盆、有模具为浇注台。 */
+    public boolean basin() {
+        return basinFlag.orElse(mold.isEmpty());
     }
 
     /** 从数据包读取浇注配方。 */
@@ -38,14 +43,15 @@ public record CastingRecipe(ResourceLocation id, FoundryFluidAmount fluid, Optio
             FoundryRecipeData.item(json.getAsJsonObject("result")), json.has("time") ? json.get("time").getAsInt() : 60,
             json.has("cast_consumed") && json.get("cast_consumed").getAsBoolean(),
             json.has("switch_slots") && json.get("switch_slots").getAsBoolean(),
-            json.has("copy_potion_contents") && json.get("copy_potion_contents").getAsBoolean());
+            json.has("copy_potion_contents") && json.get("copy_potion_contents").getAsBoolean(),
+            json.has("basin") ? Optional.of(json.get("basin").getAsBoolean()) : Optional.empty());
     }
 
     /** 从网络读取浇注配方。 */
     public static CastingRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
         Optional<Ingredient> mold = buffer.readBoolean() ? Optional.of(Ingredient.fromNetwork(buffer)) : Optional.empty();
         return new CastingRecipe(id, FoundryFluidAmount.fromNetwork(buffer), mold, buffer.readItem(), buffer.readVarInt(),
-            buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean());
+            buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(), Optional.of(buffer.readBoolean()));
     }
 
     /** 向网络写入浇注配方。 */
@@ -58,12 +64,14 @@ public record CastingRecipe(ResourceLocation id, FoundryFluidAmount fluid, Optio
         buffer.writeBoolean(recipe.castConsumed);
         buffer.writeBoolean(recipe.switchSlots);
         buffer.writeBoolean(recipe.copyPotionContents);
+        buffer.writeBoolean(recipe.basin());
     }
 
-    /** 校验流体和可选模具。 */
+    /** 校验设备、流体和可选模具。 */
     @Override
     public boolean matches(FluidRecipeInput input, Level level) {
-        if (input.requireMold() != mold.isPresent()) return false;
+        // requireMold 表示当前设备是浇注台，浇注台只匹配非浇注盆配方。
+        if (input.requireMold() == basin()) return false;
         boolean moldMatches = mold.map(value -> !input.getItem(0).isEmpty() && value.test(input.getItem(0))).orElse(input.getItem(0).isEmpty());
         return !input.fluids().isEmpty() && fluid.test(input.fluids().get(0)) && moldMatches;
     }

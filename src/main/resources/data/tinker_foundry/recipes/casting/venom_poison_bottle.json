@@ -1,0 +1,21 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:venom"
+    },
+    "amount": 250
+  },
+  "mold": {
+    "item": "minecraft:glass_bottle"
+  },
+  "result": {
+    "id": "minecraft:potion",
+    "count": 1,
+    "tag": {
+      "Potion": "minecraft:poison"
+    }
+  },
+  "time": 5,
+  "cast_consumed": true
+}
