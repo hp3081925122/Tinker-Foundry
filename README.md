@@ -72,7 +72,7 @@ gradlew.bat build
 
 物品标签支持 `nuggets/<材料>`、`ingots/<材料>`、`storage_blocks/<材料>`、`raw_materials/<材料>`、`raw_blocks/<材料>`、`storage_blocks/raw_<材料>`、`ores/<材料>`、`dusts/<材料>`、`plates/<材料>` 和 `gems/<材料>`。流体标签支持 `c:molten_<材料>`、`forge:molten_<材料>`、`molten_metals/<材料>` 和 `molten/<材料>`。存在明确外部流体标签时优先复用；多个不同源流体存在歧义时跳过自动配方；本体基础工艺的明确材料引用按注册 ID 的稳定顺序选择一个已标记的外部源流体，避免丢失已有配方。同一流体的 source/flowing 会归一，不会因此额外注册备用流体。
 
-缺失的流体使用 `tinker_foundry:molten/<材料>`，同时注册 `_flowing` 流动流体、`_fluid` 方块和 `_bucket` 桶。资源由内存包提供，包含流体标签、桶模型、方块状态和默认中英文名称（JSON 配置材料除外），使用共用熔融纹理。未知材料默认采用统一熔融色、1100 K 流体温度及可读英文材料名。铁、金、铜、钴通过自身的流体标签声明基础工艺所需材料；原固定金属注册已移除，非金属工艺流体保留。不兼容原固定金属流体 ID 的旧存档。
+缺失的流体使用 `tinker_foundry:molten/<材料>`，同时注册 `_flowing` 流动流体、`_fluid` 方块和 `_bucket` 桶。资源由内存包提供，只包含流体标签、桶模型和方块状态，使用共用熔融纹理；流体和桶的名称一律来自 lang 文件（`fluid_type.tinker_foundry.molten.<材料>`、`item.tinker_foundry.molten.<材料>_bucket`），缺少 lang 时不回退英文。未知材料默认采用统一熔融色和 1100 K 流体温度。铁、金、铜、钴通过自身的流体标签声明基础工艺所需材料；原固定金属注册已移除，非金属工艺流体保留。不兼容原固定金属流体 ID 的旧存档。
 
 本模组配方中的 `tinker_foundry:molten/<材料>` 是明确的材料引用，解析时会转换为启动标签选定的外部流体或生成流体。没有高优先级整配方覆盖包，用户手写配方的覆盖顺序保持有效。已有熔炼配方优先；已有配方的流体属于该材料标签时，会校准每锭用量和温度。默认一锭 90 mB、一粒 10 mB、一块 810 mB，矿石和粗矿沿用本体已有 `metal` 增产规则。宝石以 `gems` 标签识别，默认每个 100 mB、每块 900 mB，并通过已有宝石配方校准；矿石沿用 `gem` 增产规则。本体保留的钻石、绿宝石、玻璃和黏土熔融流体已补标准标签，避免额外生成重复流体。装备仍需明确的成分配方。
 
@@ -80,7 +80,7 @@ gradlew.bat build
 
 注册发生在数据包正式加载之前，因此新增材料需要客户端和服务端安装相同的启动标签资源并重启游戏。世界数据包、运行脚本在之后才添加的新材料，不能靠 `/reload` 新增流体。启动扫描跳过条件标签；空标签、没有终端值的循环标签、仅含无法提前确认的可选物品引用的标签不触发生成。可选外部流体引用也无法在注册前证明存在，因此可能准备一个未使用的备用流体；数据加载后自动配方仍按实际绑定的流体标签优先复用外部流体。需要启动时明确避免备用注册时，流体提供方应在标准流体标签中使用必需引用。
 
-基础流体标签中的可选 `tinker_foundry` 字段可以设置 `color`（ARGB 十六进制）、`temperature` 和 `names`（`en_us` / `zh_cn`）；普通材料标签无需这些字段。
+基础流体标签中的可选 `tinker_foundry` 字段可以设置 `color`（ARGB 十六进制） 和 `temperature`；名称请写入 lang 文件；普通材料标签无需这些字段。
 
 Automatic molten fluids and melting recipes use common material and fluid tags only. Item/fluid registry-name guessing is disabled. Existing tagged fluids take priority; missing materials receive complete source/flowing fluid, block, bucket and generated resources. Explicit material references in Foundry recipe JSON resolve to the selected fluid without overriding user recipes. New registries require matching startup resources and a full client/server restart. Late world datapacks cannot register new fluids on reload. Empty, cyclic and optional-only item declarations do not establish startup material existence. Optional-only fluid references can require an unused fallback reservation because their targets cannot be verified before registration.
 
