@@ -42,7 +42,19 @@ Common `forge:` / `c:` material tags can automatically provide missing molten fl
 *   Registration scans startup mod resources. Late world datapacks and server scripts cannot add new fluids through `/reload`; both client and server need matching startup resources/configuration and a full restart.
 *   Conditional, empty, cyclic and optional-only item declarations cannot reliably establish a material at startup. Optional-only external-fluid references can reserve an unused fallback because their existence cannot be proved before registration; recipes still prefer the actual tagged external fluid after data loading.
 *   Multiple distinct external source fluids for one material are ambiguous and skip automatic recipes. Source/flowing variants of one fluid are normalized together. Explicit base-process material references use a stable choice among tagged sources.
-*   Unknown materials use a generic molten texture, default color and temperature; these are functional defaults, not physically accurate material data. Equipment recycling needs explicit composition recipes. Use `tinker_foundry:melting/automatic_blacklist` to exclude items from automatic recipes.
+*   Unknown materials use a generic molten texture and a default temperature; the color is sampled on the client from the material's ingot, gem or block texture (explicit colors in config or tags win). Use `tinker_foundry:melting/automatic_blacklist` to exclude items from automatic recipes.
+
+### Automatic casting
+
+Materials with a resolved molten fluid also get casting recipes: ingot cast → ingot, gem cast → gem on the casting table, and block in the casting basin. Forms already produced by an existing casting recipe are skipped.
+
+### Melting derived from crafting
+
+When every ingredient of a shaped, shapeless or stonecutting recipe can be melted, the result gets a melting recipe worth the total ingredient fluid divided by the output count (rounded down). The cheapest recipe is used when several make the same item, so the stonecutter cannot duplicate fluid. Multiple fluids become a main product plus byproducts (output by both the smeltery and the foundry); damageable items scale with remaining durability, so vanilla and modded tools and armor are recyclable without hand-written recipes. `automatic_melting.crafting_ignored_ingredients` in `config/tinker_foundry-common.toml` (default `minecraft:stick`) lists items or `#tags` ignored when deriving.
+
+### Fluid names
+
+Chinese and English names are built in for about 200 metals, alloys and gems: common ores and alloys (tin, lead, silver, nickel, zinc, aluminum, uranium, osmium, bronze, brass, electrum, invar, steel and more) plus materials from popular tech and adventure mods such as Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems. For other materials, run the client command `/tinker_foundry_client export_lang`: it derives names from the matching ingot/nugget/block translations and writes the missing `en_us` / `zh_cn` entries to `.minecraft/tinker_foundry/lang_export/<lang>.json.export`. Remove the `.export` suffix and drop the file into a resource pack's `assets/tinker_foundry/lang/`.
 
 ### Register fluids with JSON
 
@@ -79,7 +91,19 @@ Configured materials do not generate default translations, so custom lang entrie
 *   流体在启动时注册；晚加载的世界数据包和服务端脚本不能通过 `/reload` 新增流体。双端启动资源及配置必须一致，修改后完全重启。
 *   条件、空、循环和仅含可选引用的物品标签不能可靠确认启动材料。仅含可选引用的外部流体标签可能预留一个未使用的备用流体，正式加载后的配方仍优先复用实际绑定的外部流体。
 *   同一材料映射到多个不同源流体时，自动配方会因歧义而跳过；同一流体的静止/流动变体会归一。本体基础工艺的明确材料引用按稳定顺序选择已标记的源流体。
-*   未知材料使用通用熔融材质、默认颜色和温度，并非真实物性。装备回收仍需明确成分配方；可用 `tinker_foundry:melting/automatic_blacklist` 标签排除自动熔炼物品。
+*   未知材料使用通用熔融材质和默认温度，颜色由客户端读取材料锭、宝石、块的贴图自动取色（配置或标签显式写了颜色的优先）。可用 `tinker_foundry:melting/automatic_blacklist` 标签排除自动熔炼物品。
+
+### 自动浇注
+
+已确定熔融流体的材料会自动获得浇注配方：浇注台放锭模产出锭、放宝石模产出宝石，浇注盆产出块；已有浇注配方的形态不重复生成。
+
+### 合成配方折算熔炼
+
+有序、无序合成和切石机配方的材料全部可熔炼时，按材料总量除以产物数量（向下取整）为产物生成熔炼配方；同一产物有多条配方时取熔出最少的一条，防止借切石机刷流体。多种流体时量最多的为主产物，其余为副产物（冶炼炉和铸造炉都会产出）；有耐久的物品按剩余耐久折算，原版和模组的工具、盔甲无需手写配方即可回收。`config/tinker_foundry-common.toml` 中的 `automatic_melting.crafting_ignored_ingredients`（默认 `minecraft:stick`）可列出折算时忽略的物品或 `#标签`。
+
+### 流体名称
+
+内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料可在游戏内执行客户端指令 `/tinker_foundry_client export_lang`，按对应锭、粒、块的译名推导名称，把 `en_us`、`zh_cn` 中缺失的条目写入 `.minecraft/tinker_foundry/lang_export/<语言>.json.export`，去掉 `.export` 后缀放进资源包 `assets/tinker_foundry/lang/` 即可使用。
 
 ### JSON 注册流体
 
