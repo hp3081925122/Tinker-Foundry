@@ -42,7 +42,7 @@ Common forge: / c: material tags can automatically provide missing molten fluids
 *   Registration scans startup mod resources. Late world datapacks and server scripts cannot add new fluids through /reload; both client and server need matching startup resources/configuration and a full restart.
 *   Conditional, empty, cyclic and optional-only item declarations cannot reliably establish a material at startup. Optional-only external-fluid references can reserve an unused fallback because their existence cannot be proved before registration; recipes still prefer the actual tagged external fluid after data loading.
 *   Multiple distinct external source fluids for one material are ambiguous and skip automatic recipes. Source/flowing variants of one fluid are normalized together. Explicit base-process material references use a stable choice among tagged sources.
-*   Unknown materials use a generic molten texture and a default temperature; the color is sampled on the client from the material's ingot, gem or block texture (explicit colors in config or tags win). Use tinker_foundry:melting/automatic_blacklist to exclude items from automatic recipes.
+*   Unknown materials use a generic molten texture and a default temperature; the color is sampled on the client from the material's ingot, gem or block texture (explicit colors in config or tags win). Use tinker\_foundry:melting/automatic\_blacklist to exclude items from automatic recipes.
 
 ### Automatic casting
 
@@ -50,15 +50,15 @@ Materials with a resolved molten fluid also get casting recipes: ingot cast → 
 
 ### Melting derived from crafting
 
-When every ingredient of a shaped, shapeless or stonecutting recipe can be melted, the result gets a melting recipe worth the total ingredient fluid divided by the output count (rounded down). The cheapest recipe is used when several make the same item, so the stonecutter cannot duplicate fluid. Multiple fluids become a main product plus byproducts (output by both the smeltery and the foundry); damageable items scale with remaining durability, so vanilla and modded tools and armor are recyclable without hand-written recipes. automatic_melting.crafting_ignored_ingredients in config/tinker_foundry-common.toml (default minecraft:stick) lists items or #tags ignored when deriving.
+When every ingredient of a shaped, shapeless or stonecutting recipe can be melted, the result gets a melting recipe worth the total ingredient fluid divided by the output count (rounded down). The cheapest recipe is used when several make the same item, so the stonecutter cannot duplicate fluid. Multiple fluids become a main product plus byproducts (output by both the smeltery and the foundry); damageable items scale with remaining durability, so vanilla and modded tools and armor are recyclable without hand-written recipes. automatic\_melting.crafting\_ignored\_ingredients in config/tinker\_foundry-common.toml (default minecraft:stick) lists items or #tags ignored when deriving.
 
 ### Fluid names
 
-Chinese and English names are built in for about 200 metals, alloys and gems: common ores and alloys (tin, lead, silver, nickel, zinc, aluminum, uranium, osmium, bronze, brass, electrum, invar, steel and more) plus materials from popular tech and adventure mods such as Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems. Missing names fall back to the name templates described below. To ship fixed names, run the client command /tinker_foundry_client export_lang: it derives names with the same rules and writes the missing en_us, zh_cn and currently selected language entries to .minecraft/tinker_foundry/lang_export/(language code).json.export. Remove the .export suffix and drop the file into a resource pack's assets/tinker_foundry/lang/.
+Chinese and English names are built in for about 200 metals, alloys and gems: common ores and alloys (tin, lead, silver, nickel, zinc, aluminum, uranium, osmium, bronze, brass, electrum, invar, steel and more) plus materials from popular tech and adventure mods such as Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems. Missing names fall back to the name templates described below. To ship fixed names, run the client command /tinker\_foundry\_client export\_lang: it derives names with the same rules and writes the missing en\_us, zh\_cn and currently selected language entries to .minecraft/tinker\_foundry/lang\_export/(language code).json.export. Remove the .export suffix and drop the file into a resource pack's assets/tinker\_foundry/lang/.
 
 ### Register fluids with JSON
 
-Place one JSON object per file anywhere under config/tinker_foundry/fluids/ (subfolders are read recursively):
+Place one JSON object per file anywhere under config/tinker\_foundry/fluids/ (subfolders are read recursively):
 
 ```
 {
@@ -68,9 +68,9 @@ Place one JSON object per file anywhere under config/tinker_foundry/fluids/ (sub
 }
 ```
 
-material is a lowercase material ID, or the full tinker_foundry:molten/tin ID. color accepts #RRGGBB or #AARRGGBB; temperature is a non-negative integer in kelvin. A definition can register a fluid even without item tags; automatic melting recipes still require tagged input items. Existing tagged external fluids are reused without changing their original color or temperature. JSON overrides tag metadata for fluids generated by this mod.
+material is a lowercase material ID, or the full tinker\_foundry:molten/tin ID. color accepts #RRGGBB or #AARRGGBB; temperature is a non-negative integer in kelvin. A definition can register a fluid even without item tags; automatic melting recipes still require tagged input items. Existing tagged external fluids are reused without changing their original color or temperature. JSON overrides tag metadata for fluids generated by this mod.
 
-Do not put names in the definition. Add translations to a resource pack's assets/tinker_foundry/lang/en_us.json (or the corresponding language file):
+Do not put names in the definition. Add translations to a resource pack's assets/tinker\_foundry/lang/en\_us.json (or the corresponding language file):
 
 ```
 {
@@ -79,7 +79,7 @@ Do not put names in the definition. Add translations to a resource pack's assets
 }
 ```
 
-Lang entries always win. When a fluid or bucket has no entry, its name is built from the current-language name of the material's ingot/nugget/block using the templates tinker_foundry.automatic.fluid (Molten %s), tinker_foundry.automatic.bucket (%s Bucket, %s is the fluid name) and the form list tinker_foundry.automatic.item_forms (%s Ingot|%s Nugget|...|Raw %s); add these three keys to support any other language. Files are sorted by relative path; the first valid definition for a material wins. Invalid files are logged and skipped. The first startup creates an inactive example.json.disabled and instructions. Match the configuration on both sides and restart after editing.
+Lang entries always win. When a fluid or bucket has no entry, its name is built from the current-language name of the material's ingot/nugget/block using the templates tinker\_foundry.automatic.fluid (Molten %s), tinker\_foundry.automatic.bucket (%s Bucket, %s is the fluid name) and the form list tinker\_foundry.automatic.item\_forms (%s Ingot|%s Nugget|...|Raw %s); add these three keys to support any other language. Files are sorted by relative path; the first valid definition for a material wins. Invalid files are logged and skipped. The first startup creates an inactive example.json.disabled and instructions. Match the configuration on both sides and restart after editing.
 
 ## 自动熔融流体与自动熔炼
 
@@ -91,7 +91,7 @@ Lang entries always win. When a fluid or bucket has no entry, its name is built 
 *   流体在启动时注册；晚加载的世界数据包和服务端脚本不能通过 /reload 新增流体。双端启动资源及配置必须一致，修改后完全重启。
 *   条件、空、循环和仅含可选引用的物品标签不能可靠确认启动材料。仅含可选引用的外部流体标签可能预留一个未使用的备用流体，正式加载后的配方仍优先复用实际绑定的外部流体。
 *   同一材料映射到多个不同源流体时，自动配方会因歧义而跳过；同一流体的静止/流动变体会归一。本体基础工艺的明确材料引用按稳定顺序选择已标记的源流体。
-*   未知材料使用通用熔融材质和默认温度，颜色由客户端读取材料锭、宝石、块的贴图自动取色（配置或标签显式写了颜色的优先）。可用 tinker_foundry:melting/automatic_blacklist 标签排除自动熔炼物品。
+*   未知材料使用通用熔融材质和默认温度，颜色由客户端读取材料锭、宝石、块的贴图自动取色（配置或标签显式写了颜色的优先）。可用 tinker\_foundry:melting/automatic\_blacklist 标签排除自动熔炼物品。
 
 ### 自动浇注
 
@@ -99,17 +99,17 @@ Lang entries always win. When a fluid or bucket has no entry, its name is built 
 
 ### 合成配方折算熔炼
 
-有序、无序合成和切石机配方的材料全部可熔炼时，按材料总量除以产物数量（向下取整）为产物生成熔炼配方；同一产物有多条配方时取熔出最少的一条，防止借切石机刷流体。多种流体时量最多的为主产物，其余为副产物（冶炼炉和铸造炉都会产出）；有耐久的物品按剩余耐久折算，原版和模组的工具、盔甲无需手写配方即可回收。config/tinker_foundry-common.toml 中的 automatic_melting.crafting_ignored_ingredients（默认 minecraft:stick）可列出折算时忽略的物品或 #标签。
+有序、无序合成和切石机配方的材料全部可熔炼时，按材料总量除以产物数量（向下取整）为产物生成熔炼配方；同一产物有多条配方时取熔出最少的一条，防止借切石机刷流体。多种流体时量最多的为主产物，其余为副产物（冶炼炉和铸造炉都会产出）；有耐久的物品按剩余耐久折算，原版和模组的工具、盔甲无需手写配方即可回收。config/tinker\_foundry-common.toml 中的 automatic\_melting.crafting\_ignored\_ingredients（默认 minecraft:stick）可列出折算时忽略的物品或 #标签。
 
 ### 流体名称
 
-内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料缺少翻译时按下文的名称模板自动显示；需要固定译名时，可在游戏内执行客户端指令 /tinker_foundry_client export_lang，按相同规则推导名称，把 en_us、zh_cn 和当前所选语言中缺失的条目写入 .minecraft/tinker_foundry/lang_export/（语言代码）.json.export，去掉 .export 后缀放进资源包 assets/tinker_foundry/lang/ 即可使用。
+内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料缺少翻译时按下文的名称模板自动显示；需要固定译名时，可在游戏内执行客户端指令 /tinker\_foundry\_client export\_lang，按相同规则推导名称，把 en\_us、zh\_cn 和当前所选语言中缺失的条目写入 .minecraft/tinker\_foundry/lang\_export/（语言代码）.json.export，去掉 .export 后缀放进资源包 assets/tinker\_foundry/lang/ 即可使用。
 
 ### JSON 注册流体
 
-在 config/tinker_foundry/fluids/ 及子目录中，每个 .json 文件填写上面的 material、color、temperature 三项即可；温度为非负的开尔文整数。即使没有物品标签也能显式注册流体，但自动熔炼配方仍需输入物品标签。已有带标签外部流体优先复用，其固有颜色和温度不被改写；本模组生成流体的 JSON 色温优先于标签内元数据。
+在 config/tinker\_foundry/fluids/ 及子目录中，每个 .json 文件填写上面的 material、color、temperature 三项即可；温度为非负的开尔文整数。即使没有物品标签也能显式注册流体，但自动熔炼配方仍需输入物品标签。已有带标签外部流体优先复用，其固有颜色和温度不被改写；本模组生成流体的 JSON 色温优先于标签内元数据。
 
-名称不写入配置，使用资源包 assets/tinker_foundry/lang/zh_cn.json：
+名称不写入配置，使用资源包 assets/tinker\_foundry/lang/zh\_cn.json：
 
 ```
 {
@@ -118,6 +118,6 @@ Lang entries always win. When a fluid or bucket has no entry, its name is built 
 }
 ```
 
-lang 条目始终优先；流体或桶缺少 lang 时，按材料对应锭、粒、块在当前语言下的译名，套用 tinker_foundry.automatic.fluid（熔融%s）、tinker_foundry.automatic.bucket（%s桶，%s 为流体名）和形态词列表 tinker_foundry.automatic.item_forms（%s锭|%s粒|%s块|粗%s）自动显示，其他语言补这三个键即可。文件按相对路径排序，同材料第一份有效配置生效；坏文件跳过并记录日志。首次创建目录会生成默认不生效的 example.json.disabled 和说明。双端配置需一致，修改后完全重启。
+lang 条目始终优先；流体或桶缺少 lang 时，按材料对应锭、粒、块在当前语言下的译名，套用 tinker\_foundry.automatic.fluid（熔融%s）、tinker\_foundry.automatic.bucket（%s桶，%s 为流体名）和形态词列表 tinker\_foundry.automatic.item\_forms（%s锭|%s粒|%s块|粗%s）自动显示，其他语言补这三个键即可。文件按相对路径排序，同材料第一份有效配置生效；坏文件跳过并记录日志。首次创建目录会生成默认不生效的 example.json.disabled 和说明。双端配置需一致，修改后完全重启。
 
 [Wiki / 使用文档](https://github.com/hp3081925122/Tinker-Foundry/wiki) · [Source / 源码](https://github.com/hp3081925122/Tinker-Foundry)
