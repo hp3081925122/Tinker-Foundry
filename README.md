@@ -117,6 +117,8 @@ Automatic molten fluids and melting recipes use common material and fluid tags o
 
 其他语言放入相应 lang 文件。配置材料不生成默认翻译，不会覆盖资源包提供的名称。已有带标准标签的外部流体继续优先复用，使用原模组的语言键，其颜色和温度不会被此配置改写。为本模组生成的材料填写 JSON 时，颜色和温度优先于标签内的可选元数据。
 
+本模组自带锡、铅、银、镍、锌、铝、铀、锇、铂、青铜、黄铜、琥珀金、殷钢、康铜、钢、信素、流明、末影合金、红宝石、蓝宝石等常见材料的中英文流体名称。其余缺少翻译的材料可在游戏内执行客户端指令 `/tinker_foundry_client export_lang`，它会按材料对应的锭、粒、块等物品译名推导名称（如“锡锭”→“熔融锡”“熔融锡桶”），把 `en_us`、`zh_cn` 中缺失的流体和桶条目分别写入 `.minecraft/tinker_foundry/lang_export/<语言>.json.export`；核对后去掉 `.export` 后缀，放进资源包 `assets/tinker_foundry/lang/` 即可使用。
+
 文件按相对路径排序，同材料第一份有效配置生效；坏文件跳过并输出日志，其他文件继续读取。第一次创建目录时会写入 `example.json.disabled` 与 `说明.txt`，示例默认不生效。客户端和服务端需要相同配置，修改后完全重启；`/reload` 不能新增流体。
 
 发布与使用文档：[CurseForge](https://www.curseforge.com/minecraft/mc-mods/tinker-foundry) · [自动流体、限制与配置](https://github.com/hp3081925122/Tinker-Foundry/wiki/Automatic-Fluids.zh-CN) · [本次更新日志](CHANGELOG.md)。
