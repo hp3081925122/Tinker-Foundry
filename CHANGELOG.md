@@ -1,25 +1,15 @@
-# 2.1 · 2026-10-30
+# 2.2 · 2026-10-30
 
 ## 中文
 
-- 新增合成配方自动熔炼：有序、无序合成和切石机配方的材料全部可熔炼时，按材料总量除以产物数量（向下取整）为产物生成熔炼配方；同一产物有多条配方时取熔出最少的一条，防止借切石机等高产路线刷流体。多种流体时量最多的为主产物，其余为副产物；有耐久的物品按剩余耐久折算。
-- 新增通用配置 `automatic_melting.crafting_ignored_ingredients`（默认 `minecraft:stick`），列出的物品或 `#标签` 在折算时忽略，使木棍做柄的工具也能熔炼。
-- 冶炼炉现在也会产出熔炼副产物。
-- 移除铁、金工具与盔甲的手写耐久熔炼配方及 `*_tools_costing_*` 标签，改由合成配方反推；修复铁锹、金锹熔出 270 mB（多送 2 锭）的问题，现为 90 mB。
-- JEI 熔炼页产物区拆为两个细容器：左侧主产物，右侧轮换显示副产物，无副产物时为空。
-- JEI 各分类关联对应设备（冶炼炉、铸造炉、熔炉、合金炉、浇注台/盆、燃料储罐/计量器、加热器），可在设备上按 U 查看用途。
-- 重绘项目图标，模组列表显示新 logo。
-- 1.20.1：JEI 中矿石熔炼和耐久熔炼并入普通熔炼分类，不再单独成页。
+- 自动生成的流体和桶缺少 lang 时不再显示原始键：按材料对应锭、粒、块在当前语言下的译名自动拼出名称（如“锡锭”→“熔融锡”“熔融锡桶”）。拼接规则由三个 lang 键控制：`tinker_foundry.automatic.fluid`（`熔融%s`）、`tinker_foundry.automatic.bucket`（`%s桶`）、`tinker_foundry.automatic.item_forms`（`%s锭|%s粒|%s块|粗%s` 等形态词），其他语言补这三个键即可。
+- 新增客户端指令 `/tinker_foundry_client export_lang`，按同样规则把 `en_us`、`zh_cn` 和当前语言中缺失的流体与桶翻译导出到 `.minecraft/tinker_foundry/lang_export/<语言>.json.export`，去掉 `.export` 后缀即可放进资源包使用。
+- 内置约 200 种金属、合金和宝石的中英文流体名称，覆盖常见矿物合金及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等模组材料（译名取自各模组官方语言文件）。
 
 ## English
 
-- Crafting recipes now melt automatically: when every ingredient of a shaped, shapeless or stonecutting recipe can be melted, the result gets a melting recipe worth the total ingredient fluid divided by the output count (rounded down). When several recipes make the same item, the cheapest one is used so high-yield routes such as the stonecutter cannot duplicate fluid. With multiple fluids the largest becomes the main product and the rest byproducts; damageable items scale with remaining durability.
-- New common config `automatic_melting.crafting_ignored_ingredients` (default `minecraft:stick`): listed items or `#tags` are ignored when deriving, so stick-handled tools can be melted.
-- The smeltery now outputs melting byproducts too.
-- Removed the hand-written iron/gold tool and armor damageable melting recipes and the `*_tools_costing_*` tags in favour of crafting-derived recipes. This fixes iron and gold shovels melting into 270 mB (2 free ingots); they now give 90 mB.
-- The JEI melting page shows two thin tanks: the main product on the left and byproducts cycling on the right (empty when there are none).
-- JEI categories are linked to their devices (smeltery, foundry, melter, alloyer, casting table/basin, fuel tanks/gauges, heater), so pressing U on a device lists its uses.
-- Redrawn project icon; the mod list now shows the new logo.
-- 1.20.1: JEI ore melting and damageable melting are merged into the regular melting category.
+- Generated fluids and buckets without lang entries no longer show raw keys: names are built from the current-language name of the material's ingot/nugget/block (e.g. `Tin Ingot` → `Molten Tin` / `Molten Tin Bucket`). Three lang keys control this: `tinker_foundry.automatic.fluid` (`Molten %s`), `tinker_foundry.automatic.bucket` (`%s Bucket`) and `tinker_foundry.automatic.item_forms` (form words such as `%s Ingot|%s Nugget|Raw %s`); add them to support any language.
+- New client command `/tinker_foundry_client export_lang` exports missing fluid and bucket names for `en_us`, `zh_cn` and the selected language to `.minecraft/tinker_foundry/lang_export/<lang>.json.export` using the same rules; remove the `.export` suffix to use it in a resource pack.
+- Built-in Chinese and English fluid names for about 200 metals, alloys and gems, covering common ores and alloys plus materials from Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems (names taken from each mod's official lang files).
 
 Wiki: https://github.com/hp3081925122/Tinker-Foundry/wiki
