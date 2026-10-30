@@ -141,7 +141,14 @@ public final class TFItems {
 
     /** 注册流体桶。 */
     private static DeferredItem<BucketItem> bucket(String name, java.util.function.Supplier<? extends net.minecraft.world.level.material.Fluid> fluid) {
-        return TinkerFoundry.ITEMS.register(name + "_bucket", () -> new BucketItem(fluid.get(), new Item.Properties().stacksTo(1)));
+        if (!name.startsWith("molten/")) return TinkerFoundry.ITEMS.register(name + "_bucket", () -> new BucketItem(fluid.get(), new Item.Properties().stacksTo(1)));
+        // 自动材料桶缺少 lang 时按对应物品译名回退显示
+        return TinkerFoundry.ITEMS.register(name + "_bucket", () -> new BucketItem(fluid.get(), new Item.Properties().stacksTo(1)) {
+            @Override
+            public net.minecraft.network.chat.Component getName(net.minecraft.world.item.ItemStack stack) {
+                return org.hp.tinker_foundry.common.AutomaticFluidNames.bucket(name.substring(7), getDescriptionId());
+            }
+        });
     }
 
     /** 按注册名取得批量注册的装饰方块物品，供创造标签页保持匠魂顺序。 */

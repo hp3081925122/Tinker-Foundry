@@ -699,5 +699,8 @@
   "fluid_type.tinker_foundry.molten.sulfur": "Molten Sulfur",
   "item.tinker_foundry.molten.sulfur_bucket": "Molten Sulfur Bucket",
   "fluid_type.tinker_foundry.molten.coal_coke": "Molten Coal Coke",
-  "item.tinker_foundry.molten.coal_coke_bucket": "Molten Coal Coke Bucket"
+  "item.tinker_foundry.molten.coal_coke_bucket": "Molten Coal Coke Bucket",
+  "tinker_foundry.automatic.fluid": "Molten %s",
+  "tinker_foundry.automatic.bucket": "%s Bucket",
+  "tinker_foundry.automatic.item_forms": "%s Ingot|%s Nugget|%s Gem|%s Block|%s Dust|%s Crystal|%s Shard|Block of %s|Raw %s"
 }
