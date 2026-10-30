@@ -16,6 +16,7 @@ import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.AbstractRecipeCategory;
+import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
@@ -128,6 +129,20 @@ public final class FoundryJeiPlugin implements IModPlugin {
             new FuelCategory(guiHelper),
             new EntityMeltingCategory(guiHelper)
         );
+    }
+
+    /** 把各配方分类关联到能执行它的设备。 */
+    @Override
+    public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
+        registration.addCraftingStation(MELTING_TYPE, TFItems.SMELTERY_CONTROLLER.get(), TFItems.FOUNDRY_CONTROLLER.get(), TFItems.SEARED_MELTER.get());
+        // 铸造炉不做原地合金，只关联冶炼炉和合金炉
+        registration.addCraftingStation(ALLOYING_TYPE, TFItems.SMELTERY_CONTROLLER.get(), TFItems.SCORCHED_ALLOYER.get());
+        registration.addCraftingStation(CASTING_TABLE_TYPE, TFItems.SEARED_TABLE.get(), TFItems.SCORCHED_TABLE.get());
+        registration.addCraftingStation(CASTING_BASIN_TYPE, TFItems.SEARED_BASIN.get(), TFItems.SCORCHED_BASIN.get());
+        registration.addCraftingStation(MOLDING_TYPE, TFItems.SEARED_TABLE.get(), TFItems.SCORCHED_TABLE.get(), TFItems.SEARED_BASIN.get(), TFItems.SCORCHED_BASIN.get());
+        registration.addCraftingStation(FUEL_TYPE, TFItems.SEARED_FUEL_TANK.get(), TFItems.SCORCHED_FUEL_TANK.get(),
+            TFItems.SEARED_FUEL_GAUGE.get(), TFItems.SCORCHED_FUEL_GAUGE.get(), TFItems.SEARED_HEATER.get());
+        registration.addCraftingStation(ENTITY_MELTING_TYPE, TFItems.SMELTERY_CONTROLLER.get(), TFItems.FOUNDRY_CONTROLLER.get());
     }
 
     /** 从客户端配方管理器注册服务端同步下来的全部冶炼配方。 */
@@ -343,8 +358,13 @@ public final class FoundryJeiPlugin implements IModPlugin {
 
     /** 熔炼配方的 JEI 分类。 */
     private static final class MeltingCategory extends FoundryCategory<MeltingRecipe> {
+        /** 储罐内宽 32：左侧主产物 19，中间 1 像素分隔线，右侧副产物 12。 */
+        private static final int MAIN_TANK_WIDTH = 19;
+        private static final int BYPRODUCT_TANK_WIDTH = 12;
         /** 熔炼输出流体的官方罐体覆盖层。 */
         private final IDrawable tankOverlay;
+        /** 主副产物容器之间的暗色分隔线。 */
+        private final IDrawable tankDivider;
         /** 固体燃料输入的官方背景切片。 */
         private final IDrawable solidFuel;
         /** 创建熔炼分类。 */
@@ -357,20 +377,31 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 132,
                 40
             );
-            this.tankOverlay = guiHelper.createDrawable(MELTING_BACKGROUND, 132, 0, 32, 32);
+            this.tankOverlay = guiHelper.createDrawable(MELTING_BACKGROUND, 132, 0, MAIN_TANK_WIDTH, 32);
             this.solidFuel = guiHelper.createDrawable(MELTING_BACKGROUND, 164, 0, 18, 20);
+            this.tankDivider = guiHelper.createDrawable(MELTING_BACKGROUND, 95, 4, 1, 32);
         }
 
-        /** 显示物品输入和熔融流体输出。 */
+        /** 显示物品输入、左侧主产物容器和右侧副产物容器。 */
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, MeltingRecipe recipe, IFocusGroup focuses) {
             addItemInput(builder, recipe.ingredient(), 24, 18).setSlotName("ingredient");
-            addFluidOutput(builder, recipe.output(false), 96, 4, 32, 32)
+            addFluidOutput(builder, recipe.output(false), 96, 4, MAIN_TANK_WIDTH, 32)
                 .setOverlay(tankOverlay, 0, 0)
-                .setSlotName("result")
-                // 副产物写进产物槽悬停提示
-                .addRichTooltipCallback((slot, tooltip) -> recipe.byproductOutputs().forEach(byproduct -> tooltip.add(
-                    Component.translatable("jei.tinker_foundry.melting.byproduct", byproduct.getHoverName(), byproduct.getAmount()))));
+                .setSlotName("result");
+            // 右侧细容器轮换显示全部副产物，没有副产物时保持空容器
+            IRecipeSlotBuilder byproductSlot = builder.addOutputSlot(97 + MAIN_TANK_WIDTH, 4)
+                .setFluidRenderer(FluidValues.BLOCK, false, BYPRODUCT_TANK_WIDTH, 32)
+                .setBackground(tankDivider, -1, 0)
+                .setSlotName("byproduct");
+            for (FluidStack byproduct : recipe.byproductOutputs()) {
+                if (!byproduct.isEmpty()) byproductSlot.addFluidStack(byproduct.getFluid(), byproduct.getAmount());
+            }
+            byproductSlot.addRichTooltipCallback((slot, tooltip) -> {
+                if (slot.getDisplayedIngredient(NeoForgeTypes.FLUID_STACK).isPresent()) {
+                    tooltip.add(Component.translatable("jei.tinker_foundry.melting.byproduct"));
+                }
+            });
             // 按上游页面把可用固体燃料绘制在左下角，避免温度文字覆盖燃料栏。
             int fuelHeight = 32;
             if (recipe.temperature() <= JEI_SOLID_FUEL_TEMPERATURE && !JEI_SOLID_FUELS.isEmpty()) {
