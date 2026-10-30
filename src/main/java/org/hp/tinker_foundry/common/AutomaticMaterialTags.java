@@ -33,6 +33,8 @@ public final class AutomaticMaterialTags {
     private final Map<String, JsonObject> properties = new HashMap<>();
     private final Set<String> declaredMaterials = new HashSet<>();
     private final Set<String> gemstones = new HashSet<>();
+    // 带标准锭标签但不是金属的材料
+    private static final Set<String> NON_METALS = Set.of("brick", "nether_brick");
     private final Map<String, AutomaticFluidConfig.Definition> configuredMaterials;
     private final Map<String, Material> materials;
 
@@ -51,14 +53,22 @@ public final class AutomaticMaterialTags {
         configuredMaterials = AutomaticFluidConfig.load();
         declaredMaterials.addAll(configuredMaterials.keySet());
         Set<String> found = new LinkedHashSet<>(declaredMaterials);
+        // 只出现在 storage_blocks 里的材料（干草块、骨块、海带块等）不是金属，必须有锭、粒、矿石、宝石等形态才算材料
+        Set<String> blockOnly = new LinkedHashSet<>();
+        Set<String> qualified = new HashSet<>();
         items.forEach((id, entries) -> {
             int colon = id.indexOf(':');
             var form = AutomaticMeltingRules.fromTag(id.substring(0, colon), id.substring(colon + 1));
             if (form != null && !resolve(items, id, new HashSet<>()).isEmpty()) {
-                found.add(form.material());
+                if (form.kind() == AutomaticMeltingRules.Kind.BLOCK) blockOnly.add(form.material());
+                else qualified.add(form.material());
                 if (form.kind() == AutomaticMeltingRules.Kind.GEM) gemstones.add(form.material());
             }
         });
+        // 非金属排除：带锭标签的砖类等，显式声明（流体标签或配置文件）的材料不受影响
+        for (String name : qualified) if (!NON_METALS.contains(name) || declaredMaterials.contains(name)) found.add(name);
+        blockOnly.removeAll(found);
+        if (!blockOnly.isEmpty()) TinkerFoundry.LOGGER.info("Automatic material tags: skipped block-only or non-metal materials {}", blockOnly);
         Map<String, Material> result = new TreeMap<>();
         for (String name : found) {
             Set<String> candidates = new LinkedHashSet<>();
