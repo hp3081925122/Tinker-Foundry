@@ -103,7 +103,7 @@ Lang entries always win. When a fluid or bucket has no entry, its name is built 
 
 ### 流体名称
 
-内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料缺少翻译时按下文的名称模板自动显示；需要固定译名时，可在游戏内执行客户端指令 /tinker_foundry_client export_lang，按相同规则推导名称，把 en_us、zh_cn 和当前所选语言中缺失的条目写入 .minecraft/tinker_foundry/lang_export/<语言>.json.export，去掉 .export 后缀放进资源包 assets/tinker_foundry/lang/ 即可使用。
+内置约 200 种金属、合金和宝石的中英文流体名称：常见矿物与合金（锡、铅、银、镍、锌、铝、铀、锇、青铜、黄铜、琥珀金、殷钢、钢等），以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌、Silent Gear/Gems 等热门科技与冒险模组的材料。其余材料缺少翻译时按下文的名称模板自动显示；需要固定译名时，可在游戏内执行客户端指令 /tinker_foundry_client export_lang，按相同规则推导名称，把 en_us、zh_cn 和当前所选语言中缺失的条目写入 .minecraft/tinker_foundry/lang_export/（语言代码）.json.export，去掉 .export 后缀放进资源包 assets/tinker_foundry/lang/ 即可使用。
 
 ### JSON 注册流体
 
