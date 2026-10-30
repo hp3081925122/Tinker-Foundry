@@ -80,11 +80,15 @@ gradlew.bat build
 
 已确定熔融流体的材料还会自动生成浇注配方：浇注台放锭模产出锭（一锭用量），放宝石模产出宝石（每个 100 mB），浇注盆不放模具产出块（九锭用量，宝石为 900 mB）。只要已有任意浇注配方产出该材料的同类形态（例如铁锭、铁块、钻石），就不再生成。同一材料有多个模组的物品时，优先选择与流体同模组的物品，其次原版物品，再按注册 ID 排序取第一个；不想要的物品可加入上述黑名单标签。
 
+合成台配方也会折算熔炼配方：有序或无序合成配方的每个材料都能普通熔炼（矿石增产不计入）时，产物熔出的流体等于全部材料熔出量之和除以产物数量。流体量只支持整数 mB，除不尽时向下取整，因此熔回去不会多于投入。同一格可放多种物品时，这些物品必须熔出相同流体，用量取最少的那种；同一产物有多个合成配方时取熔出量最少的配方。材料含多种流体时，量最多的作为主产物，其余作为副产物。带耐久的产物按剩余耐久折算。已有熔炼配方的物品、特殊配方、带返还物品（如桶）的配方和带组件数据的产物不参与；推导最多进行 4 轮，由已折算物品合成的物品也能获得熔炼配方。黑名单标签同样有效。
+
+冶炼炉和铸造炉都会产出熔炼配方的副产物。
+
 注册发生在数据包正式加载之前，因此新增材料需要客户端和服务端安装相同的启动标签资源并重启游戏。世界数据包、运行脚本在之后才添加的新材料，不能靠 `/reload` 新增流体。启动扫描跳过条件标签；空标签、没有终端值的循环标签、仅含无法提前确认的可选物品引用的标签不触发生成。可选外部流体引用也无法在注册前证明存在，因此可能准备一个未使用的备用流体；数据加载后自动配方仍按实际绑定的流体标签优先复用外部流体。需要启动时明确避免备用注册时，流体提供方应在标准流体标签中使用必需引用。
 
 基础流体标签中的可选 `tinker_foundry` 字段可以设置 `color`（ARGB 十六进制） 和 `temperature`；名称请写入 lang 文件；普通材料标签无需这些字段。
 
-Automatic molten fluids and melting recipes use common material and fluid tags only. Item/fluid registry-name guessing is disabled. Existing tagged fluids take priority; missing materials receive complete source/flowing fluid, block, bucket and generated resources. Materials with a resolved molten fluid also receive casting recipes (ingot cast to ingot, gem cast to gem, basin to block) unless an existing casting recipe already produces that form. Automatic fluid colors are sampled on the client from the material's representative item texture. Explicit material references in Foundry recipe JSON resolve to the selected fluid without overriding user recipes. New registries require matching startup resources and a full client/server restart. Late world datapacks cannot register new fluids on reload. Empty, cyclic and optional-only item declarations do not establish startup material existence. Optional-only fluid references can require an unused fallback reservation because their targets cannot be verified before registration.
+Automatic molten fluids and melting recipes use common material and fluid tags only. Item/fluid registry-name guessing is disabled. Existing tagged fluids take priority; missing materials receive complete source/flowing fluid, block, bucket and generated resources. Materials with a resolved molten fluid also receive casting recipes (ingot cast to ingot, gem cast to gem, basin to block) unless an existing casting recipe already produces that form. Crafting-table recipes whose ingredients all melt also receive melting recipes: the result yields the summed ingredient fluids divided by the result count, rounded down to whole mB; extra fluids become byproducts, which both smeltery and foundry produce. Automatic fluid colors are sampled on the client from the material's representative item texture. Explicit material references in Foundry recipe JSON resolve to the selected fluid without overriding user recipes. New registries require matching startup resources and a full client/server restart. Late world datapacks cannot register new fluids on reload. Empty, cyclic and optional-only item declarations do not establish startup material existence. Optional-only fluid references can require an unused fallback reservation because their targets cannot be verified before registration.
 
 ## 用 JSON 注册自定义熔融流体
 

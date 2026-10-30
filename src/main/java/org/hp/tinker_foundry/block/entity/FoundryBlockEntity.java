@@ -793,7 +793,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return Optional.empty();
     }
 
-    /** 运行时熔炼结果，包含界面进度和铸造炉副产物。 */
+    /** 运行时熔炼结果，包含界面进度和副产物。 */
     private record MeltingMatch(FluidStack result, int temperature, int time, List<FluidStack> byproducts) {
     }
 
@@ -856,10 +856,8 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
                     inputs[index] = ItemStack.EMPTY;
                 }
                 fill(meltingResult, FluidAction.EXECUTE);
-                // 只有铸造炉提取副产物，注入顺序和不足容量时的损失遵循上游。
-                if (isFoundryController()) {
-                    for (FluidStack byproduct : recipe.byproducts()) fill(byproduct, FluidAction.EXECUTE);
-                }
+                // 冶炼炉和铸造炉都注入副产物，注入顺序和不足容量时的损失遵循上游。
+                for (FluidStack byproduct : recipe.byproducts()) fill(byproduct, FluidAction.EXECUTE);
                 setInputProgress(index, 0);
             }
         }
