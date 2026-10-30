@@ -10,7 +10,10 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterFluidModelsEvent;
 import net.neoforged.neoforge.client.event.RegisterItemModelsEvent;
 import net.neoforged.neoforge.client.event.RegisterBlockStateModels;
-import net.neoforged.neoforge.client.fluid.FluidTintSources;
+import net.neoforged.neoforge.client.fluid.FluidTintSource;
+import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -61,6 +64,13 @@ public final class FoundryClientEvents {
         TinkerFoundry.LOGGER.debug("[item-model] Registered dynamic foundry tank item model");
     }
 
+    /** 资源重载后清空自动流体取色缓存，按新材质重新取色。 */
+    @SubscribeEvent
+    public static void registerReloadListeners(AddClientReloadListenersEvent event) {
+        event.addListener(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "automatic_fluid_colors"),
+            (ResourceManagerReloadListener) resourceManager -> AutomaticFluidColors.clear());
+    }
+
     /** 为所有熔融流体注册静止纹理、流动纹理和新版流体颜色源。 */
     @SubscribeEvent
     public static void registerFluidModels(RegisterFluidModelsEvent event) {
@@ -77,7 +87,14 @@ public final class FoundryClientEvents {
         }
         Material still = new Material(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "block/fluid/molten_still"));
         Material flow = new Material(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "block/fluid/molten_flow"));
-        FluidModel.Unbaked model = new FluidModel.Unbaked(still, flow, null, FluidTintSources.constant(color));
+        // 自动流体没有显式颜色时按代表物品材质取色，其余流体保持注册颜色
+        FluidTintSource tintSource = new FluidTintSource() {
+            @Override
+            public int color(FluidState state) {
+                return AutomaticFluidColors.tint(name, color);
+            }
+        };
+        FluidModel.Unbaked model = new FluidModel.Unbaked(still, flow, null, tintSource);
         event.register(model, source, flowing);
     }
 
