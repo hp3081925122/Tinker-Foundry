@@ -183,6 +183,8 @@ public final class TinkerFoundry {
 
     /** 注册全部独立系统。 */
     public TinkerFoundry(IEventBus modEventBus, ModContainer modContainer) {
+        // 注册通用配置文件
+        modContainer.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, org.hp.tinker_foundry.common.FoundryConfig.SPEC);
         // 在注册事件触发前初始化所有静态注册表，避免能力事件阶段才延迟注册。
         TFBlocks.SEARED_BRICKS.getId();
         TFItems.SEARED_BRICK.getId();

@@ -24,6 +24,7 @@ import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.hp.tinker_foundry.TinkerFoundry;
+import org.hp.tinker_foundry.common.FoundryConfig;
 
 /** 按合成台配方折算熔炼配方：材料全部可熔炼时，产物按材料总量除以产物数量向下取整熔炼。 */
 final class CraftingMeltingRecipes {
@@ -53,6 +54,8 @@ final class CraftingMeltingRecipes {
                 for (ItemStack stack : AutomaticMeltingRecipes.ingredientItems(damageable.ingredient())) melted.add(stack.getItem());
             }
         }
+        // 配置中可忽略的材料（默认木棍）不计入熔炼量
+        Set<Item> ignored = FoundryConfig.craftingIgnoredItems();
         List<RecipeHolder<?>> crafting = recipes.stream()
             .filter(holder -> holder.value() instanceof ShapedRecipe || holder.value() instanceof ShapelessRecipe)
             .sorted(Comparator.comparing(holder -> holder.id().identifier().toString())).toList();
@@ -61,7 +64,7 @@ final class CraftingMeltingRecipes {
             // 同一产物有多个合成配方时取熔出总量最少的，避免借便宜配方刷流体
             Map<Item, Candidate> best = new IdentityHashMap<>();
             for (RecipeHolder<?> holder : crafting) {
-                Candidate candidate = candidate((CraftingRecipe) holder.value(), melts);
+                Candidate candidate = candidate((CraftingRecipe) holder.value(), melts, ignored);
                 if (candidate == null || melted.contains(candidate.item()) || excluded.contains(candidate.item())) continue;
                 Candidate old = best.get(candidate.item());
                 if (old == null || candidate.total() < old.total()) best.put(candidate.item(), candidate);
@@ -86,7 +89,7 @@ final class CraftingMeltingRecipes {
     }
 
     /** 折算一个合成配方；任一材料不可熔炼、带返还物品或产物带组件时返回 null。 */
-    private static Candidate candidate(CraftingRecipe recipe, Map<Item, Melt> melts) {
+    private static Candidate candidate(CraftingRecipe recipe, Map<Item, Melt> melts, Set<Item> ignored) {
         if (recipe.isSpecial()) return null;
         // 有序与无序合成的产物都是固定模板，组装时不读取输入
         ItemStack result;
@@ -103,6 +106,7 @@ final class CraftingMeltingRecipes {
         for (Ingredient ingredient : recipe.placementInfo().ingredients()) {
             List<ItemStack> options = AutomaticMeltingRecipes.ingredientItems(ingredient);
             if (options.isEmpty()) return null;
+            if (options.stream().allMatch(option -> ignored.contains(option.getItem()))) continue;
             // 同一格的可选物品必须熔出相同流体，用量取最小值
             Map<Fluid, Integer> common = null;
             int slotTemperature = 0;
