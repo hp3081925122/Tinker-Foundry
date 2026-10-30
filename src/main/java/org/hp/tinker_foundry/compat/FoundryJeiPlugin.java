@@ -46,13 +46,11 @@ import org.hp.tinker_foundry.common.FluidValues;
 import org.hp.tinker_foundry.recipe.AlloyingRecipe;
 import org.hp.tinker_foundry.recipe.CastingRecipe;
 import org.hp.tinker_foundry.recipe.EntityMeltingRecipe;
-import org.hp.tinker_foundry.recipe.DamageableMeltingRecipe;
 import org.hp.tinker_foundry.recipe.FoundryFluidAmount;
 import org.hp.tinker_foundry.recipe.FoundryFluidIngredient;
 import org.hp.tinker_foundry.recipe.FuelRecipe;
 import org.hp.tinker_foundry.recipe.MeltingRecipe;
 import org.hp.tinker_foundry.recipe.MoldingRecipe;
-import org.hp.tinker_foundry.recipe.OreMeltingRecipe;
 import org.hp.tinker_foundry.registry.TFItems;
 import org.hp.tinker_foundry.registry.TFRecipes;
 
@@ -64,9 +62,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
     /** JEI 熔炼分类类型。 */
     private static final RecipeType<MeltingRecipe> MELTING_TYPE = RecipeType.create(TinkerFoundry.MOD_ID, "melting", MeltingRecipe.class);
     /** JEI 矿石熔炼分类类型。 */
-    private static final RecipeType<OreMeltingRecipe> ORE_MELTING_TYPE = RecipeType.create(TinkerFoundry.MOD_ID, "ore_melting", OreMeltingRecipe.class);
     /** JEI 耐久熔炼分类类型。 */
-    private static final RecipeType<DamageableMeltingRecipe> DAMAGEABLE_MELTING_TYPE = RecipeType.create(TinkerFoundry.MOD_ID, "damageable_melting", DamageableMeltingRecipe.class);
     /** JEI 合金分类类型。 */
     private static final RecipeType<AlloyingRecipe> ALLOYING_TYPE = RecipeType.create(TinkerFoundry.MOD_ID, "alloying", AlloyingRecipe.class);
     /** JEI 铸造盆分类类型。 */
@@ -104,8 +100,6 @@ public final class FoundryJeiPlugin implements IModPlugin {
         IGuiHelper guiHelper = registration.getJeiHelpers().getGuiHelper();
         registration.addRecipeCategories(
             new MeltingCategory(guiHelper),
-            new OreMeltingCategory(guiHelper),
-            new DamageableMeltingCategory(guiHelper),
             new AlloyingCategory(guiHelper),
             new CastingCategory(
                 guiHelper,
@@ -139,9 +133,15 @@ public final class FoundryJeiPlugin implements IModPlugin {
             return;
         }
         // 客户端连接中的配方管理器包含服务端同步的数据，保证单机和专用服务器使用同一份配方。
-        registration.addRecipes(MELTING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.MELTING.get()));
-        registration.addRecipes(ORE_MELTING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ORE_MELTING.get()));
-        registration.addRecipes(DAMAGEABLE_MELTING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.DAMAGEABLE_MELTING.get()));
+        // 矿石熔炼和耐久熔炼转换为普通熔炼显示，三类共用一个熔炼分类
+        List<MeltingRecipe> meltingRecipes = new ArrayList<>(recipeManager.getAllRecipesFor(TFRecipes.MELTING.get()));
+        recipeManager.getAllRecipesFor(TFRecipes.ORE_MELTING.get()).stream()
+            .map(recipe -> new MeltingRecipe(recipe.ingredient(), recipe.result(), recipe.temperature(), recipe.time(), recipe.rate(), recipe.byproducts()))
+            .forEach(meltingRecipes::add);
+        recipeManager.getAllRecipesFor(TFRecipes.DAMAGEABLE_MELTING.get()).stream()
+            .map(recipe -> new MeltingRecipe(recipe.ingredient(), recipe.result(), recipe.temperature(), recipe.time(), "none", recipe.byproducts()))
+            .forEach(meltingRecipes::add);
+        registration.addRecipes(MELTING_TYPE, meltingRecipes);
         registration.addRecipes(ALLOYING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ALLOYING.get()));
         var castingRecipes = recipeManager.getAllRecipesFor(TFRecipes.CASTING.get());
         registration.addRecipes(CASTING_BASIN_TYPE, castingRecipes.stream().filter(CastingRecipe::basin).toList());
@@ -301,79 +301,6 @@ public final class FoundryJeiPlugin implements IModPlugin {
             // 箭头动画表达冷却时间；上游页面不再额外绘制“几秒”，避免压住燃料栏。
             builder.addAnimatedRecipeArrow(Math.max(1, recipe.time() * 5)).setPosition(56, 18);
             // 温度居中绘制在燃料栏和产物槽之间，保持 1.20.1 的文字层级和宽度。
-            builder.addText(Component.translatable("jei.tinker_foundry.temperature", recipe.temperature()), 113, 9)
-                .setPosition(0, 3)
-                .setColor(Color.GRAY.getRGB())
-                .setTextAlignment(HorizontalAlignment.CENTER);
-        }
-    }
-
-    /** 矿石熔炼配方的 JEI 分类，沿用普通熔炼布局但使用独立配方类型。 */
-    private static final class OreMeltingCategory extends FoundryCategory<OreMeltingRecipe> {
-        /** 熔炼输出流体的官方罐体覆盖层。 */
-        private final IDrawable tankOverlay;
-
-        /** 创建矿石熔炼分类。 */
-        private OreMeltingCategory(IGuiHelper guiHelper) {
-            super(ORE_MELTING_TYPE, Component.translatable("category.tinker_foundry.ore_melting"),
-                guiHelper.createDrawableItemLike(TFItems.SEARED_MELTER.get()),
-                guiHelper.createDrawable(MELTING_BACKGROUND, 0, 0, 132, 40), 132, 40);
-            this.tankOverlay = guiHelper.createDrawable(MELTING_BACKGROUND, 132, 0, 32, 32);
-        }
-
-        /** 显示矿石输入和增产流体输出。 */
-        @Override
-        public void setRecipe(IRecipeLayoutBuilder builder, OreMeltingRecipe recipe, IFocusGroup focuses) {
-            addItemInput(builder, recipe.ingredient(), 24, 18).setSlotName("ingredient");
-            addFluidOutput(builder, recipe.output(false), 96, 4, 32, 32)
-                .setOverlay(tankOverlay, 0, 0)
-                .setSlotName("result")
-                // 副产物写进产物槽悬停提示
-                .addTooltipCallback((slot, tooltip) -> recipe.byproductOutputs().forEach(byproduct -> tooltip.add(
-                    Component.translatable("jei.tinker_foundry.melting.byproduct", byproduct.getDisplayName(), byproduct.getAmount()))));
-        }
-
-        /** 显示矿石熔炼温度和倍率。 */
-        @Override
-        public void createRecipeExtras(IRecipeExtrasBuilder builder, OreMeltingRecipe recipe, IFocusGroup focuses) {
-            builder.addText(Component.translatable("jei.tinker_foundry.temperature", recipe.temperature()), 48, 9)
-                .setPosition(0, 3)
-                .setColor(Color.GRAY.getRGB())
-                .setTextAlignment(HorizontalAlignment.CENTER);
-            builder.addText(Component.literal(recipe.rate()), 46, 9)
-                .setPosition(48, 3)
-                .setTextAlignment(HorizontalAlignment.CENTER);
-        }
-    }
-
-    /** 耐久物品熔炼配方的 JEI 分类。 */
-    private static final class DamageableMeltingCategory extends FoundryCategory<DamageableMeltingRecipe> {
-        /** 熔炼输出流体的官方罐体覆盖层。 */
-        private final IDrawable tankOverlay;
-
-        /** 创建耐久熔炼分类。 */
-        private DamageableMeltingCategory(IGuiHelper guiHelper) {
-            super(DAMAGEABLE_MELTING_TYPE, Component.translatable("category.tinker_foundry.damageable_melting"),
-                guiHelper.createDrawableItemLike(TFItems.SEARED_MELTER.get()),
-                guiHelper.createDrawable(MELTING_BACKGROUND, 0, 0, 132, 40), 132, 40);
-            this.tankOverlay = guiHelper.createDrawable(MELTING_BACKGROUND, 132, 0, 32, 32);
-        }
-
-        /** 显示耐久物品输入和按剩余耐久计算的流体输出。 */
-        @Override
-        public void setRecipe(IRecipeLayoutBuilder builder, DamageableMeltingRecipe recipe, IFocusGroup focuses) {
-            addItemInput(builder, recipe.ingredient(), 24, 18).setSlotName("ingredient");
-            addFluidOutput(builder, recipe.result(), 96, 4, 32, 32)
-                .setOverlay(tankOverlay, 0, 0)
-                .setSlotName("result")
-                // 副产物写进产物槽悬停提示
-                .addTooltipCallback((slot, tooltip) -> recipe.byproducts().stream().map(MeltingRecipe.Byproduct::result).toList().forEach(byproduct -> tooltip.add(
-                    Component.translatable("jei.tinker_foundry.melting.byproduct", byproduct.getDisplayName(), byproduct.getAmount()))));
-        }
-
-        /** 显示耐久熔炼温度。 */
-        @Override
-        public void createRecipeExtras(IRecipeExtrasBuilder builder, DamageableMeltingRecipe recipe, IFocusGroup focuses) {
             builder.addText(Component.translatable("jei.tinker_foundry.temperature", recipe.temperature()), 113, 9)
                 .setPosition(0, 3)
                 .setColor(Color.GRAY.getRGB())
