@@ -136,6 +136,10 @@ public final class FoundryJeiPlugin implements IModPlugin {
         recipeManager.getAllRecipesFor(TFRecipes.ORE_MELTING.get()).stream().map(RecipeHolder::value)
             .map(recipe -> new MeltingRecipe(recipe.ingredient(), recipe.result(), recipe.temperature(), recipe.time(), recipe.rate(), recipe.byproducts()))
             .forEach(meltingRecipes::add);
+        // 耐久熔炼按满耐久显示，与普通熔炼共用分类
+        recipeManager.getAllRecipesFor(TFRecipes.DAMAGEABLE_MELTING.get()).stream().map(RecipeHolder::value)
+            .map(recipe -> new MeltingRecipe(recipe.ingredient(), recipe.result(), recipe.temperature(), recipe.time(), "none", recipe.byproducts()))
+            .forEach(meltingRecipes::add);
         registration.addRecipes(MELTING_TYPE, meltingRecipes);
         registration.addRecipes(ALLOYING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ALLOYING.get()).stream().map(RecipeHolder::value).toList());
         var castingRecipes = recipeManager.getAllRecipesFor(TFRecipes.CASTING.get()).stream().map(RecipeHolder::value).toList();
@@ -250,7 +254,10 @@ public final class FoundryJeiPlugin implements IModPlugin {
             addItemInput(builder, recipe.ingredient(), 24, 18).setSlotName("ingredient");
             addFluidOutput(builder, recipe.output(false), 96, 4, 32, 32)
                 .setOverlay(tankOverlay, 0, 0)
-                .setSlotName("result");
+                .setSlotName("result")
+                // 副产物写进产物槽悬停提示
+                .addRichTooltipCallback((slot, tooltip) -> recipe.byproductOutputs().forEach(byproduct -> tooltip.add(
+                    Component.translatable("jei.tinker_foundry.melting.byproduct", byproduct.getHoverName(), byproduct.getAmount()))));
             // 按上游页面把可用固体燃料绘制在左下角，避免温度文字覆盖燃料栏。
             int fuelHeight = 32;
             if (recipe.temperature() <= JEI_SOLID_FUEL_TEMPERATURE && !JEI_SOLID_FUELS.isEmpty()) {
