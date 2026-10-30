@@ -75,23 +75,12 @@ public final class TFFluids {
     public static Map<ResourceLocation, byte[]> automaticResources(boolean client) {
         Map<ResourceLocation, byte[]> resources = new java.util.LinkedHashMap<>();
         if (client) {
-            com.google.gson.JsonObject english = new com.google.gson.JsonObject();
-            com.google.gson.JsonObject chinese = new com.google.gson.JsonObject();
             for (var material : MATERIAL_TAGS.materials().values()) {
                 String name = material.registryName();
                 if (!EXTRA_SOURCES.containsKey(name)) continue;
                 putResource(resources, "tinker_foundry:models/item/" + name + "_bucket.json", "{\n  \"parent\": \"neoforge:item/default\",\n  \"loader\": \"neoforge:fluid_container\",\n  \"fluid\": \"minecraft:empty\",\n  \"textures\": {\n    \"base\": \"minecraft:item/bucket\",\n    \"fluid\": \"neoforge:item/mask/bucket_fluid\"\n  }\n}");
                 putResource(resources, "tinker_foundry:blockstates/" + name + "_fluid.json", "{\n  \"variants\": {\n    \"level=0\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=1\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=2\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=3\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=4\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=5\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=6\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=7\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=8\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=9\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=10\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=11\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=12\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=13\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=14\":{\"model\":\"tinker_foundry:block/molten_fluid\"},\n    \"level=15\":{\"model\":\"tinker_foundry:block/molten_fluid\"}\n  }\n}");
-                if (MATERIAL_TAGS.isConfigured(material.name())) continue;
-                String fluidKey = "fluid_type.tinker_foundry." + name.replace('/', '.');
-                String bucketKey = "item.tinker_foundry." + name.replace('/', '.') + "_bucket";
-                english.addProperty(fluidKey, "Molten " + material.displayName("en_us"));
-                english.addProperty(bucketKey, "Molten " + material.displayName("en_us") + " Bucket");
-                chinese.addProperty(fluidKey, "熔融" + material.displayName("zh_cn"));
-                chinese.addProperty(bucketKey, "熔融" + material.displayName("zh_cn") + "桶");
             }
-            putResource(resources, "tinker_foundry:lang/en_us.json", english.toString());
-            putResource(resources, "tinker_foundry:lang/zh_cn.json", chinese.toString());
         } else {
             for (var material : MATERIAL_TAGS.materials().values()) if (EXTRA_SOURCES.containsKey(material.registryName())) {
                 putResource(resources, "c:tags/fluid/molten_" + material.name() + ".json",

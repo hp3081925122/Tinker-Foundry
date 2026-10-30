@@ -118,6 +118,10 @@ public final class TFItems {
     /** 铜制便携罐。 */
     public static final DeferredItem<PortableTankItem> COPPER_CANISTER = TinkerFoundry.ITEMS.register("copper_canister", () -> new PortableTankItem(FluidValues.INGOT, new Item.Properties()));
 
+    /** 肉汤碗：熔融肉汤浇注进碗得到，食用后返还空碗。 */
+    public static final DeferredItem<Item> MEAT_SOUP = TinkerFoundry.ITEMS.register("meat_soup", () -> new Item(new Item.Properties().stacksTo(1)
+        .food(new net.minecraft.world.food.FoodProperties.Builder().nutrition(8).saturationModifier(0.6F).usingConvertsTo(net.minecraft.world.item.Items.BOWL).build())));
+
     /** 变种方块统一注册，避免为每个不参与逻辑判断的装饰方块复制一套 Java 字段。 */
     private static final Map<String, DeferredItem<Item>> VARIANT_BLOCK_ITEMS = registerVariantBlockItems();
     /** 注册方块物品。 */

@@ -1,0 +1,14 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:liquid_soul"
+    },
+    "amount": 1000
+  },
+  "result": {
+    "id": "minecraft:soul_sand",
+    "count": 1
+  },
+  "time": 80
+}

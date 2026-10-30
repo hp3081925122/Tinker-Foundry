@@ -139,8 +139,8 @@ public final class FoundryJeiPlugin implements IModPlugin {
         registration.addRecipes(MELTING_TYPE, meltingRecipes);
         registration.addRecipes(ALLOYING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.ALLOYING.get()).stream().map(RecipeHolder::value).toList());
         var castingRecipes = recipeManager.getAllRecipesFor(TFRecipes.CASTING.get()).stream().map(RecipeHolder::value).toList();
-        registration.addRecipes(CASTING_BASIN_TYPE, castingRecipes.stream().filter(recipe -> recipe.mold().isEmpty()).toList());
-        registration.addRecipes(CASTING_TABLE_TYPE, castingRecipes.stream().filter(recipe -> recipe.mold().isPresent()).toList());
+        registration.addRecipes(CASTING_BASIN_TYPE, castingRecipes.stream().filter(CastingRecipe::basin).toList());
+        registration.addRecipes(CASTING_TABLE_TYPE, castingRecipes.stream().filter(recipe -> !recipe.basin()).toList());
         registration.addRecipes(MOLDING_TYPE, recipeManager.getAllRecipesFor(TFRecipes.MOLDING.get()).stream().map(RecipeHolder::value).toList());
         // 先把同步到客户端的燃料配方转换成 JEI 展示栈，熔炼和实体熔炼分类共用这份数据。
         var fuelRecipes = recipeManager.getAllRecipesFor(TFRecipes.FUEL.get()).stream().map(RecipeHolder::value).toList();
@@ -358,10 +358,47 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 .addIngredients(mold)
                 .setStandardSlotBackground()
                 .setSlotName("mold"));
-            addFluidInput(builder, recipe.fluid(), 3, 3, 32, 32)
+            if (!recipe.copyPotionContents()) {
+                addFluidInput(builder, recipe.fluid(), 3, 3, 32, 32)
+                    .setOverlay(tankOverlay, 0, 0)
+                    .setSlotName("fluid");
+                addItemOutput(builder, recipe.result(), 93, 18).setSlotName("result");
+                return;
+            }
+            // 药水浇注按全部原版药水展开，流体与产物一一对应。
+            List<FluidStack> fluids = new ArrayList<>();
+            List<ItemStack> results = new ArrayList<>();
+            BuiltInRegistries.POTION.holders().forEach(potion -> {
+                PotionContents contents = new PotionContents(potion);
+                for (FluidStack ingredient : recipe.fluid().getFluids()) {
+                    FluidStack stack = new FluidStack(ingredient.getFluid(), recipe.fluid().amount());
+                    stack.set(DataComponents.POTION_CONTENTS, contents);
+                    fluids.add(stack);
+                    ItemStack result = recipe.result().copy();
+                    result.set(DataComponents.POTION_CONTENTS, contents);
+                    results.add(result);
+                }
+            });
+            // 流体槽与产物槽建立焦点联动，保证轮播时两边是同一种药水。
+            IRecipeSlotBuilder fluidSlot = builder.addInputSlot(3, 3)
+                .setFluidRenderer(FluidValues.BLOCK, false, 32, 32)
+                .addIngredients(NeoForgeTypes.FLUID_STACK, fluids)
+                .addRichTooltipCallback((slot, tooltip) -> slot.getDisplayedIngredient(NeoForgeTypes.FLUID_STACK)
+                    .map(stack -> stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY))
+                    .filter(contents -> contents.potion().isPresent())
+                    .ifPresent(contents -> {
+                        Component potionName = Component.translatable(Potion.getName(contents.potion(), "item.minecraft.potion.effect."));
+                        List<Either<net.minecraft.network.chat.FormattedText, net.minecraft.world.inventory.tooltip.TooltipComponent>> lines = tooltip.getLines();
+                        if (!lines.isEmpty()) lines.set(0, Either.left(potionName));
+                        else tooltip.add(potionName);
+                    }))
                 .setOverlay(tankOverlay, 0, 0)
                 .setSlotName("fluid");
-            addItemOutput(builder, recipe.result(), 93, 18).setSlotName("result");
+            IRecipeSlotBuilder resultSlot = builder.addOutputSlot(93, 18)
+                .addItemStacks(results)
+                .setOutputSlotBackground()
+                .setSlotName("result");
+            builder.createFocusLink(fluidSlot, resultSlot);
         }
 
         /** 显示设备图标、浇注动画和铸模不消耗语义。 */

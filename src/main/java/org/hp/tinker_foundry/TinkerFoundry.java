@@ -69,6 +69,7 @@ public final class TinkerFoundry {
         output.accept(TFItems.NETHER_GROUT.get());
         output.accept(TFItems.SCORCHED_BRICK.get());
         output.accept(TFItems.COPPER_CANISTER.get());
+        output.accept(TFItems.MEAT_SOUP.get());
 
         // 输出小型设备和冶炼炉控制器，顺序对应匠魂的 controllers 分组。
         output.accept(TFItems.SEARED_MELTER.get());

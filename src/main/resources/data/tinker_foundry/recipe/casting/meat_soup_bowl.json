@@ -1,0 +1,18 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:meat_soup"
+    },
+    "amount": 250
+  },
+  "mold": {
+    "item": "minecraft:bowl"
+  },
+  "result": {
+    "id": "tinker_foundry:meat_soup",
+    "count": 1
+  },
+  "time": 10,
+  "cast_consumed": true
+}

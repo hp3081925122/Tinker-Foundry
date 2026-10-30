@@ -1,0 +1,18 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": {
+      "fluid": "tinker_foundry:honey"
+    },
+    "amount": 250
+  },
+  "mold": {
+    "item": "minecraft:glass_bottle"
+  },
+  "result": {
+    "id": "minecraft:honey_bottle",
+    "count": 1
+  },
+  "time": 5,
+  "cast_consumed": true
+}
