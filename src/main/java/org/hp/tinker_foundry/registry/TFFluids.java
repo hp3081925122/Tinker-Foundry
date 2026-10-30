@@ -133,7 +133,18 @@ public final class TFFluids {
             .viscosity(1500)
             .temperature(temperature)
             .lightLevel(lightLevel)
-            .canConvertToSource(false)));
+            .canConvertToSource(false)) {
+                /** 自动材料流体缺少 lang 时按对应物品译名回退显示。 */
+                @Override
+                public net.minecraft.network.chat.Component getDescription() {
+                    return name.startsWith("molten/") ? org.hp.tinker_foundry.common.AutomaticFluidNames.fluid(name.substring(7), getDescriptionId()) : super.getDescription();
+                }
+
+                @Override
+                public net.minecraft.network.chat.Component getDescription(net.neoforged.neoforge.fluids.FluidStack stack) {
+                    return name.startsWith("molten/") ? getDescription() : super.getDescription(stack);
+                }
+            });
     }
 
     /** 注册静止流体。 */
