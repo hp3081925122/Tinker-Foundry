@@ -145,6 +145,8 @@ public final class AutomaticMeltingRecipes {
             generated.add(recipe);
         }
         int melting = generated.size();
+        // 材料全部可熔炼的合成配方折算熔炼配方
+        int crafting = CraftingMeltingRecipes.generate(server, recipes, ids, excluded, generated);
         // 已有浇注配方产出的材料形态不再自动生成，避免和数据包配方重复
         Set<String> castOutputs = new HashSet<>();
         for (Recipe<?> recipe : recipes) {
@@ -167,8 +169,8 @@ public final class AutomaticMeltingRecipes {
         }
         manager.replaceRecipes(recipes);
         GENERATED.put(server, generated);
-        TinkerFoundry.LOGGER.info("Automatic melting recipes: generated={}, casting={}, existingInputs={}, ambiguousMaterials={}",
-            melting, generated.size() - melting, covered.size(), ambiguous.size());
+        TinkerFoundry.LOGGER.info("Automatic melting recipes: generated={}, crafting={}, casting={}, existingInputs={}, ambiguousMaterials={}",
+            melting, crafting, generated.size() - melting - crafting, covered.size(), ambiguous.size());
     }
 
     private static void addCasting(List<Recipe<?>> recipes, Set<Object> generated, Set<ResourceLocation> ids, Set<String> castOutputs,
@@ -229,7 +231,7 @@ public final class AutomaticMeltingRecipes {
         candidates.computeIfAbsent(material, key -> new LinkedHashSet<>()).add(fluid);
     }
 
-    private static Fluid source(Fluid fluid) {
+    static Fluid source(Fluid fluid) {
         return fluid instanceof FlowingFluid flowing ? flowing.getSource() : fluid;
     }
 

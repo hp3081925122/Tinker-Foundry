@@ -107,6 +107,7 @@
   "jei.tinker_foundry.molding.pattern_consumed": "消耗模具",
   "jei.tinker_foundry.molding.pattern_kept": "保留模具",
   "jei.tinker_foundry.entity_melting.damage": "伤害：%s",
+  "jei.tinker_foundry.melting.byproduct": "副产物：%s %s mB",
   "jei.tinker_foundry.temperature": "%s°C",
   "jei.tinker_foundry.time": "%s秒",
   "gui.tinker_foundry.fluid": "流体：%s / %s mB",
