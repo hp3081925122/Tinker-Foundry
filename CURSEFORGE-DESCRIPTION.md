@@ -34,15 +34,15 @@ Tinker Foundry 将 [Tinkers' Construct](https://www.curseforge.com/minecraft/mc-
 
 ## Automatic molten fluids and melting recipes
 
-Common `forge:` / `c:` material tags can automatically provide missing molten fluids and melting recipes for nuggets, ingots, blocks, raw materials, raw blocks, ores, dusts, plates and gems. Existing tagged molten fluids and existing recipes take priority. Generated fluids include source/flowing variants, a placeable fluid block and a bucket. Ore and raw-material yields follow the smeltery/foundry recipe rules.
+Common forge: / c: material tags can automatically provide missing molten fluids and melting recipes for nuggets, ingots, blocks, raw materials, raw blocks, ores, dusts, plates and gems. Existing tagged molten fluids and existing recipes take priority. Generated fluids include source/flowing variants, a placeable fluid block and a bucket. Ore and raw-material yields follow the smeltery/foundry recipe rules.
 
 ### Limits of automatic generation
 
 *   Tags are required: registry names and item appearances are never used to guess materials or existing fluids. Incorrect or missing material tags need a pack-side fix or explicit recipes.
-*   Registration scans startup mod resources. Late world datapacks and server scripts cannot add new fluids through `/reload`; both client and server need matching startup resources/configuration and a full restart.
+*   Registration scans startup mod resources. Late world datapacks and server scripts cannot add new fluids through /reload; both client and server need matching startup resources/configuration and a full restart.
 *   Conditional, empty, cyclic and optional-only item declarations cannot reliably establish a material at startup. Optional-only external-fluid references can reserve an unused fallback because their existence cannot be proved before registration; recipes still prefer the actual tagged external fluid after data loading.
 *   Multiple distinct external source fluids for one material are ambiguous and skip automatic recipes. Source/flowing variants of one fluid are normalized together. Explicit base-process material references use a stable choice among tagged sources.
-*   Unknown materials use a generic molten texture and a default temperature; the color is sampled on the client from the material's ingot, gem or block texture (explicit colors in config or tags win). Use `tinker_foundry:melting/automatic_blacklist` to exclude items from automatic recipes.
+*   Unknown materials use a generic molten texture and a default temperature; the color is sampled on the client from the material's ingot, gem or block texture (explicit colors in config or tags win). Use tinker_foundry:melting/automatic_blacklist to exclude items from automatic recipes.
 
 ### Automatic casting
 
@@ -50,15 +50,15 @@ Materials with a resolved molten fluid also get casting recipes: ingot cast → 
 
 ### Melting derived from crafting
 
-When every ingredient of a shaped, shapeless or stonecutting recipe can be melted, the result gets a melting recipe worth the total ingredient fluid divided by the output count (rounded down). The cheapest recipe is used when several make the same item, so the stonecutter cannot duplicate fluid. Multiple fluids become a main product plus byproducts (output by both the smeltery and the foundry); damageable items scale with remaining durability, so vanilla and modded tools and armor are recyclable without hand-written recipes. `automatic_melting.crafting_ignored_ingredients` in `config/tinker_foundry-common.toml` (default `minecraft:stick`) lists items or `#tags` ignored when deriving.
+When every ingredient of a shaped, shapeless or stonecutting recipe can be melted, the result gets a melting recipe worth the total ingredient fluid divided by the output count (rounded down). The cheapest recipe is used when several make the same item, so the stonecutter cannot duplicate fluid. Multiple fluids become a main product plus byproducts (output by both the smeltery and the foundry); damageable items scale with remaining durability, so vanilla and modded tools and armor are recyclable without hand-written recipes. automatic_melting.crafting_ignored_ingredients in config/tinker_foundry-common.toml (default minecraft:stick) lists items or #tags ignored when deriving.
 
 ### Fluid names
 
-Chinese and English names are built in for about 200 metals, alloys and gems: common ores and alloys (tin, lead, silver, nickel, zinc, aluminum, uranium, osmium, bronze, brass, electrum, invar, steel and more) plus materials from popular tech and adventure mods such as Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems. Missing names fall back to the name templates described below. To ship fixed names, run the client command `/tinker_foundry_client export_lang`: it derives names with the same rules and writes the missing `en_us`, `zh_cn` and currently selected language entries to `.minecraft/tinker_foundry/lang_export/<lang>.json.export`. Remove the `.export` suffix and drop the file into a resource pack's `assets/tinker_foundry/lang/`.
+Chinese and English names are built in for about 200 metals, alloys and gems: common ores and alloys (tin, lead, silver, nickel, zinc, aluminum, uranium, osmium, bronze, brass, electrum, invar, steel and more) plus materials from popular tech and adventure mods such as Mekanism, Thermal, Ender IO, Modern Industrialization, AE2 add-ons, Allthemodium, Twilight Forest, Botania, Cataclysm, Undergarden, Eternal Starlight, Ice and Fire and Silent Gear/Gems. Missing names fall back to the name templates described below. To ship fixed names, run the client command /tinker_foundry_client export_lang: it derives names with the same rules and writes the missing en_us, zh_cn and currently selected language entries to .minecraft/tinker_foundry/lang_export/(language code).json.export. Remove the .export suffix and drop the file into a resource pack's assets/tinker_foundry/lang/.
 
 ### Register fluids with JSON
 
-Place one JSON object per file anywhere under `config/tinker_foundry/fluids/` (subfolders are read recursively):
+Place one JSON object per file anywhere under config/tinker_foundry/fluids/ (subfolders are read recursively):
 
 ```
 {
@@ -68,9 +68,9 @@ Place one JSON object per file anywhere under `config/tinker_foundry/fluids/` (s
 }
 ```
 
-`material` is a lowercase material ID, or the full `tinker_foundry:molten/tin` ID. `color` accepts `#RRGGBB` or `#AARRGGBB`; `temperature` is a non-negative integer in kelvin. A definition can register a fluid even without item tags; automatic melting recipes still require tagged input items. Existing tagged external fluids are reused without changing their original color or temperature. JSON overrides tag metadata for fluids generated by this mod.
+material is a lowercase material ID, or the full tinker_foundry:molten/tin ID. color accepts #RRGGBB or #AARRGGBB; temperature is a non-negative integer in kelvin. A definition can register a fluid even without item tags; automatic melting recipes still require tagged input items. Existing tagged external fluids are reused without changing their original color or temperature. JSON overrides tag metadata for fluids generated by this mod.
 
-Do not put names in the definition. Add translations to a resource pack's `assets/tinker_foundry/lang/en_us.json` (or the corresponding language file):
+Do not put names in the definition. Add translations to a resource pack's assets/tinker_foundry/lang/en_us.json (or the corresponding language file):
 
 ```
 {
@@ -79,7 +79,7 @@ Do not put names in the definition. Add translations to a resource pack's `asset
 }
 ```
 
-Lang entries always win. When a fluid or bucket has no entry, its name is built from the current-language name of the material's ingot/nugget/block using the templates `tinker_foundry.automatic.fluid` (`Molten %s`), `tinker_foundry.automatic.bucket` (`%s Bucket`, %s is the fluid name) and the form list `tinker_foundry.automatic.item_forms` (`%s Ingot|%s Nugget|...|Raw %s`); add these three keys to support any other language. Files are sorted by relative path; the first valid definition for a material wins. Invalid files are logged and skipped. The first startup creates an inactive `example.json.disabled` and instructions. Match the configuration on both sides and restart after editing.
+Lang entries always win. When a fluid or bucket has no entry, its name is built from the current-language name of the material's ingot/nugget/block using the templates tinker_foundry.automatic.fluid (Molten %s), tinker_foundry.automatic.bucket (%s Bucket, %s is the fluid name) and the form list tinker_foundry.automatic.item_forms (%s Ingot|%s Nugget|...|Raw %s); add these three keys to support any other language. Files are sorted by relative path; the first valid definition for a material wins. Invalid files are logged and skipped. The first startup creates an inactive example.json.disabled and instructions. Match the configuration on both sides and restart after editing.
 
 ## 自动熔融流体与自动熔炼
 
