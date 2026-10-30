@@ -240,7 +240,7 @@ public final class FoundryJeiPlugin implements IModPlugin {
             } else if (recipe instanceof AlloyingRecipe value) {
                 alloying.add(value);
             } else if (recipe instanceof CastingRecipe value) {
-                (value.mold().isPresent() ? castingTable : castingBasin).add(value);
+                (value.basin() ? castingBasin : castingTable).add(value);
             } else if (recipe instanceof MoldingRecipe value) {
                 molding.add(value);
             } else if (recipe instanceof FuelRecipe value) {
@@ -475,10 +475,47 @@ public final class FoundryJeiPlugin implements IModPlugin {
                 .addIngredients(mold)
                 .setStandardSlotBackground()
                 .setSlotName("mold"));
-            addFluidInput(builder, recipe.fluid(), 3, 3, 32, 32)
+            if (!recipe.copyPotionContents()) {
+                addFluidInput(builder, recipe.fluid(), 3, 3, 32, 32)
+                    .setOverlay(tankOverlay, 0, 0)
+                    .setSlotName("fluid");
+                addItemOutput(builder, recipe.result(), 93, 18).setSlotName("result");
+                return;
+            }
+            // 药水浇注按全部原版药水展开，流体与产物一一对应。
+            List<FluidStack> fluids = new ArrayList<>();
+            List<ItemStack> results = new ArrayList<>();
+            BuiltInRegistries.POTION.listElements().forEach(potion -> {
+                PotionContents contents = new PotionContents(potion);
+                for (Holder<net.minecraft.world.level.material.Fluid> holder : recipe.fluid().ingredient().fluids()) {
+                    FluidStack stack = new FluidStack(holder.value(), recipe.fluid().amount());
+                    stack.set(DataComponents.POTION_CONTENTS, contents);
+                    fluids.add(stack);
+                    ItemStack result = recipe.result();
+                    result.set(DataComponents.POTION_CONTENTS, contents);
+                    results.add(result);
+                }
+            });
+            // 流体槽与产物槽建立焦点联动，保证轮播时两边是同一种药水。
+            IRecipeSlotBuilder fluidSlot = builder.addInputSlot(3, 3)
+                .setFluidRenderer(FluidValues.BLOCK, false, 32, 32)
+                .addIngredients(NeoForgeTypes.FLUID_STACK, fluids)
+                .addRichTooltipCallback((slot, tooltip) -> slot.getDisplayedIngredient(NeoForgeTypes.FLUID_STACK)
+                    .map(stack -> stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY))
+                    .filter(contents -> contents.potion().isPresent())
+                    .ifPresent(contents -> {
+                        Component potionName = contents.getName("item.minecraft.potion.effect.");
+                        List<Either<net.minecraft.network.chat.FormattedText, net.minecraft.world.inventory.tooltip.TooltipComponent>> lines = tooltip.getLines();
+                        if (!lines.isEmpty()) lines.set(0, Either.left(potionName));
+                        else tooltip.add(potionName);
+                    }))
                 .setOverlay(tankOverlay, 0, 0)
                 .setSlotName("fluid");
-            addItemOutput(builder, recipe.result(), 93, 18).setSlotName("result");
+            IRecipeSlotBuilder resultSlot = builder.addOutputSlot(93, 18)
+                .addItemStacks(results)
+                .setOutputSlotBackground()
+                .setSlotName("result");
+            builder.createFocusLink(fluidSlot, resultSlot);
         }
 
         /** 显示设备图标、浇注动画和铸模不消耗语义。 */

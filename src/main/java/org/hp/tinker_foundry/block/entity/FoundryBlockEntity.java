@@ -1694,7 +1694,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         // 单方块熔化炉保留 1.20.1 匠魂的三个并行物品输入槽。
         if (isMeltingBlock()) return MELTER_INPUT_SLOTS;
-        if (isCastingTable() || isCastingTankBlock()) {
+        if (isCastingBlock() || isCastingTankBlock()) {
             return 1;
         }
         return 0;
@@ -1795,10 +1795,6 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         }
         // 浇注台、浇注盆只接受模具或容器输入，不把流体容器误当作普通模具。
         if (isCastingBlock()) {
-            if (isCastingBasin()) {
-                // 浇注盆没有物品输入槽，防止无效物品遮挡无模具盆铸造配方。
-                return false;
-            }
             if (stack.getItem() instanceof net.minecraft.world.item.BucketItem
                 || stack.getItem() instanceof org.hp.tinker_foundry.item.PortableTankItem
                 || stack.getItem() instanceof org.hp.tinker_foundry.item.FoundryTankItem) {
@@ -1822,9 +1818,9 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         return insertFuelOrInput(stack);
     }
 
-    /** 复刻匠魂铸造台的直接右键语义：空台放一件，已有输入时取回整件输入。 */
+    /** 复刻匠魂铸造台和铸造盆的直接右键语义：空槽放一件，已有输入时取回整件输入。 */
     public boolean interactCastingTable(Player player, net.minecraft.world.InteractionHand hand) {
-        if (!isCastingTable() || level == null || level.isClientSide() || (processTime > 0 && progress > 0)) {
+        if (!isCastingBlock() || level == null || level.isClientSide() || (processTime > 0 && progress > 0)) {
             return false;
         }
         if (!output.isEmpty()) {
@@ -2108,7 +2104,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
     public void setItem(int slot, ItemStack stack) {
         ItemStack copy = stack.copy();
         int input = inputIndex(slot);
-        int stackLimit = input == 0 && isCastingTable() ? 1 : getMaxStackSize(copy);
+        int stackLimit = input == 0 && isCastingBlock() ? 1 : getMaxStackSize(copy);
         copy.setCount(Math.min(copy.getCount(), stackLimit));
         if (input >= 0) {
             // 更换或取出物品必须清除旧配方热量，不能把上一件物品的进度移给新物品。
@@ -2140,7 +2136,7 @@ public final class FoundryBlockEntity extends BlockEntity implements IFluidHandl
         int input = inputIndex(slot);
         if (input >= 0) {
             return input < inputSlotCount() && (isStructureController() || !isSolidFuelItem(stack))
-                && (input != 0 || !isCastingTable() || stack.getCount() <= 1);
+                && (input != 0 || !isCastingBlock() || stack.getCount() <= 1);
         }
         return (isHeater() || isAlloyer() || isFuelTankBlock()) && slot == FUEL_SLOT && isSolidFuelItem(stack);
     }

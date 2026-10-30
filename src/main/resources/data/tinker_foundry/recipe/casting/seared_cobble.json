@@ -1,5 +1,6 @@
 {
   "type": "tinker_foundry:casting",
+  "basin": true,
   "fluid": {"ingredient": "tinker_foundry:molten_clay", "amount": 500},
   "mold": {
     "neoforge:ingredient_type": "neoforge:compound",

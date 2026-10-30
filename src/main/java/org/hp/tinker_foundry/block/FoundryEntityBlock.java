@@ -125,8 +125,8 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             } else if (entity.swapSpecialItem(player, InteractionHand.MAIN_HAND)) {
                 return InteractionResult.SUCCESS;
             }
-            // 铸造台空手右键遵循匠魂语义：取出完成产物，否则取回台面上的输入物品。
-            if (entity.isCastingTable() && entity.interactCastingTable(player, InteractionHand.MAIN_HAND)) {
+            // 铸造台和铸造盆空手右键遵循匠魂语义：取出完成产物，否则取回其中的输入物品。
+            if (entity.isCastingBlock() && entity.interactCastingTable(player, InteractionHand.MAIN_HAND)) {
                 return InteractionResult.SUCCESS;
             }
             // 浇注台和浇注盆才允许空手取出铸造结果，普通冶炼设备的产物必须从菜单槽取出。
@@ -257,7 +257,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
             return interactWithFluidContainer(player, hand, level, pos, hit.getDirection(), state.getBlock().toString())
                 ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }
-        // 浇注盆没有普通物品输入槽，手持任意非流体物品右键时也应先取出已经完成的成品。
+        // 浇注盆有成品时，手持任意非流体物品右键也应先取出已经完成的成品。
         if (entity.isCastingBlock() && !entity.isCastingTable() && !entity.getOutput().isEmpty()) {
             ItemStack ready = entity.takeOutput();
             player.getInventory().placeItemBackInInventory(ready);
@@ -271,7 +271,7 @@ public class FoundryEntityBlock extends BaseEntityBlock {
                 ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }
         // 只有浇注台和浇注盆允许普通手持物走专用铸造输入逻辑。
-        if (entity.isCastingTable()) {
+        if (entity.isCastingBlock()) {
             return entity.interactCastingTable(player, hand)
                 ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }

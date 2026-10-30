@@ -25,7 +25,6 @@ import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import org.slf4j.Logger;
 import org.hp.tinker_foundry.common.FoundryWorldEvents;
 import org.hp.tinker_foundry.network.FoundryNetworking;
-import org.hp.tinker_foundry.debug.FoundryDebugCommand;
 
 /** 独立冶炼系统的模组入口。 */
 @Mod(TinkerFoundry.MOD_ID)
@@ -71,6 +70,7 @@ public final class TinkerFoundry {
         output.accept(TFItems.NETHER_GROUT.get());
         output.accept(TFItems.SCORCHED_BRICK.get());
         output.accept(TFItems.COPPER_CANISTER.get());
+        output.accept(TFItems.MEAT_SOUP.get());
 
         // 输出小型设备和冶炼炉控制器，顺序对应匠魂的 controllers 分组。
         output.accept(TFItems.SEARED_MELTER.get());
@@ -191,15 +191,11 @@ public final class TinkerFoundry {
         TFRecipes.MELTING.getId();
         org.hp.tinker_foundry.registry.TFMenus.FOUNDRY.getId();
         modEventBus.addListener(this::registerCapabilities);
-        modEventBus.addListener(org.hp.tinker_foundry.gametest.FoundryGameTests::registerFunctions);
-        modEventBus.addListener(org.hp.tinker_foundry.gametest.FoundryGameTests::registerTests);
         // 客户端状态载荷只注册到当前模组协议，不改变原版容器包流程。
         modEventBus.addListener(FoundryNetworking::register);
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         NeoForge.EVENT_BUS.register(FoundryWorldEvents.class);
         NeoForge.EVENT_BUS.register(org.hp.tinker_foundry.recipe.AutomaticMeltingRecipes.class);
-        // 调试生成器只注册服务端命令，不启动客户端，也不改变普通玩家的游戏流程。
-        NeoForge.EVENT_BUS.addListener(FoundryDebugCommand::register);
         // 请求 NeoForge 把自定义配方类型同步给客户端，供 JEI 和其他客户端浏览器读取。
         NeoForge.EVENT_BUS.addListener(this::requestRecipeSync);
         org.hp.tinker_foundry.common.AutomaticFluidResources.register(modEventBus);

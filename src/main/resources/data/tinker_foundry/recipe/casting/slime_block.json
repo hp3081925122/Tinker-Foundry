@@ -1,0 +1,12 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": "tinker_foundry:slime",
+    "amount": 2250
+  },
+  "result": {
+    "id": "minecraft:slime_block",
+    "count": 1
+  },
+  "time": 120
+}

@@ -1,0 +1,12 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": "tinker_foundry:honey",
+    "amount": 1000
+  },
+  "result": {
+    "id": "minecraft:honey_block",
+    "count": 1
+  },
+  "time": 100
+}

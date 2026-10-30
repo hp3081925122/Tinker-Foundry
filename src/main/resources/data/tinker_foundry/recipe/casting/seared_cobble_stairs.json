@@ -1,5 +1,6 @@
 {
   "type": "tinker_foundry:casting",
+  "basin": true,
   "fluid": {"ingredient": "tinker_foundry:molten_clay", "amount": 500},
   "mold": "minecraft:cobblestone_stairs",
   "result": {"id": "tinker_foundry:seared_cobble_stairs", "count": 1},

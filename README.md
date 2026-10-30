@@ -59,11 +59,8 @@ Tinker Foundry 是面向 Minecraft 26.1.2 NeoForge 的独立冶炼与浇注模�
 ```text
 gradlew.bat compileJava
 gradlew.bat processResources
-gradlew.bat foundryUnitTest runGameTestServer
 gradlew.bat build
 ```
-
-游戏测试覆盖流体容量、配方 Codec、熔炼、并行输入、可变尺寸结构、浇注链、流体燃料、专用燃料罐、容器模具返还、存档重载、输出保护、合金消耗和三输入合金接口。
 
 ## 许可与署名
 

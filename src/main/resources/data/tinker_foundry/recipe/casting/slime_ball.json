@@ -1,0 +1,13 @@
+{
+  "type": "tinker_foundry:casting",
+  "fluid": {
+    "ingredient": "tinker_foundry:slime",
+    "amount": 250
+  },
+  "mold": "tinker_foundry:gem_cast",
+  "result": {
+    "id": "minecraft:slime_ball",
+    "count": 1
+  },
+  "time": 40
+}
