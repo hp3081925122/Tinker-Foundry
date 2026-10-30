@@ -296,8 +296,6 @@
   "book.tinker_foundry.layer_hint": "↑ / ↓ 切换结构层",
   "fluid_type.tinker_foundry.molten.amethyst": "熔融紫水晶",
   "item.tinker_foundry.molten.amethyst_bucket": "熔融紫水晶桶",
-  "fluid_type.tinker_foundry.molten.bone_meal": "熔融骨粉",
-  "item.tinker_foundry.molten.bone_meal_bucket": "熔融骨粉桶",
   "fluid_type.tinker_foundry.molten.coal": "熔融煤炭",
   "item.tinker_foundry.molten.coal_bucket": "熔融煤炭桶",
   "fluid_type.tinker_foundry.molten.cobalt": "熔融钴",
@@ -306,8 +304,6 @@
   "item.tinker_foundry.molten.copper_bucket": "熔融铜桶",
   "fluid_type.tinker_foundry.molten.diamond": "熔融钻石",
   "item.tinker_foundry.molten.diamond_bucket": "熔融钻石桶",
-  "fluid_type.tinker_foundry.molten.dried_kelp": "熔融干海带",
-  "item.tinker_foundry.molten.dried_kelp_bucket": "熔融干海带桶",
   "fluid_type.tinker_foundry.molten.emerald": "熔融绿宝石",
   "item.tinker_foundry.molten.emerald_bucket": "熔融绿宝石桶",
   "fluid_type.tinker_foundry.molten.glowstone": "熔融荧石",
@@ -328,9 +324,5 @@
   "item.tinker_foundry.molten.quartz_bucket": "熔融石英桶",
   "fluid_type.tinker_foundry.molten.redstone": "熔融红石",
   "item.tinker_foundry.molten.redstone_bucket": "熔融红石桶",
-  "fluid_type.tinker_foundry.molten.slime": "熔融黏液",
-  "item.tinker_foundry.molten.slime_bucket": "熔融黏液桶",
-  "fluid_type.tinker_foundry.molten.wheat": "熔融小麦",
-  "item.tinker_foundry.molten.wheat_bucket": "熔融小麦桶",
   "item.tinker_foundry.meat_soup": "肉汤"
 }
