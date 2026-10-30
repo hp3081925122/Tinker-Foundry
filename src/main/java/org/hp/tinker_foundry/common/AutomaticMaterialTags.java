@@ -35,6 +35,14 @@ public final class AutomaticMaterialTags {
     private final Set<String> gemstones = new HashSet<>();
     // 带标准锭标签但不是金属的材料
     private static final Set<String> NON_METALS = Set.of("brick", "nether_brick");
+    // 客户端自动取色时按此顺序挑选材质：锭、宝石、块优先，矿石最后
+    private static final List<AutomaticMeltingRules.Kind> COLOR_SOURCE_ORDER = List.of(
+        AutomaticMeltingRules.Kind.INGOT, AutomaticMeltingRules.Kind.GEM, AutomaticMeltingRules.Kind.BLOCK,
+        AutomaticMeltingRules.Kind.NUGGET, AutomaticMeltingRules.Kind.DUST, AutomaticMeltingRules.Kind.PLATE,
+        AutomaticMeltingRules.Kind.RAW, AutomaticMeltingRules.Kind.RAW_BLOCK, AutomaticMeltingRules.Kind.ORE);
+    private final Map<String, Map<AutomaticMeltingRules.Kind, Set<String>>> formItems = new HashMap<>();
+    private final Map<String, List<String>> colorSourceItems = new HashMap<>();
+    private final Set<String> explicitColors = new HashSet<>();
     private final Map<String, AutomaticFluidConfig.Definition> configuredMaterials;
     private final Map<String, Material> materials;
 
@@ -59,7 +67,10 @@ public final class AutomaticMaterialTags {
         items.forEach((id, entries) -> {
             int colon = id.indexOf(':');
             var form = AutomaticMeltingRules.fromTag(id.substring(0, colon), id.substring(colon + 1));
-            if (form != null && !resolve(items, id, new HashSet<>()).isEmpty()) {
+            Set<String> resolved = form == null ? Set.of() : resolve(items, id, new HashSet<>());
+            if (!resolved.isEmpty()) {
+                formItems.computeIfAbsent(form.material(), key -> new java.util.EnumMap<>(AutomaticMeltingRules.Kind.class))
+                    .computeIfAbsent(form.kind(), key -> new LinkedHashSet<>()).addAll(resolved);
                 if (form.kind() == AutomaticMeltingRules.Kind.BLOCK) blockOnly.add(form.material());
                 else qualified.add(form.material());
                 if (form.kind() == AutomaticMeltingRules.Kind.GEM) gemstones.add(form.material());
@@ -79,6 +90,15 @@ public final class AutomaticMaterialTags {
             int color = configured != null ? configured.color()
                 : options.has("color") ? (int) Long.parseLong(options.get("color").getAsString().replace("#", ""), 16) : 0xFFD88943;
             if (configured == null && (color & 0xFF000000) == 0) color |= 0xFF000000;
+            if (configured != null || options.has("color")) explicitColors.add(name);
+            // 取色物品：按形态优先级排列，同一形态内原版物品优先
+            List<String> sources = new ArrayList<>();
+            Map<AutomaticMeltingRules.Kind, Set<String>> forms = formItems.getOrDefault(name, Map.of());
+            for (AutomaticMeltingRules.Kind kind : COLOR_SOURCE_ORDER) {
+                forms.getOrDefault(kind, Set.of()).stream()
+                    .sorted(java.util.Comparator.comparing(id -> !id.startsWith("minecraft:"))).forEach(sources::add);
+            }
+            colorSourceItems.put(name, List.copyOf(sources));
             int temperature = configured != null ? configured.temperature()
                 : options.has("temperature") ? Math.max(300, options.get("temperature").getAsInt()) : 1100;
             result.put(name, new Material(name, List.copyOf(candidates), color, temperature, declaredMaterials.contains(name)));
@@ -163,4 +183,6 @@ public final class AutomaticMaterialTags {
     public Map<String, Material> materials() { return materials; }
     public boolean isGemstone(String material) { return gemstones.contains(material); }
     public boolean isConfigured(String material) { return configuredMaterials.containsKey(material); }
+    public boolean hasExplicitColor(String material) { return explicitColors.contains(material); }
+    public List<String> colorSourceItems(String material) { return colorSourceItems.getOrDefault(material, List.of()); }
 }

@@ -5,6 +5,8 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraftforge.client.model.DynamicFluidContainerModel;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -41,6 +43,12 @@ public final class FoundryClientEvents {
     }
 
     /** 注册动态流体容器的流体色，保证创造栏和手持容器显示真实熔融颜色。 */
+    /** 资源重载后清空自动流体取色缓存，按新材质重新取色。 */
+    @SubscribeEvent
+    public static void registerReloadListeners(RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener((ResourceManagerReloadListener) resourceManager -> AutomaticFluidColors.clear());
+    }
+
     @SubscribeEvent
     public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
         DynamicFluidContainerModel.Colors colors = new DynamicFluidContainerModel.Colors();

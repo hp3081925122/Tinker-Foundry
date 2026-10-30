@@ -139,10 +139,10 @@ public final class TFFluids {
                             return new ResourceLocation(TinkerFoundry.MOD_ID, "block/fluid/molten_flow");
                         }
 
-                        /** 返回注册表条目对应的熔融颜色。 */
+                        /** 返回熔融颜色；自动流体没有显式颜色时按代表物品材质取色。 */
                         @Override
                         public int getTintColor() {
-                            return color;
+                            return org.hp.tinker_foundry.client.AutomaticFluidColors.tint(name, color);
                         }
                     });
                 }
