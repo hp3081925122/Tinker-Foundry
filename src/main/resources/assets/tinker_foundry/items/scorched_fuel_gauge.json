@@ -1,9 +1,41 @@
 {
   "model": {
-    "type": "tinker_foundry:tank",
-    "base": "tinker_foundry:item/scorched_fuel_gauge",
-    "fluid_from": [0.08, 0.08, 0.08],
-    "fluid_to": [15.92, 15.92, 15.92],
-    "increments": 256
+    "type": "minecraft:select",
+    "property": "minecraft:display_context",
+    "cases": [
+      {
+        "when": "gui",
+        "model": {
+          "type": "tinker_foundry:tank",
+          "base": "tinker_foundry:item/scorched_fuel_gauge_gui",
+          "fluid_from": [
+            0.08,
+            0.08,
+            0.08
+          ],
+          "fluid_to": [
+            15.92,
+            15.92,
+            15.92
+          ],
+          "increments": 256
+        }
+      }
+    ],
+    "fallback": {
+      "type": "tinker_foundry:tank",
+      "base": "tinker_foundry:item/scorched_fuel_gauge",
+      "fluid_from": [
+        0.08,
+        0.08,
+        0.08
+      ],
+      "fluid_to": [
+        15.92,
+        15.92,
+        15.92
+      ],
+      "increments": 256
+    }
   }
 }

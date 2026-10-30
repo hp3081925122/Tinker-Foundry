@@ -1,1 +1,8 @@
-{"variants":{"":{"model":"tinker_foundry:block/scorched_tinted_glass"}}}
+{
+  "variants": {
+    "": {
+      "model": "tinker_foundry:block/scorched_tinted_glass",
+      "type": "tinker_foundry:connected"
+    }
+  }
+}

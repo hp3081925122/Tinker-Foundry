@@ -42,6 +42,8 @@ public final class FoundryBlockEntityRenderer implements BlockEntityRenderer<Fou
     public void submit(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {
         // 26.1.2 不能复用旧 MultiBufferSource，但可以通过自定义几何提交保留熔融流体液面。
         if (state.entity != null) {
+            // 结构错误提示必须在没有打开 GUI 时也能显示，因此先于普通内容提交。
+            FoundryStructureRenderer.submitError(state.entity, poseStack, collector, camera, state.lightCoords);
             if (state.entity.isStructureController()) {
                 FoundryStructureRenderer.submitContents(state.entity, poseStack, collector, state.lightCoords);
             } else if (state.entity.getBlockState().is(TFBlocks.SEARED_CHANNEL.get())

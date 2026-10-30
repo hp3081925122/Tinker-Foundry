@@ -1,0 +1,8 @@
+{
+  "parent": "tinker_foundry:block/template/tank_knob_gui",
+  "textures": {
+    "particle": "#side",
+    "side": "tinker_foundry:block/smeltery/tank/fuel_tank",
+    "top": "tinker_foundry:block/smeltery/tank/tank_top"
+  }
+}

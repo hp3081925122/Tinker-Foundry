@@ -9,6 +9,7 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterFluidModelsEvent;
 import net.neoforged.neoforge.client.event.RegisterItemModelsEvent;
+import net.neoforged.neoforge.client.event.RegisterBlockStateModels;
 import net.neoforged.neoforge.client.fluid.FluidTintSources;
 import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.client.resources.model.sprite.Material;
@@ -45,6 +46,12 @@ public final class FoundryClientEvents {
     public static void registerModelLoaders(ModelEvent.RegisterLoaders event) {
         event.register(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "tank"), TankModel.LOADER);
         event.register(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "connected"), ConnectedGlassModel.LOADER);
+    }
+
+    /** 注册方块状态层的连接玻璃模型，按相邻方块选择连接纹理变体。 */
+    @SubscribeEvent
+    public static void registerBlockStateModels(RegisterBlockStateModels event) {
+        event.registerModel(Identifier.fromNamespaceAndPath(TinkerFoundry.MOD_ID, "connected"), ConnectedGlassModel.BLOCK_STATE_CODEC);
     }
 
     /** 注册读取物品流体组件并按容量生成液面的新版物品模型。 */

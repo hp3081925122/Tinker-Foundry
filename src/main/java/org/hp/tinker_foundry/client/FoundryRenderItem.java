@@ -28,6 +28,12 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
     /** 流体炮水平状态下的内部物品位置。 */
     public static final FoundryRenderItem FLUID_CANNON = new FoundryRenderItem(
         new Vector3f(8.0F, 4.0F, 16.0F), 7.5F, 0.0F, 0.0F, ItemDisplayContext.FIXED);
+    /** 流体炮朝上时的内部物品位置。 */
+    public static final FoundryRenderItem FLUID_CANNON_UP = new FoundryRenderItem(
+        new Vector3f(8.0F, 16.0F, 8.0F), 7.5F, 270.0F, 0.0F, ItemDisplayContext.FIXED);
+    /** 流体炮朝下时的内部物品位置。 */
+    public static final FoundryRenderItem FLUID_CANNON_DOWN = new FoundryRenderItem(
+        new Vector3f(8.0F, 0.0F, 8.0F), 7.5F, 90.0F, 0.0F, ItemDisplayContext.FIXED);
     /** 浇注台输入物品位置。 */
     public static final FoundryRenderItem CASTING_TABLE_INPUT = new FoundryRenderItem(
         new Vector3f(8.0F, 15.5F, 8.0F), 14.0F, 270.0F, 180.0F, ItemDisplayContext.FIXED);
@@ -61,11 +67,11 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
     }
 
     /** 在调用方已经完成定位和缩放后提交物品。 */
-    public static void submitAt(ItemStack stack, @Nullable Level level, int seed, PoseStack poseStack,
-                                SubmitNodeCollector collector, int packedLight, float scale,
-                                float xRotation, float yRotation, ItemDisplayContext displayContext) {
+    public static int submitAt(ItemStack stack, @Nullable Level level, int seed, PoseStack poseStack,
+                               SubmitNodeCollector collector, int packedLight, float scale,
+                               float xRotation, float yRotation, ItemDisplayContext displayContext) {
         if (stack.isEmpty() || scale <= 0.0F) {
-            return;
+            return 0;
         }
         poseStack.pushPose();
         poseStack.scale(scale, scale, scale);
@@ -75,12 +81,13 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
         if (yRotation != 0.0F) {
             poseStack.mulPose(Axis.YP.rotationDegrees(yRotation));
         }
-        submitInPlace(stack, displayContext, level, seed, poseStack, collector, packedLight);
+        int quads = submitInPlace(stack, displayContext, level, seed, poseStack, collector, packedLight);
         poseStack.popPose();
+        return quads;
     }
 
     /** 使用 26.1.2 的物品状态提取器代替已移除的 ItemRenderer.renderStatic。 */
-    private static void submitInPlace(ItemStack stack, ItemDisplayContext displayContext,
+    private static int submitInPlace(ItemStack stack, ItemDisplayContext displayContext,
                                       @Nullable Level level, int seed, PoseStack poseStack,
                                       SubmitNodeCollector collector, int packedLight) {
         ItemStackRenderState renderState = new ItemStackRenderState();
@@ -92,5 +99,12 @@ public record FoundryRenderItem(Vector3f center, float size, float xRotation, fl
         Minecraft.getInstance().getItemModelResolver()
             .updateForTopItem(renderState, stack, displayContext, level, null, seed);
         renderState.submit(poseStack, collector, packedLight, OverlayTexture.NO_OVERLAY, 0);
+        // 与 1.21.1 的模型四边形预算一致：特殊渲染器按 100 计，其余累加各图层四边形
+        int quads = 0;
+        for (int index = 0; index < renderState.activeLayerCount; index++) {
+            ItemStackRenderState.LayerRenderState layer = renderState.layers[index];
+            quads += layer.specialRenderer != null ? 100 : layer.prepareQuadList().size();
+        }
+        return quads;
     }
 }
