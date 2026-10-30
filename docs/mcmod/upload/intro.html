@@ -1,0 +1,57 @@
+<p>[ban:title_menu]</p>
+<p>[h1=模组介绍]</p>
+<p>Tinker Foundry（匠魂冶炼）把 <a href="https://www.curseforge.com/minecraft/mc-mods/tinkers-construct" target="_blank" title="Tinkers' Construct（匠魂）CurseForge 页面">匠魂（Tinkers' Construct）</a> 的冶炼系统单独移植成一个模组：熔化炉、冶炼炉、熔铸炉、合金炉、浇注、储罐与流体输送都在，但<strong>不包含</strong>工具、材料特性和强化。适合想要匠魂式熔炼与浇注、又不想引入整套工具系统的整合包。</p>
+<p>支持 1.20.1 Forge、1.21.1 NeoForge 与 26.1.2 NeoForge，三个版本功能同步。</p>
+<p>[h1=主要设备]</p>
+<table>
+<tbody>
+<tr><th>设备</th><th>作用</th></tr>
+<tr><td>焦黑熔化炉</td><td>单方块熔炼设备，可同时熔化 3 个物品，需要下方的焦黑加热器或燃料储罐供热。</td></tr>
+<tr><td>冶炼炉控制器</td><td>焦黑砖多方块冶炼炉的核心，可大批量熔炼，内部多种流体会按配方原地合金，并可熔炼掉进炉内的生物。</td></tr>
+<tr><td>熔铸炉控制器</td><td>焦褐砖多方块熔铸炉的核心，与冶炼炉一样能大批量熔炼并产出副产物，但不进行原地合金，不同流体分开存放。</td></tr>
+<tr><td>焦褐合金炉</td><td>读取相邻储罐中的流体按配方合成合金，可独立于多方块使用。</td></tr>
+<tr><td>焦黑加热器、燃料储罐、燃料量器</td><td>为熔化炉、冶炼炉和熔铸炉提供固体或流体燃料，燃料温度决定能熔炼的配方。</td></tr>
+<tr><td>排液孔、输导孔、滑槽</td><td>多方块结构的流体与物品进出口，可与管道或其他模组设备对接。</td></tr>
+<tr><td>浇注口、浇注道</td><td>把储罐或排液孔里的流体导出到铸件台、铸造盆或其他容器。</td></tr>
+<tr><td>铸件台、铸造盆</td><td>放入铸模浇注出锭、粒、宝石，铸造盆直接浇注成块；焦黑与焦褐两种材质。</td></tr>
+<tr><td>材料储罐、浇注储罐、量计</td><td>存储和显示流体，储罐可连接玻璃显示液面。</td></tr>
+<tr><td>铜流体加农炮</td><td>把储存的流体作为弹丸发射，不同流体有不同效果。</td></tr>
+</tbody>
+</table>
+<p>铸模分为金质铸模（可重复使用）与沙子、红沙铸模（一次性），另有铜罐用于少量流体的浇注。</p>
+<p>[h1=自动熔融流体与配方]</p>
+<p>本模组的核心特点是<strong>自动适配其他模组的材料</strong>，整合包无需手写大量配方：</p>
+<ul>
+<li><strong>自动熔融流体</strong>：按 forge: / c: 材料标签（锭、粒、块、粗矿、矿石、粉、板、宝石）为缺少流体的材料自动注册熔融流体、流体方块和桶；已有带标签的外部流体会优先复用。流体颜色由客户端读取该材料锭、宝石或块的贴图自动取色。</li>
+<li><strong>自动熔炼</strong>：为上述形态的物品自动生成熔炼配方，矿石与粗矿沿用冶炼炉和熔铸炉的增产规则。</li>
+<li><strong>自动浇注</strong>：已确定流体的材料自动获得浇注配方——铸件台放锭铸模出锭、放宝石铸模出宝石，铸造盆出块；已有浇注配方的形态不会重复生成。</li>
+<li><strong>合成配方折算熔炼</strong>：有序、无序合成与切石机配方的材料全部可熔炼时，按材料总量除以产物数量（向下取整）自动生成熔炼配方；同一产物有多条配方时取熔出最少的一条，防止借切石机刷流体。多种流体时量最多的为主产物、其余为副产物；有耐久的物品按剩余耐久折算，原版与模组的工具、盔甲无需手写配方即可回收。</li>
+<li>通用配置 <code>config/tinker_foundry-common.toml</code> 的 <code>automatic_melting.crafting_ignored_ingredients</code> 可列出折算时忽略的材料（默认木棍），让木柄工具只按金属部分熔炼；物品标签 <code>tinker_foundry:melting/automatic_blacklist</code> 可排除不想自动熔炼的物品。</li>
+</ul>
+<p>[h1=流体名称]</p>
+<p>内置约 200 种金属、合金和宝石的中英文流体名称，覆盖常见矿物合金，以及通用机械、热力、末影接口、现代工业化、AE2 附属、ATM 金属、暮色森林、植物魔法、灾变、地下花园、永恒星光、冰与火之歌等热门模组的材料，译名取自各模组官方语言文件。</p>
+<p>其余材料缺少翻译时会按对应锭、粒、块在当前语言下的译名自动显示为“熔融X”“熔融X桶”。拼接规则由三个语言键控制，其他语言补上即可得到本语言的名称：</p>
+<table>
+<tbody>
+<tr><th>语言键</th><th>简体中文默认值</th><th>说明</th></tr>
+<tr><td>tinker_foundry.automatic.fluid</td><td>熔融%s</td><td>流体名模板，%s 为材料名</td></tr>
+<tr><td>tinker_foundry.automatic.bucket</td><td>%s桶</td><td>桶名模板，%s 为流体名</td></tr>
+<tr><td>tinker_foundry.automatic.item_forms</td><td>%s锭|%s粒|%s块|%s粉|%s碎片|%s晶体|粗%s</td><td>从物品名中去掉的形态词，用 | 分隔</td></tr>
+</tbody>
+</table>
+<p>需要固定译名时，在游戏内执行客户端指令 <code>/tinker_foundry_client export_lang</code>，会把英文、简体中文和当前语言中缺失的流体与桶翻译导出到 <code>.minecraft/tinker_foundry/lang_export/</code>，去掉文件的 .export 后缀即可放进资源包使用。</p>
+<p>[h1=整合包定制]</p>
+<ul>
+<li>在 <code>config/tinker_foundry/fluids/</code> 下放 JSON（material、color、temperature）可显式注册流体或指定颜色与温度；修改后需双端一致并完全重启。</li>
+<li>熔炼、合金、浇注、铸模、燃料、实体熔炼均为数据包配方，可用数据包或 KubeJS 修改。</li>
+<li>安装 JEI 时提供熔炼、合金、铸件台、铸造盆、铸模制作、燃料、实体熔炼共七个配方分类，熔炼页分左右两格显示主产物与副产物，并关联对应设备。</li>
+</ul>
+<p>[h1=注意事项]</p>
+<ul>
+<li>自动流体只根据标签识别，不根据注册名或外观猜测；标签缺失或错误需要整合包修正。</li>
+<li>流体在启动时注册，世界数据包和服务端脚本无法通过 /reload 新增流体。</li>
+<li>同一材料对应多种不同外部流体时，自动配方会因歧义而跳过。</li>
+<li>不兼容旧版本固定金属流体 ID 的存档。</li>
+</ul>
+<p>[h1=致谢与协议]</p>
+<p>设计、机制与美术源自 mDiyo 及匠魂团队的 <a href="https://www.curseforge.com/minecraft/mc-mods/tinkers-construct" target="_blank" title="Tinkers' Construct（匠魂）CurseForge 页面">Tinkers' Construct</a>，原项目采用 MIT 协议，本移植遵循原协议分发。源码见 <a href="https://github.com/hp3081925122/Tinker-Foundry" target="_blank" title="Tinker Foundry GitHub 源码仓库">GitHub</a>，下载见 <a href="https://www.curseforge.com/minecraft/mc-mods/tinker-foundry" target="_blank" title="Tinker Foundry CurseForge 下载页">CurseForge</a>。</p>
