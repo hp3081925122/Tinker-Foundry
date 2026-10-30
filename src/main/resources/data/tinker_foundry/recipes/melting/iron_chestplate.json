@@ -1,9 +1,0 @@
-{
-  "type": "tinker_foundry:damageable_melting",
-  "ingredient": {"item": "minecraft:iron_chestplate"},
-  "result": {"id": "tinker_foundry:molten/iron", "amount": 720},
-  "temperature": 800,
-  "time": 170,
-  "unit_size": 10
-}
-
