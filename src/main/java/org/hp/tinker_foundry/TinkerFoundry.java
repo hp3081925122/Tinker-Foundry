@@ -195,6 +195,8 @@ public final class TinkerFoundry {
         // 游戏事件总线只负责结构变化和区块载入标记，不让普通设备参与扫描。
         NeoForge.EVENT_BUS.register(FoundryWorldEvents.class);
         NeoForge.EVENT_BUS.register(org.hp.tinker_foundry.recipe.AutomaticMeltingRecipes.class);
+        // 调试命令只注册服务端命令，供测试文档快速搭建测试场景。
+        NeoForge.EVENT_BUS.addListener(org.hp.tinker_foundry.debug.FoundryDebugCommand::register);
         org.hp.tinker_foundry.common.AutomaticFluidResources.register(modEventBus);
         BLOCKS.register(modEventBus);
         org.hp.tinker_foundry.registry.TFDataComponents.REGISTER.register(modEventBus);
