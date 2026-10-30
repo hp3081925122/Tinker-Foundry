@@ -107,7 +107,7 @@
   "jei.tinker_foundry.molding.pattern_consumed": "Pattern is consumed on crafting",
   "jei.tinker_foundry.molding.pattern_kept": "Mold Not Consumed",
   "jei.tinker_foundry.entity_melting.damage": "Damage: %s",
-  "jei.tinker_foundry.melting.byproduct": "Byproduct: %s %s mB",
+  "jei.tinker_foundry.melting.byproduct": "Byproduct",
   "jei.tinker_foundry.temperature": "%s°C",
   "jei.tinker_foundry.time": "%s s",
   "gui.tinker_foundry.fluid": "Fluid: %s / %s mB",
